@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id          Int           @id @default(autoincrement())
+  idvk        Int
+  crdate      DateTime      @default(now())
+  User      User[]
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  idvk        Int
+  name        String
+  class       String
+  spec        String
+  alliance String
+  lvl         Int           @default(0)
+  medal      Int           @default(0)
+  gold        Int           @default(60)
+  xp          Int           @default(0)
+  private     Boolean       @default(false)
+  crdate      DateTime      @default(now())
+  id_role     Int           @default(1)
+  role        Role          @relation(fields: [id_role], references: [id], onDelete: Cascade)
+  id_account     Int           @default(1)
+  account        Account          @relation(fields: [id_account], references: [id], onDelete: Cascade)
+  Artefact    Artefact[]
+  Inventory   Inventory[]
+  Trigger     Trigger[]
+  Achievement Achievement[]
+  Analyzer    Analyzer[]
+}
+
+model BlackBox {
+  id   Int @id @default(autoincrement())
+  idvk Int @unique
+}
+
+model Role {
+  id   Int    @id @default(autoincrement())
+  name String
+  User User[]
+}
+
+model Artefact {
+  id          Int    @id @default(autoincrement())
+  id_user     Int
+  name        String
+  label       String
+  description String
+  type        String
+  user        User   @relation(fields: [id_user], references: [id], onDelete: Cascade)
+}
+
+model Inventory {
+  id      Int  @id @default(autoincrement())
+  id_user Int
+  id_item Int
+  item    Item @relation(fields: [id_item], references: [id], onDelete: Cascade)
+  user    User @relation(fields: [id_user], references: [id], onDelete: Cascade)
+}
+
+model Item {
+  id          Int         @id @default(autoincrement())
+  name        String
+  price       Int
+  id_category Int
+  type        String
+  category    Category    @relation(fields: [id_category], references: [id], onDelete: Cascade)
+  Inventory   Inventory[]
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String
+  Item Item[]
+}
+
+model Trigger {
+  id      Int      @id @default(autoincrement())
+  name    String
+  value   Boolean
+  user    User     @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_user Int
+  crdate  DateTime @default(now())
+}
+
+model Achievement {
+  id      Int      @id @default(autoincrement())
+  name    String
+  uid     Int
+  user    User     @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_user Int
+  crdate  DateTime @default(now())
+}
+
+model Analyzer {
+  id           Int      @id @default(autoincrement())
+  buying       Int      @default(0)
+  quest        Int      @default(0)
+  underwear    Int      @default(0)
+  convert_mo   Int      @default(0)
+  beer         Int      @default(0)
+  beer_premiun Int      @default(0)
+  birthday     Int      @default(0)
+  gold_lost    Int      @default(0)
+  gold_got     Int      @default(65)
+  xp_got       Int      @default(0)
+  xp_lost      Int      @default(0)
+  user         User     @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_user      Int
+  crdate       DateTime @default(now())
+}
