@@ -52,7 +52,7 @@ export async function Person_Register(context: any) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
             let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежите:\n\n`
-            const builder_list: Array<String> = ["Академия Морктид", "Хогвартс - АНТИ. Академия Не Тёмных Искусств", "Balance Academy Talentum", "Школа магии и волшебства «Билмор»", "Ильверморни - Ilvermorny", "𝙰𝚌𝚊𝚍𝚎𝚖𝚢 𝚘𝚏 𝚖𝚊𝚐𝚒𝚌 '𝙰𝚛𝚝𝚎𝚜'", /*"RP TV - Ролевое телевидение",*/ "News of Magic - Новости магии", "Рубеж: на стыке миров", "Louisiana Voodoo Academy", "Академия Альтерстрего", "Хогвартс Онлайн", "Студенческий городок колледжа 'Хоукфорд'", "Магическая Академия 'Кирис'", "Школа магии Хогвартс", "Колдовстворец. Добро пожаловать в РФ", "Hᴀʀʀʏ ᴘᴏᴛᴛᴇʀ - ᴠíᴀ ʟáᴄᴛᴇᴀ - ʀᴏʟᴇ ɢᴀᴍᴇ - Хогвартс", /*"MEGALE DU NAMA - Поиск ролевиков",*/ "TERRA BRITANNIA" ]
+            const builder_list: Array<String> = ["Академия Морктид", "Хогвартс - АНТИ. Академия Не Тёмных Искусств", "Balance Academy Talentum", "Школа магии и волшебства «Билмор»", "Ильверморни - Ilvermorny", "𝙰𝚌𝚊𝚍𝚎𝚖𝚢 𝚘𝚏 𝚖𝚊𝚐𝚒𝚌 '𝙰𝚛𝚝𝚎𝚜'", /*"RP TV - Ролевое телевидение",*/ "News of Magic - Новости магии", "Рубеж: на стыке миров", "Louisiana Voodoo Academy", "Академия Альтерстрего", "Хогвартс Онлайн", "Студенческий городок колледжа 'Хоукфорд'", "Магическая Академия 'Кирис'", "Школа магии Хогвартс", "Колдовстворец. Добро пожаловать в РФ", "Hᴀʀʀʏ ᴘᴏᴛᴛᴇʀ - ᴠíᴀ ʟáᴄᴛᴇᴀ - ʀᴏʟᴇ ɢᴀᴍᴇ - Хогвартс", /*"MEGALE DU NAMA - Поиск ролевиков",*/ "TERRA BRITANNIA", "Breakbills | Academy magic" ]
 
             if (builder_list.length > 0) {
                 const limiter = 5
@@ -192,20 +192,20 @@ export async function Person_Selector(context: any) {
             } else {
                 event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
             }
-            const answer1: MessageContext = await context.question(`${event_logger}`,
+            const answer1: any = await context.question(`${event_logger}`,
                 {	
                     keyboard: keyboard.inline(), answerTimeLimit
                 }
             )
             if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
-            if (!answer1.messagePayload) {
+            if (!answer1.payload) {
                 await context.send(`💡 Жмите только по кнопкам с иконками!`)
             } else {
                 console.log(answer1)
                 if (answer1.text == '→' || answer1.text =='←') {
-                    id_builder_sent = answer1.messagePayload.id_builder_sent
+                    id_builder_sent = answer1.payload.id_builder_sent
                 } else {
-                    person_sel = answer1.messagePayload.id_person
+                    person_sel = answer1.payload.id_person
                     person_check = true
                 }
             }

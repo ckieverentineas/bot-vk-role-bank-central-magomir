@@ -76,7 +76,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			return;
 		}
 		//приветствие игрока
-		const visit = await context.question(`⌛ Поставив свою подпись, вы, стараясь не смотреть косо на орков, вошли в личный кабинет Министерства Магии, и увидели домашнего эльфа, наводящего порядок, ужас и страх.`,
+		const visit = await context.question(`⌛ Поставив свою подпись, вы, стараясь не смотреть косо на орков, вошли в личный кабинет Центробанка, и увидели домашнего эльфа, наводящего порядок, ужас и страх.`,
 			{ 	
 				keyboard: Keyboard.builder()
 				.textButton({ label: 'Подойти и поздороваться', payload: { command: 'Согласиться' }, color: 'positive' }).row()
