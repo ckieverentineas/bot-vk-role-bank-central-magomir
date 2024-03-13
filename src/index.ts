@@ -11,7 +11,7 @@ import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-d
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Card_Private, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
-import { Operation_Enter, Right_Enter } from './engine/events/module/tool';
+import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_Convert_Galleon, Service_Convert_Galleon_Change, Service_Convert_Magic_Experience, Service_Convert_Magic_Experience_Change, Service_Enter, Service_Level_Up, Service_Level_Up_Change, Service_Quest_Open, Service_Underwear_Open } from './engine/events/module/service';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
 dotenv.config()
@@ -58,11 +58,11 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		return
 	}
 	//проверяем есть ли пользователь в базах данных
-	const user_check = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+	const user_check = await prisma.account.findFirst({ where: { idvk: context.senderId } })
 	//если пользователя нет, то начинаем регистрацию
 	if (!user_check) {
 		//согласие на обработку
-		const answer = await context.question(`⌛ Как только вы открыли дверь банка Гринготтс 🏦, из ниоткуда перед вами предстали два гоблина и надменно сказали: \n — Видимо, вы здесь впервые. Прежде чем войти, распишитесь здесь о своем согласии на обработку персональных данных. \n В тот же миг в их руках магическим образом появился пергамент. \n 💡 Предупреждение, любые вопросы в банковской системе ограничены 5 минутами на ваши ответы в процессе обслуживания!`,
+		const answer = await context.question(`⌛ Вы входите в Центробанк Министерства Магии 🏦, из ниоткуда перед вами предстали два орка и произнесли: \n — Министр Магии говорил нам о вас. Но прежде чем продолжить, распишитесь здесь о своем согласии на обработку персональных данных. \n В тот же миг в их руках магическим образом появился пергамент. \n 💡 У вас есть 5 минут на принятие решения!`,
 			{	
 				keyboard: Keyboard.builder()
 				.textButton({ label: '✏', payload: { command: 'Согласиться' }, color: 'positive' }).row()
@@ -76,60 +76,22 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			return;
 		}
 		//приветствие игрока
-		const visit = await context.question(`⌛ Поставив свою подпись, вы, стараясь не смотреть косо на гоблинов, вошли в здание банка, подошли к стойке, где за информационной системой сидела полная гоблинша с бородавкой на носу.`,
+		const visit = await context.question(`⌛ Поставив свою подпись, вы, стараясь не смотреть косо на орков, вошли в личный кабинет Министерства Магии, и увидели домашнего эльфа, наводящего порядок, ужас и страх.`,
 			{ 	
 				keyboard: Keyboard.builder()
 				.textButton({ label: 'Подойти и поздороваться', payload: { command: 'Согласиться' }, color: 'positive' }).row()
-				.textButton({ label: 'Ждать, пока она закончит', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime().inline(),
+				.textButton({ label: 'Ждать, пока эльф закончит', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime().inline(),
 				answerTimeLimit
 			}
 		);
 		if (visit.isTimeout) { return await context.send(`⏰ Время ожидания активности истекло!`) }
-		let name_check = false
-		let datas: any = []
-		while (name_check == false) {
-			const name = await context.question( `🧷 Приветствую в Банке Гринготтс🏦! Судя по всему, вы здесь впервые. Назовите ваше имя и фамилию. \n ❗ Внимание! Предоставление заведомо ложных данных преследуются законом!`, timer_text)
-			if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода имени истекло!`) }
-			if (name.text.length <= 64) {
-				name_check = true
-				datas.push({name: `${name.text}`})
-				if (name.text.length > 32) { await context.send(`⚠ Ваши ФИО не влезают на стандартный бланк (32 символа)! Гоблин может использовать бланк повышенной ширины, но нужно доплатить 1G за каждый не поместившийся символ.`) }
-			} else { await context.send(`⛔ Ваши ФИО не влезают на бланк повышенной ширины (64 символа), и вообще, запрещены магическим законодательством! Выплатите штраф в 30G или мы будем вынуждены позвать стражей порядка для отправки вас в Азкабан.`) }
-		}
-		let answer_check = false
-		while (answer_check == false) {
-			const answer1 = await context.question(`🧷 Укажите ваше положение в Хогвартс Онлайн`,
-				{	
-					keyboard: Keyboard.builder()
-					.textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
-					.textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
-					.textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' })
-					.oneTime().inline(), answerTimeLimit
-				}
-			)
-			if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора положения истекло!`) }
-			if (!answer1.payload) {
-				await context.send(`💡 Жмите только по кнопкам с иконками!`)
-			} else {
-				datas.push({class: `${answer1.text}`})
-				answer_check = true
-			}
-		}
-		let spec_check = false
-		while (spec_check == false) {
-			const name = await context.question( `🧷 Укажите вашу специализацию в Хогвартс Онлайн. Если вы профессор/житель, введите должность. Если вы студент, укажите факультет`, timer_text)
-			if (name.isTimeout) { return await context.send(`⏰ Время ожидания выбора специализации истекло!`) }
-			if (name.text.length <= 30) {
-				spec_check = true
-				datas.push({spec: `${name.text}`})
-			} else { await context.send(`💡 Ввведите до 30 символов включительно!`) }
-		}
-		const save = await prisma.user.create({	data: {	idvk: context.senderId, name: datas[0].name, class: datas[1].class, spec: datas[2].spec, id_role: 1, gold: 65 } })
-		await context.send(`⌛ Благодарю за сотрудничество ${save.class} ${save.name}, ${save.spec}. \n ⚖Вы получили банковскую карту UID: ${save.id}. \n 🏦Вам зачислено ${save.gold} галлеонов`)
+		console.log(context)
+		const save = await prisma.account.create({	data: {	idvk: context.senderId } })
+		const info = await User_Info(context)
+		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Здорово были, волшебник-неудачник! \n И протянул вам вашу карточку. ⚖Вы получили картотеку, ${info.first_name}\nUID: ${save.id}. \n idvk: ${save.idvk}\n Дата Регистрации: ${save.crdate}\n`)
 		console.log(`Success save user idvk: ${context.senderId}`)
-		await context.send(`‼ Список обязательных для покупки вещей: \n 1. Волшебная палочка \n 2. Сова, кошка или жаба \n 3. Комплект учебников \n \n Посетите Косой переулок и приобретите их первым делом!`)
 		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
-		const ans_selector = `⁉ ${save.class} @id${save.idvk}(${save.name}) ${save.spec} ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
+		const ans_selector = `⁉ ${info.first_name} @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
 		await vk.api.messages.send({
 			peer_id: chat_id,
 			random_id: 0,

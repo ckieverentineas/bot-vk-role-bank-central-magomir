@@ -1,6 +1,6 @@
 import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
-import { answerTimeLimit, timer_text } from "../.."
-import { Fixed_Number_To_Five } from "./helper"
+import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
+import { Fixed_Number_To_Five, Keyboard_Index } from "./helper"
 import prisma from "../events/module/prisma_client"
 
 export async function Person_Register(context: any) {
@@ -28,7 +28,7 @@ export async function Person_Register(context: any) {
 	}
 	let answer_check = false
 	while (answer_check == false) {
-		const answer1 = await context.question(`🧷 Укажите ваш статус в Министерстве Магии`,
+		const answer_selector = await context.question(`🧷 Укажите ваш статус в Министерстве Магии`,
 			{	
 				keyboard: Keyboard.builder()
 				.textButton({ label: 'Союзник', payload: { command: 'student' }, color: 'secondary' })
@@ -37,11 +37,11 @@ export async function Person_Register(context: any) {
 				.oneTime().inline(), answerTimeLimit
 			}
 		)
-		if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
-		if (!answer1.payload) {
+		if (answer_selector.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+		if (!answer_selector.payload) {
 			await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		} else {
-			person.alliance = answer1.text
+			person.alliance = answer_selector.text
 			answer_check = true
 		}
 	}
@@ -79,18 +79,19 @@ export async function Person_Register(context: any) {
             } else {
                 event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
             }
-            const answer1: MessageContext = await context.question(`${event_logger}`,
+            const answer1: any = await context.question(`${event_logger}`,
 		    	{	
 		    		keyboard: keyboard.inline(), answerTimeLimit
 		    	}
 		    )
             if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
-		    if (!answer1.messagePayload) {
+            console.log(answer1)
+		    if (!answer1.payload) {
 		    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		    } else {
                 console.log(answer1)
                 if (answer1.text == '→' || answer1.text =='←') {
-                    id_builder_sent = answer1.messagePayload.id_builder_sent
+                    id_builder_sent = answer1.payload.id_builder_sent
                 } else {
                     person.alliance = answer1.text!
                     alliance_check = true
@@ -99,36 +100,49 @@ export async function Person_Register(context: any) {
         }
     }
     let answer_check1 = false
-		while (answer_check1 == false) {
-			const answer1 = await context.question(`🧷 Укажите ваше положение в Хогвартс Онлайн`,
-				{	
-					keyboard: Keyboard.builder()
-					.textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
-					.textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
-					.textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' })
-					.oneTime().inline(), answerTimeLimit
-				}
-			)
-			if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора положения истекло!`) }
-			if (!answer1.payload) {
-				await context.send(`💡 Жмите только по кнопкам с иконками!`)
-			} else {
-				person.class = answer1.text
-				answer_check1 = true
+	while (answer_check1 == false) {
+		const answer1 = await context.question(`🧷 Укажите ваше положение в ${person.alliance}`,
+			{	
+				keyboard: Keyboard.builder()
+				.textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
+				.textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
+				.textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' })
+				.oneTime().inline(), answerTimeLimit
 			}
+		)
+		if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора положения истекло!`) }
+		if (!answer1.payload) {
+			await context.send(`💡 Жмите только по кнопкам с иконками!`)
+		} else {
+			person.class = answer1.text
+			answer_check1 = true
 		}
-		let spec_check = false
-		while (spec_check == false) {
-			const name = await context.question( `🧷 Укажите вашу специализацию в Хогвартс Онлайн. Если вы профессор/житель, введите должность. Если вы студент, укажите факультет`, timer_text)
-			if (name.isTimeout) { return await context.send(`⏰ Время ожидания выбора специализации истекло!`) }
-			if (name.text.length <= 30) {
-				spec_check = true
-				person.spec = name.text
-			} else { await context.send(`💡 Ввведите до 30 символов включительно!`) }
-		}
+	}
+	let spec_check = false
+	while (spec_check == false) {
+		const name = await context.question( `🧷 Укажите вашу специализацию в ${person.alliance}. Если вы профессор/житель, введите должность. Если вы студент, укажите факультет`, timer_text)
+		if (name.isTimeout) { return await context.send(`⏰ Время ожидания выбора специализации истекло!`) }
+		if (name.text.length <= 30) {
+			spec_check = true
+			person.spec = name.text
+		} else { await context.send(`💡 Ввведите до 30 символов включительно!`) }
+	}
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-    const save = await prisma.person.create({ data: { name: person.name!, alliance: person.alliance!, id_account: account?.id } })
-    await context.send(`Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
+    console.log(account)
+    console.log(person)
+    const role = await prisma.role.findFirst({})
+    if (!role) { await prisma.role.create({ data: { name: "user" } }) }
+    const save = await prisma.user.create({ data: { name: person.name!, alliance: person.alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
+    await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
+    console.log(`Success save new person idvk: ${context.senderId}`)
+	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
+	const ans_selector = `⁉ ${save.class} @id${account?.idvk}(${save.name}) ${save.spec} ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
+	await vk.api.messages.send({
+		peer_id: chat_id,
+		random_id: 0,
+		message: ans_selector
+	})
+	await Keyboard_Index(context, `💡 Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ✅Подтвердить авторизацию!`)
 }
 	/*const save = await prisma.user.create({	data: {	idvk: context.senderId, name: datas[0].name, class: datas[1].class, spec: datas[2].spec, id_role: 1, gold: 65 } })
 	await context.send(`⌛ Благодарю за сотрудничество ${save.class} ${save.name}, ${save.spec}. \n ⚖Вы получили банковскую карту UID: ${save.id}. \n 🏦Вам зачислено ${save.gold} галлеонов`)
@@ -144,7 +158,7 @@ export async function Person_Register(context: any) {
 
 export async function Person_Selector(context: any) {
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-    const person = await prisma.person.findMany({where: {id_account: account?.id }})
+    const person = await prisma.user.findMany({where: {id_account: account?.id }})
     let person_check = false
     let person_sel = null
     if (person.length > 0) {
@@ -197,6 +211,6 @@ export async function Person_Selector(context: any) {
             }
         }
     }
-    const person_get = await prisma.person.findFirst({ where: { id: person_sel, id_account: account?.id } })
+    const person_get = await prisma.user.findFirst({ where: { id: person_sel, id_account: account?.id } })
     await context.send(`Ваш персонаж:\nGUID: ${person_get?.id_account}\nUID: ${person_get?.id}\nФИО: ${person_get?.name}\nАльянс: ${person_get?.alliance}\nЖетоны: ${person_get?.medal}\nРегистрация: ${person_get?.crdate}\n\nИнвентарь: Ла-Ла-Ла`)
 }

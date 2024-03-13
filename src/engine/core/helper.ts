@@ -108,7 +108,7 @@ export async function Book_Random_String(filename: string) {
     }
 }
 export async function Keyboard_Index(context: any, messa: any) {
-    const user_check: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+    const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     const keyboard = new KeyboardBuilder()
     if (user_check.idvk == root) {
         keyboard.textButton({ label: 'Косой переулок', payload: { command: 'sliz' }, color: 'positive' }).row()

@@ -7,6 +7,7 @@ import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Item, User } from "@prisma/client";
+import { Person_Register, Person_Selector } from "./core/person";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Косой переулок/, async (context) => {
@@ -1354,6 +1355,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 				}
 			}).inline()
 		})
+    })
+    hearManager.hear(/Рега/, async (context) => {
+        await Person_Register(context)
+    })
+    hearManager.hear(/Персы/, async (context) => {
+        await Person_Selector(context)
     })
 }
 
