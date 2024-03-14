@@ -11,6 +11,7 @@ model Account {
   id          Int           @id @default(autoincrement())
   idvk        Int
   crdate      DateTime      @default(now())
+  select_user Int           @default(0)
   User      User[]
 }
 
@@ -22,8 +23,8 @@ model User {
   spec        String
   alliance String
   lvl         Int           @default(0)
-  medal      Int           @default(0)
-  gold        Int           @default(60)
+  medal      Int           @default(5)
+  gold        Int           @default(0)
   xp          Int           @default(0)
   private     Boolean       @default(false)
   crdate      DateTime      @default(now())

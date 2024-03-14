@@ -166,7 +166,7 @@ export async function Person_Selector(context: any) {
         while (!person_check) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
-            let event_logger = `❄ Выберите вашего персонажа для просмотра:\n\n`
+            let event_logger = `❄ Выберите требуемого персонажа:\n\n`
             if (person.length > 0) {
                 const limiter = 5
                 let counter = 0
@@ -212,5 +212,16 @@ export async function Person_Selector(context: any) {
         }
     }
     const person_get = await prisma.user.findFirst({ where: { id: person_sel, id_account: account?.id } })
+    const person_sel_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel } })
     await context.send(`Ваш персонаж:\nGUID: ${person_get?.id_account}\nUID: ${person_get?.id}\nФИО: ${person_get?.name}\nАльянс: ${person_get?.alliance}\nЖетоны: ${person_get?.medal}\nРегистрация: ${person_get?.crdate}\n\nИнвентарь: Ла-Ла-Ла`)
+}
+
+export async function Person_Detector(context: any) {
+    const account = await prisma.account.findFirst({ where: { idvk: context.senderId ?? context.peerId } })
+    const person_find = await prisma.user.findFirst({ where: { id: account?.select_user } })
+    if (!person_find) { 
+        const person_sel = await prisma.user.findFirst({ where: { id_account: account?.id } })
+        const account_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel?.id } })
+        if (account_up) { console.log(`succes init default person for ${account?.idvk}`) }
+    }
 }
