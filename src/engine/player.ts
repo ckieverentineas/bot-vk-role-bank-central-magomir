@@ -10,7 +10,7 @@ import { Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-    hearManager.hear(/Косой переулок/, async (context) => {
+    hearManager.hear(/Лютный переулок/, async (context) => {
         if (context.senderId == root) {
             console.log(`Admin ${context.senderId} enter in shopping`)
             const category:any = await prisma.category.findMany({})

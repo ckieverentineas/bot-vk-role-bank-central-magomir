@@ -2,6 +2,7 @@ import { Analyzer, User } from "@prisma/client"
 import prisma from "./prisma_client"
 import { randomInt } from "crypto"
 import { chat_id, vk } from "../../.."
+import { Person_Get } from "../../core/person"
 
 export async function Analyzer_Init(id_user: number) {
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -20,7 +21,8 @@ interface Achivied {
 }
 
 export async function Analyzer_Birthday_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -72,7 +74,8 @@ export async function Analyzer_Birthday_Counter(context: any) {
 }
 
 export async function Analyzer_Beer_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -124,7 +127,8 @@ export async function Analyzer_Beer_Counter(context: any) {
 }
 
 export async function Analyzer_Beer_Premium_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -176,7 +180,8 @@ export async function Analyzer_Beer_Premium_Counter(context: any) {
 }
 
 export async function Analyzer_Underwear_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -228,7 +233,8 @@ export async function Analyzer_Underwear_Counter(context: any) {
 }
 
 export async function Analyzer_Quest_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -280,7 +286,8 @@ export async function Analyzer_Quest_Counter(context: any) {
 }
 
 export async function Analyzer_Convert_MO_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })
@@ -332,7 +339,8 @@ export async function Analyzer_Convert_MO_Counter(context: any) {
 }
 
 export async function Analyzer_Buying_Counter(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const id_user = user.id
     await Analyzer_Init(id_user)
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })

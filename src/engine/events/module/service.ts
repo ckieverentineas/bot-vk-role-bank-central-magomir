@@ -4,12 +4,15 @@ import prisma from "./prisma_client"
 import { chat_id, vk } from "../../.."
 import { randomInt } from "crypto"
 import { Analyzer_Beer_Counter, Analyzer_Beer_Premium_Counter, Analyzer_Convert_MO_Counter, Analyzer_Quest_Counter, Analyzer_Underwear_Counter } from "./analyzer"
+import { Person_Get } from "../../core/person"
+import { User } from "@prisma/client"
 
 const timeouter = 86400000 //время кд квестов
 
 export async function Service_Enter(context: any) {
     const attached = await Image_Random(context, "service")
-    const user = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const keyboard = new KeyboardBuilder()
     .callbackButton({ label: '📈', payload: { command: 'service_level_up' }, color: 'secondary' })
     .callbackButton({ label: '📅', payload: { command: 'service_quest_open' }, color: 'secondary' })
@@ -46,7 +49,8 @@ export async function Service_Cancel(context: any) {
     })
 }
 export async function Service_Convert_Galleon(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const attached = await Image_Random(context, "conv_gal")
     let text = `✉ Гоблин в черных очках предлагает обменять галлеоны на магический опыт.`
     const keyboard = new KeyboardBuilder()
@@ -70,7 +74,8 @@ export async function Service_Convert_Galleon(context: any) {
     }
 }
 export async function Service_Convert_Galleon_Change(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     if (context.eventPayload.command == "service_convert_galleon_change" && context.eventPayload.item == "gold") {
         const input = context.eventPayload.value
         if (input <= user.gold) {
@@ -105,7 +110,8 @@ export async function Service_Convert_Galleon_Change(context: any) {
     } 
 }
 export async function Service_Convert_Magic_Experience(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const attached = await Image_Random(context, "conv_mo")
     let text = `✉ Гоблин в черной одежде предлагает обменять магический опыт на галлеоны.`
     const keyboard = new KeyboardBuilder()
@@ -129,7 +135,8 @@ export async function Service_Convert_Magic_Experience(context: any) {
     }
 }
 export async function Service_Convert_Magic_Experience_Change(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     if (context.eventPayload.command == "service_convert_magic_experience_change" && context.eventPayload.item == "xp") {
         const input = context.eventPayload.value
         if (input <= user.xp) {
@@ -165,7 +172,8 @@ export async function Service_Convert_Magic_Experience_Change(context: any) {
     } 
 }
 export async function Service_Level_Up(context: any) {
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const attached = await Image_Random(context, "lvl_up")
     let text = `✉ Гоблин в темных очках, предлагает вам повысить свой уровень.`
     const keyboard = new KeyboardBuilder()
@@ -189,7 +197,8 @@ export async function Service_Level_Up(context: any) {
 }
 export async function Service_Level_Up_Change(context: any) {
     const attached = await Image_Random(context, "lvl_up")
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const leveling: any = {
         1: `1 уровень — стандартные возможности. Разрешается использование только волшебной палочки.`,
         2: `2 уровень — возможность добычи ингредиентов для зелий и т.д. в теплицах`,
@@ -242,7 +251,8 @@ export async function Service_Level_Up_Change(context: any) {
 }
 export async function Service_Beer_Open(context: any) {
     let attached = await Image_Random(context, "beer")
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const trigger: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'beer' } })
     if (!trigger) { 
         const trigger_init: any = await prisma.trigger.create({ data: { id_user: user.id, name: 'beer', value: false } })
@@ -305,7 +315,8 @@ export async function Service_Beer_Premium_Open(context: any) {
             })
         })
     }*/
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const trigger: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'beer_premium' } })
     if (!trigger) { 
         const trigger_init: any = await prisma.trigger.create({ data: { id_user: user.id, name: 'beer_premium', value: false } })
@@ -357,7 +368,8 @@ export async function Service_Beer_Premium_Open(context: any) {
 
 export async function Service_Quest_Open(context: any) {
     let attached = await Image_Random(context, "quest")
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const trigger: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'quest' } })
     if (!trigger) { 
         const trigger_init: any = await prisma.trigger.create({ data: { id_user: user.id, name: 'quest', value: false } })
@@ -487,7 +499,8 @@ export async function Service_Underwear_Open(context: any) {
     
     const underwear = await prisma.trigger.count({ where: { name: 'underwear', value: true } })
     text = `💡 ${underwear} человек уже заложили свои труселя, как на счёт твоих?`
-    const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     const trigger: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'underwear' } })
     if (!trigger) { 
         const trigger_init: any = await prisma.trigger.create({ data: { id_user: user.id, name: 'underwear', value: false } })

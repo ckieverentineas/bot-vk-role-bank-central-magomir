@@ -5,19 +5,20 @@ import { Trigger, User } from "@prisma/client"
 import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "../../core/imagecpu"
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
+import { Person_Get } from "../../core/person"
 
 export async function Card_Enter(context:any) {
-    const get_user: User | null | undefined = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const get_user: User | null | undefined = await Person_Get(context)
     if (get_user) {
         const attached = await Image_Text_Add_Card(context, 50, 650, get_user)
         const artefact_counter = await prisma.artefact.count({ where: { id_user: get_user.id } })
         const achievement_counter = await prisma.achievement.count({ where: { id_user: get_user.id } })
-        const text = `✉ Вы достали свою карточку, ${get_user.class} ${get_user.name}, ${get_user?.spec}:\n 💳UID: ${get_user.id} \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}`
+        const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.alliance} `
+        //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
         const keyboard = new KeyboardBuilder()
-        .callbackButton({ label: '⚙', payload: { command: 'card_private' }, color: 'secondary' })
-        .callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
-        .callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        .callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
+        //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
+        //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
+        //.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         console.log(`User ${get_user.idvk} see card`)
         let ii = `В общем вы ${get_user.gold > 100 ? "при деньгах" : "без денег"}. Вы ${get_user.lvl > 4 ? "слишком много знаете" : "должны узнать больше."}`
@@ -35,24 +36,10 @@ export async function Card_Enter(context:any) {
         }
     }
 }
-export async function Card_Private(context: any) {
-    const check: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
-    const changer: boolean = check.private ? false : true
-    const user_update = await prisma.user.update({ where: { id: check.id}, data: { private: changer} })
-    await vk.api.messages.sendMessageEventAnswer({
-        event_id: context.eventId,
-        user_id: context.userId,
-        peer_id: context.peerId,
-        event_data: JSON.stringify({
-            type: "show_snackbar",
-            text: `🔔 Приватный режим: ${changer ? 'Включен' : "Выключен"}`
-        })
-    })
-    await Card_Enter(context)
-}
 
 export async function Artefact_Enter(context: any) {
-    const get_user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const get_user: User | null | undefined = await Person_Get(context)
+    if (!get_user) { return }
     const attached = await Image_Random(context, "artefact")
     let artefact_list = `✉ Ваши артефакты, ${get_user.class} ${get_user.name}, ${get_user.spec}: \n`
     const artefact = await prisma.artefact.findMany({ where: { id_user: get_user.id } })
@@ -80,14 +67,10 @@ export async function Artefact_Enter(context: any) {
 } 
 
 export async function Inventory_Enter(context: any) {
-    const get_user:any = await prisma.user.findFirst({ where: { idvk: context.peerId }, include: { Trigger: true }, })
+    const get_user: User | null | undefined = await Person_Get(context)
+    if (!get_user) { return }
     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user.id }, include: { item: true } })
     let cart = ''
-    for (const i in get_user.Trigger) {
-        if (get_user.Trigger[i].value == false && get_user.Trigger[i].name == 'underwear') { cart += 'Трусы Домашние;' }
-        if (get_user.Trigger[i].value == true && get_user.Trigger[i].name == 'beer') { cart += 'Сливочное пиво из Хогсмида;' }
-        if (get_user.Trigger[i].value == true && get_user.Trigger[i].name == 'beer_premium') { cart += 'Бамбуковое пиво от тех, кто гнал бамбук;' }
-    }
     for (const i in inventory) {
         cart += `${inventory[i].item.name};`
     }
@@ -124,7 +107,8 @@ export async function Inventory_Enter(context: any) {
 }
 export async function Admin_Enter(context: any) {
     const attached = await Image_Random(context, "admin")
-    const user = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
     let puller = '🏦 Полный спектр рабов... \n'
     if (user?.id_role == 2) {
         const users = await prisma.user.findMany({ where: { id_role: 2 } })
@@ -148,7 +132,7 @@ export async function Admin_Enter(context: any) {
 
 export async function Birthday_Enter(context: any) {
     let attached = await Image_Random(context, "birthday")
-    const user: User | null = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const trigger: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'birthday' } })
     if (!trigger) { 
@@ -194,7 +178,7 @@ export async function Birthday_Enter(context: any) {
 
 export async function Statistics_Enter(context: any) {
     //let attached = await Image_Random(context, "birthday")
-    const user: User | null = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const stats = await prisma.analyzer.findFirst({ where: { id_user: user.id }})
     let text = ''
@@ -207,7 +191,7 @@ export async function Statistics_Enter(context: any) {
 
 export async function Rank_Enter(context: any) {
     //let attached = await Image_Random(context, "birthday")
-    const user: User | null = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+    const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const stats = await prisma.analyzer.findFirst({ where: { id_user: user.id }})
     let text = '⚙ Рейтинг ролевиков:\n\n'

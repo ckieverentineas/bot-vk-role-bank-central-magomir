@@ -10,10 +10,11 @@ import { Keyboard_Index } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
-import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Card_Private, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
+import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_Convert_Galleon, Service_Convert_Galleon_Change, Service_Convert_Magic_Experience, Service_Convert_Magic_Experience_Change, Service_Enter, Service_Level_Up, Service_Level_Up_Change, Service_Quest_Open, Service_Underwear_Open } from './engine/events/module/service';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
+import { Person_Detector } from './engine/core/person';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -99,15 +100,16 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		})
 		await Keyboard_Index(context, `💡 Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ✅Подтвердить авторизацию!`)
 	} else {
+		await Person_Detector(context)
 		await Keyboard_Index(context, `⌛ Загрузка, пожалуйста подождите...`)
 	}
 	return next();
 })
 vk.updates.on('message_event', async (context: any, next: any) => { 
+	await Person_Detector(context)
 	const config: any = {
 		"system_call": Main_Menu_Init,
 		"card_enter": Card_Enter,
-		"card_private": Card_Private,
 		"birthday_enter": Birthday_Enter,
 		"exit": Exit,
 		"artefact_enter": Artefact_Enter,

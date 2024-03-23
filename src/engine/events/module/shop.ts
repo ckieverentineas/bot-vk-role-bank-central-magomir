@@ -4,6 +4,7 @@ import { KeyboardBuilder } from "vk-io"
 import { Image_Interface, Image_Random } from "../../core/imagecpu"
 import { chat_id, vk } from "../../.."
 import { Analyzer_Buying_Counter } from "./analyzer"
+import { Person_Get } from "../../core/person"
 
 async function Searcher(data: any, target: number) {
     let counter = 0
@@ -107,7 +108,8 @@ async function Searcher(data: any, target: number) {
 export async function Shop_Enter(context: any) {
     if (context.eventPayload.item == "id") {
         const input = context.eventPayload.value
-        const user: User | null = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+        const user: User | null | undefined = await Person_Get(context)
+        if (!user) { return }
         if (user) {
             let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.gold}`
             const data: Item[] = await prisma.item.findMany({ where: { id_category: Number(input.id) } })
@@ -173,7 +175,8 @@ export async function Shop_Bought(context: any) {
 export async function Shop_Buy(context: any) {
     if (context.eventPayload.command == "shop_buy" && context.eventPayload.item_sub == "item") {
         const input = context.eventPayload.value_sub
-        const user: any = await prisma.user.findFirst({ where: { idvk: context.peerId } })
+        const user: User | null | undefined = await Person_Get(context)
+        if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })
         if ((!item_inventory || input.type == 'unlimited') && user.gold >= input.price) {
             const money = await prisma.user.update({ data: { gold: user.gold - input.price }, where: { id: user.id } })
@@ -230,7 +233,7 @@ export async function Shop_Category_Enter(context: any) {
     const attached = await Image_Random(context, "shop")
     console.log(`User ${context.peerId} enter in shopping`)
     const category: Category[] = await prisma.category.findMany({})
-    let text = '✉ Гоблин сопроводил вас в Косой переулок или по крайней мере дал карту...'
+    let text = '✉ Орк сопроводил вас в Лютный переулок или по крайней мере дал карту...'
     if (category.length == 0) {
         text += `\n ✉ Магазинов еще нет`
     } 

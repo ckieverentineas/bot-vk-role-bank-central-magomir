@@ -2,6 +2,7 @@ import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
 import { Fixed_Number_To_Five, Keyboard_Index } from "./helper"
 import prisma from "../events/module/prisma_client"
+import { User } from "@prisma/client"
 
 export async function Person_Register(context: any) {
     const person: { name: null | string, alliance: null | string, class: null | string, spec: null | string } = { name: null, alliance: null, class: null, spec: null }
@@ -224,4 +225,10 @@ export async function Person_Detector(context: any) {
         const account_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel?.id } })
         if (account_up) { console.log(`succes init default person for ${account?.idvk}`) }
     }
+}
+
+export async function Person_Get(context: any) {
+    const account = await prisma.account.findFirst({ where: { idvk: context.peerId ?? context.senderId } })
+    const get_user: User | null | undefined = await prisma.user.findFirst({ where: { id: account?.select_user } })
+    return get_user
 }
