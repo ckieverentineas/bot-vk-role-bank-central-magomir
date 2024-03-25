@@ -205,12 +205,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${JSON.stringify(uids)}`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: '+💰', payload: { command: 'gold_up_many' }, color: 'secondary' })
+                .textButton({ label: '+🔘', payload: { command: 'medal_up_many' }, color: 'secondary' })
+                .textButton({ label: '—🔘', payload: { command: 'medal_down_many' }, color: 'secondary' }).row()
+                /*.textButton({ label: '+💰', payload: { command: 'gold_up_many' }, color: 'secondary' })
                 .textButton({ label: '—💰', payload: { command: 'gold_down_many' }, color: 'secondary' }).row()
                 .textButton({ label: '+🧙', payload: { command: 'xp_up_many' }, color: 'secondary' })
                 .textButton({ label: '—🧙', payload: { command: 'xp_down_many' }, color: 'secondary' }).row()
                 .textButton({ label: '+💰🧙', payload: { command: 'multi_up_many' }, color: 'secondary' })
-                .textButton({ label: '—💰🧙', payload: { command: 'multi_down_many' }, color: 'secondary' }).row()
+                .textButton({ label: '—💰🧙', payload: { command: 'multi_down_many' }, color: 'secondary' }).row()*/
                 .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
                 .oneTime().inline(),
                 answerTimeLimit                                                                       
@@ -225,7 +227,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 'xp_down_many': Xp_Down_Many,
                 'back': Back,
                 'multi_up_many': Multi_Up_Many,
-                'multi_down_many': Multi_Down_Many
+                'multi_down_many': Multi_Down_Many,
+                'medal_up_many': Medal_Up_Many,
+                'medal_down_many': Medal_Down_Many
             }
             const answergot = await config[ans.payload.command](uids)
             
@@ -494,6 +498,96 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             console.log(`Admin ${context.senderId} canceled operation for user UID: ${id}`)
             await context.send(`⚙ Операция отменена пользователем.`)
         }
+        // модуль Министерских операций
+        //Модуль начислений
+        async function Medal_Up_Many(uids: number[]) {
+            const count: number = await Ipnut_Gold() 
+            const messa: string = await Ipnut_Message()
+            for (const ids of uids) {
+                const id = Number(ids)
+                const user_get: any = await prisma.user.findFirst({ where: { id } })
+                if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
+                const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
+                try {
+                    await vk.api.messages.send({
+                        user_id: user_get.idvk,
+                        random_id: 0,
+                        message: `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                    })
+                    await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
+                } catch (error) {
+                    console.log(`User ${user_get.idvk} blocked chating with bank`)
+                    await context.send(`⚙ Операция с 💳UID ${id} завершена, но уведомление не доставлено пользователю!`)
+                }
+                await vk.api.messages.send({
+                    peer_id: chat_id,
+                    random_id: 0,
+                    message: `🗿 @id${context.senderId}(Admin) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                })
+                console.log(`User ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal}`)
+            }
+        }
+        async function Medal_Down_Many(uids: number[]) {
+            const count: number = await Ipnut_Gold() 
+            const messa: string = await Ipnut_Message()
+            for (const ids of uids) {
+                const id = Number(ids)
+                const user_get: any = await prisma.user.findFirst({ where: { id } })
+                if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
+                if (user_get.medal-count >= 0) {
+                    const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
+                    try {
+                        await vk.api.messages.send({
+                            user_id: user_get.idvk,
+                            random_id: 0,
+                            message: `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                        })
+                        await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
+                    } catch (error) {
+                        console.log(`User ${user_get.idvk} blocked chating with bank`)
+                        await context.send(`⚙ Операция с 💳UID ${id} завершена, но уведомление не доставлено пользователю!`)
+                    }
+                    await vk.api.messages.send({
+                        peer_id: chat_id,
+                        random_id: 0,
+                        message: `🗿 @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                    })
+                    console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                } else {
+                    const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
+                        {
+                            keyboard: Keyboard.builder()
+                            .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+                            .textButton({ label: 'Нет', payload: { command: 'medal_down' }, color: 'secondary' })
+                            .oneTime().inline(),
+                            answerTimeLimit
+                        }
+                    )
+                    if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на снятие жетонов с ${user_get.name} истекло!`) }
+                    if (confirmq.payload.command === 'confirm') {
+                        const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
+                        try {
+                            await vk.api.messages.send({
+                                user_id: user_get.idvk, random_id: 0,
+                                message: `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                            })
+                            await context.send(`⚙ Операция завершена успешно`)
+                        } catch (error) {
+                            console.log(`User ${user_get.idvk} blocked chating with bank`)
+                            await context.send(`⚙ Операция с 💳UID ${id} завершена, но уведомление не доставлено пользователю!`)
+                        }
+                        await vk.api.messages.send({
+                            peer_id: chat_id,
+                            random_id: 0,
+                            message: `🗿 @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                        })
+                        console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                    } else {
+                        await context.send(`💡 Нужно быть жестче! Греби жетоны`)
+                    }
+                }
+            }
+        }
     })
 
     hearManager.hear(/операции/, async (context) => {
@@ -523,7 +617,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             id_user: Number(uid.text)
                         }
                     })
-                    await context.send(`🏦 Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n https://vk.com/id${get_user.idvk} \n 💳UID: ${get_user.id} \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🔮Количество артефактов: ${artefact_counter}` )
+                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.alliance}\n 🧷 Страница: https://vk.com/id${get_user.idvk}` )
                     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
                     let cart = ''
                     const underwear = await prisma.trigger.count({ where: {    id_user: get_user.id, name:   'underwear', value:  false } })
@@ -566,15 +660,16 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: '+💰', payload: { command: 'gold_up' }, color: 'secondary' })
+                .textButton({ label: '+🔘', payload: { command: 'medal_up' }, color: 'secondary' })
+                .textButton({ label: '—🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
+                /*.textButton({ label: '+💰', payload: { command: 'gold_up' }, color: 'secondary' })
                 .textButton({ label: '—💰', payload: { command: 'gold_down' }, color: 'secondary' }).row()
                 .textButton({ label: '+🧙', payload: { command: 'xp_up' }, color: 'secondary' })
                 .textButton({ label: '—🧙', payload: { command: 'xp_down' }, color: 'secondary' }).row()
                 .textButton({ label: '+💰🧙', payload: { command: 'multi_up' }, color: 'secondary' })
-                .textButton({ label: '—💰🧙', payload: { command: 'multi_down' }, color: 'secondary' }).row()
+                .textButton({ label: '—💰🧙', payload: { command: 'multi_down' }, color: 'secondary' }).row()*/
                 .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' })
                 .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
-                .textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' })
                 .oneTime().inline(),
                 answerTimeLimit                                                                       
             }
@@ -589,7 +684,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 'back': Back,
                 'sub_menu': Sub_Menu,
                 'multi_up': Multi_Up,
-                'multi_down': Multi_Down
+                'multi_down': Multi_Down,
+                'medal_up': Medal_Up,
+                'medal_down': Medal_Down
             }
             const answergot = await config[ans.payload.command](Number(datas[0].id))
         } else {
@@ -639,7 +736,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             })
             let name_check = false
             while (name_check == false) {
-                const name: any = await context.question(`🧷 Укажите имя в Хогвартс Онлайн. Для ${user.name}. Введите новое имя до 64 символов:`, timer_text)
+                const name: any = await context.question(`🧷 Укажите имя в ${user.alliance}. Для ${user.name}. Введите новое имя до 64 символов:`, timer_text)
                 if (name.isTimeout) { return await context.send(`⏰ Время ожидания на изменение имени для ${user.name} истекло!`) }
                 if (name.text.length <= 64) {
                     name_check = true
@@ -674,7 +771,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const user: any = await prisma.user.findFirst({ where: { id: id } })
             let answer_check = false
             while (answer_check == false) {
-                const answer1: any = await context.question(`🧷 Укажите положение в Хогвартс Онлайн для ${user.name}, имеющего текущий статус: ${user.class}. `,
+                const answer1: any = await context.question(`🧷 Укажите положение в ${user.alliance} для ${user.name}, имеющего текущий статус: ${user.class}. `,
                     {
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Ученик', payload: { command: 'grif' }, color: 'secondary' })
@@ -715,7 +812,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const user: any = await prisma.user.findFirst({ where: { id: id } })
             let spec_check = false
 		    while (spec_check == false) {
-                const spec: any = await context.question(`🧷 Укажите специализацию в Хогвартс Онлайн. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+                const spec: any = await context.question(`🧷 Укажите специализацию в ${user.alliance}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
                 if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
                 if (spec.text.length <= 32) {
                     spec_check = true
@@ -1125,14 +1222,91 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 console.log(`User ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp}`)
             }
         }
-
+        // модуль Министреских начислений
+        async function Medal_Up(id: number) {
+            const count: number = await Ipnut_Gold() 
+            const messa: string = await Ipnut_Message()
+            const user_get: any = await prisma.user.findFirst({ where: { id } })
+            const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
+            try {
+                await vk.api.messages.send({
+                    user_id: user_get.idvk,
+                    random_id: 0,
+                    message: `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                })
+                await context.send(`⚙ Операция завершена успешно`)
+            } catch (error) {
+                console.log(`User ${user_get.idvk} blocked chating with bank`)
+            }
+            await vk.api.messages.send({
+                peer_id: chat_id,
+                random_id: 0,
+                message: `⚙ @id${context.senderId}(Admin) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+            })
+            console.log(`User ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal}`)
+        }
+        async function Medal_Down(id: number) {
+            const count: number = await Ipnut_Gold() 
+            const messa: string = await Ipnut_Message()
+            const user_get: any = await prisma.user.findFirst({ where: { id } })
+            if (user_get.medal-count >= 0) {
+                const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
+                try {
+                    await vk.api.messages.send({
+                        user_id: user_get.idvk,
+                        random_id: 0,
+                        message: `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                    })
+                    await context.send(`⚙ Операция завершена успешно`)
+                } catch (error) {
+                    console.log(`User ${user_get.idvk} blocked chating with bank`)
+                }
+                await vk.api.messages.send({
+                    peer_id: chat_id,
+                    random_id: 0,
+                    message: `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                })
+                console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+            } else {
+                const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
+                    {
+                        keyboard: Keyboard.builder()
+                        .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+                        .textButton({ label: 'Нет', payload: { command: 'gold_down' }, color: 'secondary' })
+                        .oneTime().inline(),
+                        answerTimeLimit
+                    }
+                )
+                if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на снятие галлеонов с ${user_get.name} истекло!`) }
+                if (confirmq.payload.command === 'confirm') {
+                    const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
+                    try {
+                        await vk.api.messages.send({
+                            user_id: user_get.idvk, random_id: 0,
+                            message: `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`
+                        })
+                        await context.send(`⚙ Операция завершена успешно`)
+                    } catch (error) {
+                        console.log(`User ${user_get.idvk} blocked chating with bank`)
+                    }
+                    await vk.api.messages.send({
+                        peer_id: chat_id,
+                        random_id: 0,
+                        message: `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                    })
+                    console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                } else {
+                    await context.send(`💡 Нужно быть жестче! Греби жетоны`)
+                }
+            }
+        }
         //Модуль доп клавиатуры
         async function Sub_Menu(id: number) {
             const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`,
                 {   
                     keyboard: Keyboard.builder()
-                    .textButton({ label: '➕🔮', payload: { command: 'artefact_add' }, color: 'secondary' })
-                    .textButton({ label: '👁🔮', payload: { command: 'artefact_show' }, color: 'secondary' }).row()
+                    //.textButton({ label: '➕🔮', payload: { command: 'artefact_add' }, color: 'secondary' })
+                    //.textButton({ label: '👁🔮', payload: { command: 'artefact_show' }, color: 'secondary' }).row()
                     .textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
                     .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
                     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
@@ -1229,13 +1403,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             } else {
                 await context.send(`⚙ Ошибка`)
             }
+            await vk.api.messages.send({
+                peer_id: chat_id,
+                random_id: 0,
+                message: `⚙ @id${context.senderId}(Root) становится администратором!)`
+            })
+            console.log(`Super user ${context.senderId} got root`)
         }
-        await vk.api.messages.send({
-            peer_id: chat_id,
-            random_id: 0,
-            message: `⚙ @id${context.senderId}(Root) становится администратором!)`
-        })
-        console.log(`Super user ${context.senderId} got root`)
+        
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/права/, async (context: any) => {

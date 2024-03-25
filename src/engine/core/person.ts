@@ -53,7 +53,7 @@ export async function Person_Register(context: any) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
             let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежите:\n\n`
-            const builder_list: Array<String> = ["Академия Морктид", "Хогвартс - АНТИ. Академия Не Тёмных Искусств", "Balance Academy Talentum", "Школа магии и волшебства «Билмор»", "Ильверморни - Ilvermorny", "𝙰𝚌𝚊𝚍𝚎𝚖𝚢 𝚘𝚏 𝚖𝚊𝚐𝚒𝚌 '𝙰𝚛𝚝𝚎𝚜'", /*"RP TV - Ролевое телевидение",*/ "News of Magic - Новости магии", "Рубеж: на стыке миров", "Louisiana Voodoo Academy", "Академия Альтерстрего", "Хогвартс Онлайн", "Студенческий городок колледжа 'Хоукфорд'", "Магическая Академия 'Кирис'", "Школа магии Хогвартс", "Колдовстворец. Добро пожаловать в РФ", "Hᴀʀʀʏ ᴘᴏᴛᴛᴇʀ - ᴠíᴀ ʟáᴄᴛᴇᴀ - ʀᴏʟᴇ ɢᴀᴍᴇ - Хогвартс", /*"MEGALE DU NAMA - Поиск ролевиков",*/ "TERRA BRITANNIA", "Breakbills | Academy magic" ]
+            const builder_list: Array<String> = ["Академия Морктид", "Хогвартс - АНТИ. Академия Не Тёмных Искусств", "Balance Academy Talentum", "Школа магии и волшебства «Билмор»", "Ильверморни - Ilvermorny", "𝙰𝚌𝚊𝚍𝚎𝚖𝚢 𝚘𝚏 𝚖𝚊𝚐𝚒𝚌 '𝙰𝚛𝚝𝚎𝚜'", /*"RP TV - Ролевое телевидение",*/ "News of Magic - Новости магии", "Рубеж: на стыке миров", "Louisiana Voodoo Academy", "Академия Альтерстрего", "Хогвартс Онлайн", "Студенческий городок колледжа 'Хоукфорд'", "Магическая Академия 'Кирис'", "Школа магии Хогвартс", "Колдовстворец. Добро пожаловать в РФ", "Hᴀʀʀʏ ᴘᴏᴛᴛᴇʀ - ᴠíᴀ ʟáᴄᴛᴇᴀ - ʀᴏʟᴇ ɢᴀᴍᴇ - Хогвартс", /*"MEGALE DU NAMA - Поиск ролевиков",*/ "TERRA BRITANNIA", "Breakbills | Academy magic", "«Хор Арон» - Университет Магических Искусств." ]
 
             if (builder_list.length > 0) {
                 const limiter = 5
@@ -61,7 +61,7 @@ export async function Person_Register(context: any) {
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
                     console.log(`i=${i} idsent=${id_builder_sent}`)
-                    keyboard.textButton({ label: `👀 ${i}-${builder.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i }, color: 'secondary' }).row()
+                    keyboard.textButton({ label: `👀 ${i}-${builder.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                     event_logger += `\n\n💬 ${i}-${builder}`
                     /*
@@ -94,7 +94,7 @@ export async function Person_Register(context: any) {
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
-                    person.alliance = answer1.text!
+                    person.alliance = answer1.payload.target
                     alliance_check = true
                 }
 		    }

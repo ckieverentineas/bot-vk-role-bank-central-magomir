@@ -18,7 +18,7 @@ export async function Card_Enter(context:any) {
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
         //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        //.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
+        .callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         console.log(`User ${get_user.idvk} see card`)
         let ii = `В общем вы ${get_user.gold > 100 ? "при деньгах" : "без денег"}. Вы ${get_user.lvl > 4 ? "слишком много знаете" : "должны узнать больше."}`
@@ -204,8 +204,8 @@ export async function Rank_Enter(context: any) {
         const ach_counter = await prisma.achievement.count({ where: { id_user: userok.id }})
         stat.push({
             rank: counter,
-            text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${ach_counter}🌟\n`,
-            score: ach_counter,
+            text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
+            score: userok.medal,
             me: userok.idvk == user.idvk ? true : false
         })
         counter++
@@ -227,7 +227,7 @@ export async function Rank_Enter(context: any) {
         }
         counter_last++
     }
-    text += `\n\n☠ В статистике участвует ${counter} ролевиков`
+    text += `\n\n☠ В статистике участвует ${counter-1} ролевиков`
     console.log(`User ${context.peerId} get rank information`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 

@@ -6,6 +6,8 @@ import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
 import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
+import { User } from "@prisma/client"
+import { Person_Get } from "./person"
 
 export function Sleep(ms: number) {
     return new Promise((resolve) => {
@@ -89,12 +91,9 @@ export async function Gen_Inline_Button(context: any, weapon_type: any) {
 }
 
 export async function Accessed(context: any) {
-    const role: any = await prisma.user.findFirst({
-        where: {
-            idvk: context.senderId
-        }
-    })
-    return role.id_role
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
+    return user.id_role
 }
 
 export async function Book_Random_String(filename: string) {
@@ -114,7 +113,8 @@ export async function Keyboard_Index(context: any, messa: any) {
         keyboard.textButton({ label: 'Косой переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
         .textButton({ label: 'права', payload: { command: 'sliz' }, color: 'negative' }).row()
     }
-    if (user_check.id_role === 2) {
+    const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
+    if (user_find?.id_role === 2) {
         keyboard.textButton({ label: 'операции', payload: { command: 'sliz' }, color: 'positive' }).row()
         keyboard.textButton({ label: 'операция', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
