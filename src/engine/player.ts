@@ -870,7 +870,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk.api.messages.send({
                                 user_id: user_del.idvk,
                                 random_id: 0,
-                                message: `❗ Ваша карточка 💳UID: ${user_del.id} больше не действительна. Спасибо, что пользовались банком Гринготтс 🏦, ${user_del.name}. Возвращайтесь к нам снова!`
+                                message: `❗ Ваша карточка 💳UID: ${user_del.id} больше не действительна. Спасибо, что пользовались Центробанком ММ 🏦, ${user_del.name}. Возвращайтесь к нам снова!`
                             })
                             await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
                         } catch (error) {
@@ -1508,7 +1508,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const user_count = await prisma.user.count()
-		const sums: any = await prisma.user.aggregate({ _sum: { gold: true, lvl: true, xp: true } })
+		const sums: any = await prisma.user.aggregate({ _sum: { medal: true, lvl: true, xp: true } })
 		const artefacts: any = await prisma.artefact.count()
         const achievement: any = await prisma.achievement.count()
         const user_check: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
@@ -1516,9 +1516,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const achievement_counter = await prisma.achievement.count({ where: { id_user: user_check.id } })
 		await Image_Random(context, "bank")
 		if (user_check.id_role != 1) {
-			await Keyboard_Index(context, `🏦 Банк Гринготтс Онлайн 1.19v:\n👥 ${user_count}\n💰 ${sums._sum.gold}\n🧙 ${sums._sum.lvl*150+sums._sum.xp}\n🔮 ${artefacts}\n🌟 ${achievement}\n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.06v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
 		} else {
-			await Keyboard_Index(context, `🏦 Банк Гринготтс Онлайн 1.19v:\n👥 ${user_check.name}\n💰 ${user_check.gold}\n🧙 ${user_check.lvl*150+user_check.xp}\n🔮 ${artefact_counter}\n🌟 ${achievement_counter} \n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.06v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
 		}
 		const user_inf = await User_Info(context)
 		await context.send(`${user_inf.first_name}, чтобы авторизоваться, нажмите кнопку под этим сообщением!`, {
