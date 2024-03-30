@@ -1531,10 +1531,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 			}).inline()
 		})
     })
-    hearManager.hear(/Рега/, async (context) => {
+    hearManager.hear(/➕👤/, async (context) => {
         await Person_Register(context)
     })
-    hearManager.hear(/Персы/, async (context) => {
+    hearManager.hear(/🔃👥/, async (context) => {
         await Person_Selector(context)
     })
 }

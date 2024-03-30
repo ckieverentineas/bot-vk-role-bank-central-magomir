@@ -7,19 +7,79 @@ import { IQuestionMessageContext } from "vk-io-question";
 const prisma = new PrismaClient()
 
 export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-	/*hearManager.hear(/init/, async (context: any) => {
-		await prisma.role.create({
-			data: {
-				name: 'user'
+	hearManager.hear(/init/, async (context: any) => {
+		const roles = [ 'user', 'admin' ]
+		const res = { count_role: 0, count_shop: 0, count_item: 0 }
+		for (const rol of roles) {
+			const rol_check = await prisma.role.findFirst({ where: { name: rol } })
+			if (!rol_check) { 
+				const rol_cr = await prisma.role.create({ data: { name: rol } }) 
+				console.log(`Init role id: ${rol_cr.id} name: ${rol_cr.name} for users`)
+				res.count_role++
+			} else {
+				console.log(`Already init role name: ${rol} for users`)
 			}
-		})
-		await prisma.role.create({
-			data: {
-				name: 'admin'
+		}
+		const categories_shop = [ `Питомцы`, `Магические предметы`, `Артефакты и реликвии`, `Спорт`]
+		for (const cat of categories_shop) {
+			const cat_check = await prisma.category.findFirst({ where: { name: cat } })
+			if (!cat_check) { 
+				const cat_cr = await prisma.category.create({ data: { name: cat } }) 
+				console.log(`Init category shop id: ${cat_cr.id} name: ${cat_cr.name} for users`)
+				res.count_shop++
+			} else {
+				console.log(`Already init category shop name: ${cat} for users`)
 			}
-		})
-		console.log(`Init roles for users`)
+		}
+		const items = [
+			{ 
+				target: `Питомцы`, item: [
+					{ name: `Хомячок`, price: 10, type: 'unlimited' }, { name: `Лягушка`, price: 10, type: 'unlimited' }, 
+					{ name: `Жаба`, price: 15, type: 'unlimited' }, { name: `Крыса`, price: 25, type: 'unlimited' }, 
+					{ name: `Кот (любого раскраса, кроме черного)`, price: 50, type: 'unlimited' }, { name: `Кот черный`, price: 60, type: 'unlimited' }, 
+					{ name: `Хорек`, price: 90, type: 'unlimited' }, { name: `Капибара`, price: 110, type: 'unlimited' }, 
+					{ name: `Сова`, price: 150, type: 'unlimited' }, { name: `Енот`, price: 155, type: 'unlimited' }, 
+					{ name: `Лис`, price: 180, type: 'unlimited' }, { name: `Лукотрус`, price: 220, type: 'unlimited' }, 
+					{ name: `Шишуга`, price: 300, type: 'unlimited' }, { name: `Нюхлер`, price: 400, type: 'unlimited' },
+				]
+			},
+			{ 
+				target: `Магические предметы`, item: [
+					{ name: `Фальшивые волшебные палочки-надувалочки`, price: 160, type: 'unlimited' }, { name: `Безголовая шляпа`, price: 160, type: 'unlimited' }, 
+					{ name: `Вредноскоп`, price: 175, type: 'unlimited' }, { name: `Драчливый телескоп`, price: 175, type: 'unlimited' }, 
+					{ name: `Кусачая кружка`, price: 180, type: 'unlimited' }, { name: `Перуанский порошок мгновенной тьмы`, price: 185, type: 'unlimited' }, 
+					{ name: `Сапоги-скороходы`, price: 185, type: 'unlimited' }, { name: `Одежда-щит`, price: 192, type: 'unlimited' }, 
+				]
+			},
+			{ 
+				target: `Артефакты и реликвии`, item: [
+					{ name: `Делюминатор`, price: 500, type: 'unlimited' }, { name: `Маховик времени`, price: 990, type: 'unlimited' }, 
+					{ name: `Мантия-невидимка`, price: 1500, type: 'unlimited' },
+				]
+			},
+			{ 
+				target: `Спорт`, item: [
+					{ name: `Форма для квиддича`, price: 40, type: 'unlimited' }, { name: `Обмундирование вратаря`, price: 55, type: 'unlimited' }, 
+					{ name: `Набор для игры в квиддич`, price: 90, type: 'unlimited' }, { name: `Спортивная метла`, price: 110, type: 'unlimited' }, 
+					{ name: `Полный комплект для квиддича`, price: 200, type: 'unlimited' }, 
+				]
+			}
+		]
+		for (const el of items) {
+			const category = await prisma.category.findFirst({ where: { name: el.target } })
+			if (!category) { await context.send(`Нет категории ${el.target}`); continue }
+			for (const item of el.item) {
+				const item_check = await prisma.item.findFirst({ where: { name: item.name, id_category: category.id } })
+				if (!item_check) { 
+					const item_cr = await prisma.item.create({ data: { name: item.name, price: item.price, id_category: category.id, type: item.type } }) 
+					console.log(`Init item shop id: ${item_cr.id} name: ${item_cr.name} for users`)
+					res.count_item++
+				} else {
+					console.log(`Already init category shop name: ${item.name} for users`)
+				}
+			}
+		}
 
-		context.send('Игра инициализированна успешно.')
-	})*/
+		context.send(`✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}`)
+	})
 }

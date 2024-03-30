@@ -109,38 +109,45 @@ export async function Shop_Enter(context: any) {
     if (context.eventPayload.item == "id") {
         const input = context.eventPayload.value
         const user: User | null | undefined = await Person_Get(context)
+        let keyboard = new KeyboardBuilder()
+        let attached = null
         if (!user) { return }
         if (user) {
-            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.gold}`
+            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.medal}`
             const data: Item[] = await prisma.item.findMany({ where: { id_category: Number(input.id) } })
             const inventory: Inventory[] = await prisma.inventory.findMany({ where: { id_user: user.id } })
-            const item_render = []
-            let counter_pict = 0
-            let bonus = context.eventPayload.current
-            for (let j = bonus; j < data.length; j++) { counter_pict++; if (counter_pict > 3) { continue } item_render.push({ name: data[j].name, price: `${data[j].price}G` }) }
-            const attached = await Image_Interface(item_render, context)
-            let keyboard = new KeyboardBuilder()
-            let counter = 0
-            for (let i = bonus; i < data.length; i++) {
-                counter++
-                if (counter > 3) {continue}
-                const checker = await Searcher(inventory, data[i].id)
-                if (checker && data[i].type != 'unlimited') {
-                    const text = `✅${data[i].name}`
-                    keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'positive' }).row()
-                } else {
-                    const text = `🛒${data[i].price}💰 - ${data[i].name}`
-                    keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'secondary' }).row()
+            if (data.length > 0) {
+                const item_render = []
+                let counter_pict = 0
+                let bonus = context.eventPayload.current
+                for (let j = bonus; j < data.length; j++) { counter_pict++; if (counter_pict > 3) { continue } item_render.push({ name: data[j].name, price: `${data[j].price}` }) }
+                attached = await Image_Interface(item_render, context)
+                
+                let counter = 0
+                for (let i = bonus; i < data.length; i++) {
+                    counter++
+                    if (counter > 3) {continue}
+                    const checker = await Searcher(inventory, data[i].id)
+                    if (checker && data[i].type != 'unlimited') {
+                        const text = `✅${data[i].name}`
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'positive' }).row()
+                    } else {
+                        const text = `🛒${data[i].price}🔘 - ${data[i].name}`
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'secondary' }).row()
+                    }
                 }
-            }
-            if (data.length >= 3 && bonus >= 3) {
-                keyboard.callbackButton({ label: '<', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current-3 }, color: 'secondary' })
-            }
-            if (data.length >= 3 && bonus+3 < data.length) {
-                keyboard.callbackButton({ label: '>', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current+3 }, color: 'secondary' })
+                if (data.length >= 3 && bonus >= 3) {
+                    keyboard.callbackButton({ label: '<', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current-3 }, color: 'secondary' })
+                }
+                if (data.length >= 3 && bonus+3 < data.length) {
+                    keyboard.callbackButton({ label: '>', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current+3 }, color: 'secondary' })
+                }
+            } else {
+                text += `\n ⛔ Здесь еще нет товаров!`
             }
             keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_cancel' }, color: 'secondary' })
             .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
+            
             await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
             if (context?.eventPayload?.command == "shop_enter") {
                 await vk.api.messages.sendMessageEventAnswer({
@@ -178,8 +185,8 @@ export async function Shop_Buy(context: any) {
         const user: User | null | undefined = await Person_Get(context)
         if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })
-        if ((!item_inventory || input.type == 'unlimited') && user.gold >= input.price) {
-            const money = await prisma.user.update({ data: { gold: user.gold - input.price }, where: { id: user.id } })
+        if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
+            const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
             const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: input.id } })
             console.log(`User ${context.peerId} bought new item ${input.id}`)
             await vk.api.messages.send({
@@ -194,7 +201,7 @@ export async function Shop_Buy(context: any) {
                     peer_id: context.peerId,
                     event_data: JSON.stringify({
                         type: "show_snackbar",
-                        text: `🔔 Доставлено ${input.name}. Списано: ${input.price}💰`
+                        text: `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘`
                     })
                 })
             }
@@ -225,7 +232,7 @@ export async function Shop_Cancel(context: any) {
         peer_id: context.peerId,
         event_data: JSON.stringify({
             type: "show_snackbar",
-            text: `🔔 Возврат в Косой переулок.`
+            text: `🔔 Возврат в центральный холл Маголавки "Чудо в перьях".`
         })
     })
 }
@@ -233,13 +240,13 @@ export async function Shop_Category_Enter(context: any) {
     const attached = await Image_Random(context, "shop")
     console.log(`User ${context.peerId} enter in shopping`)
     const category: Category[] = await prisma.category.findMany({})
-    let text = '✉ Орк сопроводил вас в Лютный переулок или по крайней мере дал карту...'
+    let text = '✉ Орк сопроводил вас в Маголавку "Чудо в перьях" или по крайней мере дал карту...'
     if (category.length == 0) {
         text += `\n ✉ Магазинов еще нет`
     } 
     const keyboard = new KeyboardBuilder()
     for(const i in category) {
-        keyboard.callbackButton({ label: `⚓ ${category[i].name}`, payload: { command: "shop_enter", item: "id", value: category[i], current: 0 }, color: 'primary' }).row()
+        keyboard.callbackButton({ label: `🎪 ${category[i].name}`, payload: { command: "shop_enter", item: "id", value: category[i], current: 0 }, color: 'primary' }).row()
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
@@ -250,7 +257,7 @@ export async function Shop_Category_Enter(context: any) {
             peer_id: context.peerId,
             event_data: JSON.stringify({
                 type: "show_snackbar",
-                text: `🔔 Вы в косом переулке, куда пойдем?`
+                text: `🔔 Вы в Маголавке "Чудо в перьях", что вас интересует?`
             })
         })
     }

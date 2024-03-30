@@ -122,7 +122,7 @@ export async function Keyboard_Index(context: any, messa: any) {
     // Отправляем клавиатуру без сообщения
     await vk.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
     .then(async (response: MessagesSendResponse) => { 
-        await Sleep(5000)
+        await Sleep(1000)
         return vk.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
     .then(() => { console.log(`User ${context.senderId} succes get keyboard`) })
     .catch((error) => { console.error(`User ${context.senderId} fail get keyboard: ${error}`) });

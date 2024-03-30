@@ -146,7 +146,7 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 })
 
 vk.updates.start().then(() => {
-	console.log('Bank ready for services clients!')
+	console.log('The Central Bank of the Ministry of Magic ready for services clients!')
 }).catch(console.error);
 
 process.on('warning', e => console.warn(e.stack))

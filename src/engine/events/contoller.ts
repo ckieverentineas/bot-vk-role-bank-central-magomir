@@ -5,12 +5,6 @@ import { Image_Random } from "../core/imagecpu";
 import { User } from "@prisma/client";
 import { Person_Get } from "../core/person";
 
-function Sleep(ms: number) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
-
 export async function Main_Menu_Init(context: any) {
     const attached = await Image_Random(context, "bank")
     const user: User | null | undefined = await Person_Get(context)
@@ -46,7 +40,7 @@ export async function Main_Menu(context: any) {
     .callbackButton({ label: 'Карта', payload: { command: 'card_enter' }, color: 'secondary' })
     .callbackButton({ label: 'Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
     //.callbackButton({ label: 'Артефакты', payload: { command: 'artefact_enter' }, color: 'secondary' })
-    .callbackButton({ label: 'Лютный переулок', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
+    .callbackButton({ label: 'Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
     //.callbackButton({ label: 'Услуги', payload: { command: 'service_enter' }, color: 'primary' })
     /*if (user_check.id_role === 2) {
         keyboard.callbackButton({ label: 'Админы', payload: { command: 'admin_enter' }, color: 'secondary' }).row()
