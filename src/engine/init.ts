@@ -3,13 +3,14 @@ import { HearManager } from "@vk-io/hear";
 import { randomInt } from "crypto";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
+import { vk } from "..";
 
 const prisma = new PrismaClient()
 
 export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
 	hearManager.hear(/init/, async (context: any) => {
 		const roles = [ 'user', 'admin' ]
-		const res = { count_role: 0, count_shop: 0, count_item: 0 }
+		const res = { count_role: 0, count_shop: 0, count_item: 0, count_alliance: 0 }
 		for (const rol of roles) {
 			const rol_check = await prisma.role.findFirst({ where: { name: rol } })
 			if (!rol_check) { 
@@ -79,7 +80,32 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 				}
 			}
 		}
-
-		context.send(`✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}`)
+		const alliance = [
+			`https://vk.com/public170217030`, `https://vk.com/hogwarts_anti`, 
+			`https://vk.com/talentummagic`, `https://vk.com/bilmor`, 
+			`https://vk.com/ilvermorny_magic`, `https://vk.com/academyofmagicartes`, 
+			`https://vk.com/club220783818`, `https://vk.com/lva_academy`, 
+			`https://vk.com/italian_magic_academy`, `https://vk.com/hogonline`, 
+			`https://vk.com/ho_briston`, `https://vk.com/hawkford`, 
+			`https://vk.com/a_kiris`, `https://vk.com/hogwarts.school_rp`, 
+			`https://vk.com/koldovstoretz_russia`, `https://vk.com/hogwarts_magic_top`, 
+			`https://vk.com/best_terra_britannia`, `https://vk.com/breakbills_academy`,
+			`https://vk.com/unimagicalarts`, `https://vk.com/rolle_wizard`,
+			//``, ``,
+		]
+		for (const alli of alliance) {
+			const temp = alli.replace(/.*[/]/, "");
+			const [group] = await vk.api.groups.getById({ group_id: temp });
+			if (!group) { continue }
+			const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
+			if (!alli_check) {
+				const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, }})
+				console.log(`Init alliance id: ${alli_cr.id} name: ${alli_cr.name} for users`)
+				res.count_alliance++
+			} else {
+				console.log(`Already init alliance name: ${group} for users`)
+			}
+		}
+		context.send(`✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}\n 🏠 Добавлено новых союзов: ${res.count_alliance}`)
 	})
 }

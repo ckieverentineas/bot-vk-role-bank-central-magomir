@@ -2,10 +2,10 @@ import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
 import { Fixed_Number_To_Five, Keyboard_Index } from "./helper"
 import prisma from "../events/module/prisma_client"
-import { User } from "@prisma/client"
+import { Alliance, User } from "@prisma/client"
 
 export async function Person_Register(context: any) {
-    const person: { name: null | string, alliance: null | string, class: null | string, spec: null | string } = { name: null, alliance: null, class: null, spec: null }
+    const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string } = { name: null, id_alliance: null, alliance: null, class: null, spec: null }
     let name_check = false
 	while (name_check == false) {
 		const name = await context.question( `🧷 Введите имя и фамилию нового персонажа`, timer_text)
@@ -43,6 +43,7 @@ export async function Person_Register(context: any) {
 			await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		} else {
 			person.alliance = answer_selector.text
+            person.id_alliance = answer_selector.text == 'Не союзник' ? -1 : 0
 			answer_check = true
 		}
 	}
@@ -53,7 +54,7 @@ export async function Person_Register(context: any) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
             let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежите:\n\n`
-            const builder_list: Array<String> = ["Академия Морктид", "Хогвартс - АНТИ. Академия Не Тёмных Искусств", "Balance Academy Talentum", "Школа магии и волшебства «Билмор»", "Ильверморни - Ilvermorny", "𝙰𝚌𝚊𝚍𝚎𝚖𝚢 𝚘𝚏 𝚖𝚊𝚐𝚒𝚌 '𝙰𝚛𝚝𝚎𝚜'", /*"RP TV - Ролевое телевидение",*/ "News of Magic - Новости магии", "Рубеж: на стыке миров", "Louisiana Voodoo Academy", "Академия Альтерстрего", "Хогвартс Онлайн", "Студенческий городок колледжа 'Хоукфорд'", "Магическая Академия 'Кирис'", "Школа магии Хогвартс", "Колдовстворец. Добро пожаловать в РФ", "Hᴀʀʀʏ ᴘᴏᴛᴛᴇʀ - ᴠíᴀ ʟáᴄᴛᴇᴀ - ʀᴏʟᴇ ɢᴀᴍᴇ - Хогвартс", /*"MEGALE DU NAMA - Поиск ролевиков",*/ "TERRA BRITANNIA", "Breakbills | Academy magic", "«Хор Арон» - Университет Магических Искусств." ]
+            const builder_list: Alliance[] = await prisma.alliance.findMany({})
 
             if (builder_list.length > 0) {
                 const limiter = 5
@@ -61,9 +62,9 @@ export async function Person_Register(context: any) {
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
                     console.log(`i=${i} idsent=${id_builder_sent}`)
-                    keyboard.textButton({ label: `👀 ${i}-${builder.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                    keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                    event_logger += `\n\n💬 ${i}-${builder}`
+                    event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
                     /*
                     const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                     counter++
@@ -94,7 +95,8 @@ export async function Person_Register(context: any) {
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
-                    person.alliance = answer1.payload.target
+                    person.alliance = answer1.payload.target.name
+                    person.id_alliance = answer1.payload.target.id
                     alliance_check = true
                 }
 		    }
@@ -133,7 +135,7 @@ export async function Person_Register(context: any) {
     console.log(person)
     const role = await prisma.role.findFirst({})
     if (!role) { await prisma.role.create({ data: { name: "user" } }) }
-    const save = await prisma.user.create({ data: { name: person.name!, alliance: person.alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
+    const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
     await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
     console.log(`Success save new person idvk: ${context.senderId}`)
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })

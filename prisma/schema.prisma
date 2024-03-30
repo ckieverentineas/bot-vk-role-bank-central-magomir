@@ -21,7 +21,7 @@ model User {
   class       String
   idvk        Int
   spec        String
-  alliance String
+  id_alliance Int?
   lvl         Int           @default(0)
   medal      Int           @default(5)
   gold        Int           @default(0)
@@ -118,4 +118,10 @@ model Analyzer {
   user         User     @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_user      Int
   crdate       DateTime @default(now())
+}
+
+model Alliance {
+  id      Int      @id @default(autoincrement())
+  name    String
+  idvk  Int
 }

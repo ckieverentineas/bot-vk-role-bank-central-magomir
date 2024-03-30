@@ -6,8 +6,9 @@ import { Accessed, Keyboard_Index } from "./core/helper";
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
-import { Item, User } from "@prisma/client";
+import { Alliance, Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
+import { Alliance_Add } from "./events/module/alliance";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -617,7 +618,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             id_user: Number(uid.text)
                         }
                     })
-                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.alliance}\n 🧷 Страница: https://vk.com/id${get_user.idvk}` )
+                    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
+                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}` )
                     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
                     let cart = ''
                     const underwear = await prisma.trigger.count({ where: {    id_user: get_user.id, name:   'underwear', value:  false } })
@@ -1533,6 +1535,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/➕👤/, async (context) => {
         await Person_Register(context)
+    })
+    hearManager.hear(/➕🌐/, async (context) => {
+        await Alliance_Add(context)
     })
     hearManager.hear(/🔃👥/, async (context) => {
         await Person_Selector(context)
