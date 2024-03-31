@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, timer_text_oper, vk } from '../index';
-import { Accessed, Keyboard_Index } from "./core/helper";
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index } from "./core/helper";
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
@@ -706,6 +706,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         .textButton({ label: '✏Положение', payload: { command: 'edit_class' }, color: 'secondary' }).row()
                         .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
                         .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
+                        .textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row()
                         .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' })
                         .oneTime().inline(),
                         answerTimeLimit
@@ -720,7 +721,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         const config: any = {
                             'edit_class': Edit_Class,
                             'edit_spec': Edit_Spec,
-                            'edit_name': Edit_Name
+                            'edit_name': Edit_Name,
+                            'edit_alliance': Edit_Alliance
                         }
                         await config[answer1.payload.command](id)
                     } else {
@@ -840,6 +842,106 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 } else {
                     await context.send(`💡 Ввведите до 32 символов включительно!`)
                 }
+            }
+        }
+        async function Edit_Alliance(id: number){
+            const user: any = await prisma.user.findFirst({ where: { id: id } })
+            const person: { id_alliance: null | number, alliance: null | string,  } = { id_alliance: null, alliance: null }
+            let answer_check = false
+            while (answer_check == false) {
+                const answer_selector = await context.question(`🧷 Укажите ваш статус в Министерстве Магии`,
+                    {	
+                        keyboard: Keyboard.builder()
+                        .textButton({ label: 'Союзник', payload: { command: 'student' }, color: 'secondary' })
+                        .textButton({ label: 'Не союзник', payload: { command: 'professor' }, color: 'secondary' })
+                        .textButton({ label: 'Соло', payload: { command: 'citizen' }, color: 'secondary' })
+                        .oneTime().inline(), answerTimeLimit
+                    }
+                )
+                if (answer_selector.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+                if (!answer_selector.payload) {
+                    await context.send(`💡 Жмите только по кнопкам с иконками!`)
+                } else {
+                    person.alliance = answer_selector.text
+                    person.id_alliance = answer_selector.text == 'Не союзник' ? -1 : 0
+                    answer_check = true
+                }
+            }
+            let alliance_check = false
+            if (person.alliance == 'Союзник') {
+                let id_builder_sent = 0
+                while (!alliance_check) {
+                    const keyboard = new KeyboardBuilder()
+                    id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
+                    let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежите:\n\n`
+                    const builder_list: Alliance[] = await prisma.alliance.findMany({})
+        
+                    if (builder_list.length > 0) {
+                        const limiter = 5
+                        let counter = 0
+                        for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                            const builder = builder_list[i]
+                            console.log(`i=${i} idsent=${id_builder_sent}`)
+                            keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                            //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
+                            event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
+                            /*
+                            const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                            counter++
+                        }
+                        event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+                        //предыдущий офис
+                        if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
+                            keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+                        }
+                        //следующий офис
+                        if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
+                            keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
+                        }
+                    } else {
+                        event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+                    }
+                    const answer1: any = await context.question(`${event_logger}`,
+                        {	
+                            keyboard: keyboard.inline(), answerTimeLimit
+                        }
+                    )
+                    if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+                    console.log(answer1)
+                    if (!answer1.payload) {
+                        await context.send(`💡 Жмите только по кнопкам с иконками!`)
+                    } else {
+                        console.log(answer1)
+                        if (answer1.text == '→' || answer1.text =='←') {
+                            id_builder_sent = answer1.payload.id_builder_sent
+                        } else {
+                            person.alliance = answer1.payload.target.name
+                            person.id_alliance = answer1.payload.target.id
+                            alliance_check = true
+                        }
+                    }
+                }
+            }
+            const alli_get_was: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
+            const update_alliance = await prisma.user.update({ where: { id: user.id }, data: { id_alliance: person.id_alliance } })
+            const alli_get_be: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(update_alliance.id_alliance) } })
+            if (update_alliance) {
+                await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
+                try {
+                    await vk.api.messages.send({
+                        user_id: user.idvk,
+                        random_id: 0,
+                        message: `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`
+                    })
+                    await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
+                } catch (error) {
+                    console.log(`User ${user.idvk} blocked chating with bank`)
+                }
+                await vk.api.messages.send({
+                    peer_id: chat_id,
+                    random_id: 0,
+                    message: `⚙ @id${context.senderId}(Admin) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
+                })
             }
         }
 

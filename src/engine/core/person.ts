@@ -218,6 +218,7 @@ export async function Person_Selector(context: any) {
     const person_was = await prisma.user.findFirst({ where: { id: account?.select_user } })
     const person_sel_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel } })
     await context.send(`⚙ Вы сменили персонажа\n с ${person_was?.id}💳 ${person_was?.name}👤\n на ${person_get?.id}💳 ${person_get?.name}👤`)
+    await Keyboard_Index(context, `⌛ Сменили вам персонажа...`)
     //await context.send(`Ваш персонаж:\nGUID: ${person_get?.id_account}\nUID: ${person_get?.id}\nФИО: ${person_get?.name}\nАльянс: ${person_get?.alliance}\nЖетоны: ${person_get?.medal}\nРегистрация: ${person_get?.crdate}\n\nИнвентарь: Ла-Ла-Ла`)
 }
 
