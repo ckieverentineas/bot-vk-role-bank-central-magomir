@@ -1625,12 +1625,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const achievement_counter = await prisma.achievement.count({ where: { id_user: user_check.id } })
 		await Image_Random(context, "bank")
 		if (user_check.id_role != 1) {
-			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.06v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.13v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
 		} else {
-			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.06v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк ММ Онлайн 0.13v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
 		}
 		const user_inf = await User_Info(context)
-		await context.send(`${user_inf.first_name}, чтобы авторизоваться, нажмите кнопку под этим сообщением!`, {
+		await context.send(`${user_inf.first_name}, чтобы авторизоваться в Центробанк ММ Онлайн 0.13v, нажмите кнопку под этим сообщением!`, {
 			keyboard: new KeyboardBuilder().callbackButton({
 				label: '✅ Подтвердить авторизацию',
 				payload: {
