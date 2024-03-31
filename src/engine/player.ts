@@ -739,8 +739,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 }
             })
             let name_check = false
+            const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
+            const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
             while (name_check == false) {
-                const name: any = await context.question(`🧷 Укажите имя в ${user.alliance}. Для ${user.name}. Введите новое имя до 64 символов:`, timer_text)
+                const name: any = await context.question(`🧷 Укажите имя в ${alli_sel}. Для ${user.name}. Введите новое имя до 64 символов:`, timer_text)
                 if (name.isTimeout) { return await context.send(`⏰ Время ожидания на изменение имени для ${user.name} истекло!`) }
                 if (name.text.length <= 64) {
                     name_check = true
@@ -774,8 +776,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         async function Edit_Class(id: number){
             const user: any = await prisma.user.findFirst({ where: { id: id } })
             let answer_check = false
+            const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
+            const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
             while (answer_check == false) {
-                const answer1: any = await context.question(`🧷 Укажите положение в ${user.alliance} для ${user.name}, имеющего текущий статус: ${user.class}. `,
+                const answer1: any = await context.question(`🧷 Укажите положение в ${alli_sel} для ${user.name}, имеющего текущий статус: ${user.class}. `,
                     {
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Ученик', payload: { command: 'grif' }, color: 'secondary' })
@@ -815,8 +819,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         async function Edit_Spec(id: number){
             const user: any = await prisma.user.findFirst({ where: { id: id } })
             let spec_check = false
+            const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
+            const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
 		    while (spec_check == false) {
-                const spec: any = await context.question(`🧷 Укажите специализацию в ${user.alliance}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+                const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
                 if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
                 if (spec.text.length <= 32) {
                     spec_check = true
@@ -881,7 +887,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         let counter = 0
                         for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                             const builder = builder_list[i]
-                            console.log(`i=${i} idsent=${id_builder_sent}`)
                             keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                             //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                             event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
@@ -907,11 +912,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         }
                     )
                     if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
-                    console.log(answer1)
                     if (!answer1.payload) {
                         await context.send(`💡 Жмите только по кнопкам с иконками!`)
                     } else {
-                        console.log(answer1)
                         if (answer1.text == '→' || answer1.text =='←') {
                             id_builder_sent = answer1.payload.id_builder_sent
                         } else {

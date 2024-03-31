@@ -11,8 +11,6 @@ export async function Card_Enter(context:any) {
     const get_user: User | null | undefined = await Person_Get(context)
     if (get_user) {
         const attached = await Image_Text_Add_Card(context, 50, 650, get_user)
-        const artefact_counter = await prisma.artefact.count({ where: { id_user: get_user.id } })
-        const achievement_counter = await prisma.achievement.count({ where: { id_user: get_user.id } })
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} `
         //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}

@@ -1,6 +1,0 @@
--- CreateTable
-CREATE TABLE "Alliance" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "name" TEXT NOT NULL,
-    "idvk" INTEGER NOT NULL
-);

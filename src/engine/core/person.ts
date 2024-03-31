@@ -61,7 +61,6 @@ export async function Person_Register(context: any) {
                 let counter = 0
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
-                    console.log(`i=${i} idsent=${id_builder_sent}`)
                     keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                     event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
@@ -87,11 +86,9 @@ export async function Person_Register(context: any) {
 		    	}
 		    )
             if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
-            console.log(answer1)
 		    if (!answer1.payload) {
 		    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		    } else {
-                console.log(answer1)
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
@@ -131,8 +128,6 @@ export async function Person_Register(context: any) {
 		} else { await context.send(`💡 Ввведите до 30 символов включительно!`) }
 	}
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-    console.log(account)
-    console.log(person)
     const role = await prisma.role.findFirst({})
     if (!role) { await prisma.role.create({ data: { name: "user" } }) }
     const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
@@ -175,7 +170,6 @@ export async function Person_Selector(context: any) {
                 let counter = 0
                 for (let i=id_builder_sent; i < person.length && counter < limiter; i++) {
                     const builder = person[i]
-                    console.log(`i=${i} idsent=${id_builder_sent}`)
                     keyboard.textButton({ label: `👀 ${builder.id}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, id_person: builder.id }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                     event_logger += `\n\n💬 ${builder.id}-${builder.name}`
@@ -204,7 +198,6 @@ export async function Person_Selector(context: any) {
             if (!answer1.payload) {
                 await context.send(`💡 Жмите только по кнопкам с иконками!`)
             } else {
-                console.log(answer1)
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
@@ -227,8 +220,19 @@ export async function Person_Detector(context: any) {
     const person_find = await prisma.user.findFirst({ where: { id: account?.select_user } })
     if (!person_find) { 
         const person_sel = await prisma.user.findFirst({ where: { id_account: account?.id } })
-        const account_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel?.id } })
-        if (account_up) { console.log(`succes init default person for ${account?.idvk}`) }
+        if (!person_sel) {
+            await context.send(`⚠ У вас еще нет персонажа, создать?`,
+                { 	
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: '➕👤', payload: { command: 'Согласиться' }, color: 'secondary' }).oneTime().inline(),
+                    answerTimeLimit
+                }
+            )
+        } else {
+            const account_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel?.id } })
+            if (account_up) { console.log(`succes init default person for ${account?.idvk}`) }
+        }
+        
     }
 }
 

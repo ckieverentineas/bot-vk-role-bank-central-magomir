@@ -94,13 +94,12 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			}
 		);
 		if (visit.isTimeout) { return await context.send(`⏰ Время ожидания активности истекло!`) }
-		console.log(context)
 		const save = await prisma.account.create({	data: {	idvk: context.senderId } })
 		const info = await User_Info(context)
-		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Здорово были, волшебник-неудачник! \n И протянул вам вашу карточку. ⚖Вы получили картотеку, ${info.first_name}\nUID: ${save.id}. \n idvk: ${save.idvk}\n Дата Регистрации: ${save.crdate}\n`)
+		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Добро пожаловать в мир меча и магии! \n И протянул вам вашу карточку.\n ⚖Вы получили картотеку, ${info.first_name}\n 🕯 GUID: ${save.id}. \n 🎥 idvk: ${save.idvk}\n ⚰ Дата Регистрации: ${save.crdate}\n`)
 		console.log(`Success save user idvk: ${context.senderId}`)
 		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
-		const ans_selector = `⁉ ${info.first_name} @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
+		const ans_selector = `⁉ @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
 		await vk.api.messages.send({
 			peer_id: chat_id,
 			random_id: 0,
