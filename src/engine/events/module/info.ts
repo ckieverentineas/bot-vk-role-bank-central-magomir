@@ -197,7 +197,7 @@ export async function Rank_Enter(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const stats = await prisma.analyzer.findFirst({ where: { id_user: user.id }})
-    let text = '⚙ Рейтинг ролевиков:\n\n'
+    let text = '⚙ Рейтинг персонажей:\n\n'
     const keyboard = new KeyboardBuilder()
 
 
@@ -230,7 +230,7 @@ export async function Rank_Enter(context: any) {
         }
         counter_last++
     }
-    text += `\n\n☠ В статистике участвует ${counter-1} ролевиков`
+    text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
     console.log(`User ${context.peerId} get rank information`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 

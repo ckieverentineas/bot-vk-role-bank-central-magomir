@@ -1521,7 +1521,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/права/, async (context: any) => {
-        if (context.senderId == root) {
+        const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
+        if (user_find?.id_role == 2) {
             const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
             if (uid.isTimeout) { return await context.send(`⏰ Время ожидания ввода банковского счета истекло!`) }
 			if (uid.text) {

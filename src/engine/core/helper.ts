@@ -109,12 +109,12 @@ export async function Book_Random_String(filename: string) {
 export async function Keyboard_Index(context: any, messa: any) {
     const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     const keyboard = new KeyboardBuilder()
-    if (user_check.idvk == root) {
-        keyboard.textButton({ label: 'Косой переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
-        .textButton({ label: 'права', payload: { command: 'sliz' }, color: 'negative' }).row()
-    }
     const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
+    if (user_check.idvk == root) {
+        keyboard.textButton({ label: 'Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
+    }
     if (user_find?.id_role === 2) {
+        keyboard.textButton({ label: 'права', payload: { command: 'sliz' }, color: 'negative' }).row()
         keyboard.textButton({ label: 'операции', payload: { command: 'sliz' }, color: 'positive' }).row()
         keyboard.textButton({ label: 'операция', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 

@@ -91,7 +91,8 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			`https://vk.com/koldovstoretz_russia`, `https://vk.com/hogwarts_magic_top`, 
 			`https://vk.com/best_terra_britannia`, `https://vk.com/breakbills_academy`,
 			`https://vk.com/unimagicalarts`, `https://vk.com/rolle_wizard`,
-			//``, ``,
+			`https://vk.com/rp_tv`, `https://vk.com/new_mm`,
+			`https://vk.com/megale_du_nama`, `https://vk.com/harrypotterpotteroman`
 		]
 		for (const alli of alliance) {
 			const temp = alli.replace(/.*[/]/, "");
