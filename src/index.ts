@@ -6,7 +6,7 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Keyboard_Index } from './engine/core/helper';
+import { Keyboard_Index, Worker_Checker } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
@@ -25,6 +25,7 @@ export const group_id: number = Number(process.env.group_id)//clear chat group
 export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
 export const timer_text_oper = { answerTimeLimit: 60_000 } // ожидать пять минут
 export const answerTimeLimit = 300_000 // ожидать пять минут
+export const starting_date = new Date(); // время работы бота
 //авторизация
 async function Group_Id_Get() {
 	const vk = new VK({ token: token, apiLimit: 1 });
@@ -159,5 +160,5 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 vk.updates.start().then(() => {
 	console.log('The Central Bank of the Ministry of Magic ready for services clients!')
 }).catch(console.error);
-
+setInterval(Worker_Checker, 86400000);
 process.on('warning', e => console.warn(e.stack))

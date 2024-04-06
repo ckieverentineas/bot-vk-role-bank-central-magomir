@@ -35,34 +35,54 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 		const items = [
 			{ 
 				target: `Питомцы`, item: [
-					{ name: `Хомячок`, price: 10, type: 'unlimited' }, { name: `Лягушка`, price: 10, type: 'unlimited' }, 
-					{ name: `Жаба`, price: 15, type: 'unlimited' }, { name: `Крыса`, price: 25, type: 'unlimited' }, 
-					{ name: `Кот (любого раскраса, кроме черного)`, price: 50, type: 'unlimited' }, { name: `Кот черный`, price: 60, type: 'unlimited' }, 
-					{ name: `Хорек`, price: 90, type: 'unlimited' }, { name: `Капибара`, price: 110, type: 'unlimited' }, 
-					{ name: `Сова`, price: 150, type: 'unlimited' }, { name: `Енот`, price: 155, type: 'unlimited' }, 
-					{ name: `Лис`, price: 180, type: 'unlimited' }, { name: `Лукотрус`, price: 220, type: 'unlimited' }, 
-					{ name: `Шишуга`, price: 300, type: 'unlimited' }, { name: `Нюхлер`, price: 400, type: 'unlimited' },
+					{ name: `Хомячок`, description: ``, price: 10, type: 'unlimited' },
+					{ name: `Лягушка`, description: ``, price: 10, type: 'unlimited' }, 
+					{ name: `Жаба`, description: ``, price: 15, type: 'unlimited' },
+					{ name: `Крыса`, description: ``, price: 25, type: 'unlimited' }, 
+					{ name: `Кот (любого раскраса, кроме черного)`, description: ``, price: 50, type: 'unlimited' },
+					{ name: `Кот черный`, description: ``, price: 60, type: 'unlimited' }, 
+					{ name: `Хорек`, description: ``, price: 90, type: 'unlimited' },
+					{ name: `Капибара`, description: ``, price: 110, type: 'unlimited' }, 
+					{ name: `Сова`, description: ``, price: 150, type: 'unlimited' },
+					{ name: `Енот`, description: ``, price: 155, type: 'unlimited' }, 
+					{ name: `Лис`, description: ``, price: 180, type: 'unlimited' },
+					{ name: `Лукотрус`, description: ``, price: 220, type: 'unlimited' }, 
+					{ name: `Шишуга`, description: ``, price: 300, type: 'unlimited' },
+					{ name: `Нюхлер`, description: ``, price: 400, type: 'unlimited' },
 				]
 			},
 			{ 
 				target: `Магические предметы`, item: [
-					{ name: `Фальшивые волшебные палочки-надувалочки`, price: 160, type: 'unlimited' }, { name: `Безголовая шляпа`, price: 160, type: 'unlimited' }, 
-					{ name: `Вредноскоп`, price: 175, type: 'unlimited' }, { name: `Драчливый телескоп`, price: 175, type: 'unlimited' }, 
-					{ name: `Кусачая кружка`, price: 180, type: 'unlimited' }, { name: `Перуанский порошок мгновенной тьмы`, price: 185, type: 'unlimited' }, 
-					{ name: `Сапоги-скороходы`, price: 185, type: 'unlimited' }, { name: `Одежда-щит`, price: 192, type: 'unlimited' }, 
+					{ name: `Фальшивые волшебные палочки-надувалочки`, description: `При взмахе превращается в случайный предмет.`, price: 160, type: 'unlimited' },
+					{ name: `Безголовая шляпа`, description: `Делает невидимой только голову.`, price: 160, type: 'unlimited' }, 
+					{ name: `Вредноскоп`, description: `Способен выявлять опасность и предупреждать о ней.`, price: 175, type: 'unlimited' },
+					{ name: `Драчливый телескоп`, description: `Бьет гирькой в глаз любому, кто попытается посмотреть в него.`, price: 175, type: 'unlimited' }, 
+					{ name: `Кусачая кружка`, description: `Чашка, неожиданно кусающая пьющего из неё за нос.`, price: 180, type: 'unlimited' },
+					{ name: `Перуанский порошок мгновенной тьмы`, descriprtion: `Щепотка, подброшенная в воздух, погружает в мгновенный мрак территорию на несколько метров вокруг.`, price: 185, type: 'unlimited' }, 
+					{ name: `Сапоги-скороходы`, description: `Значительно ускоряют походку и увеличивают шаг.`, price: 185, type: 'unlimited' },
+					{ name: `Одежда-щит`, description: `Защищает волшебника от слабых и средних заклинаний. От непростительных — не поможет. Действует 3 месяца с момента первого применения.`, price: 192, type: 'unlimited' }, 
 				]
 			},
 			{ 
 				target: `Артефакты и реликвии`, item: [
-					{ name: `Делюминатор`, price: 500, type: 'unlimited' }, { name: `Маховик времени`, price: 990, type: 'unlimited' }, 
-					{ name: `Мантия-невидимка`, price: 1500, type: 'unlimited' },
+					{ name: `Делюминатор`, description: `Используется для того, чтобы «вытянуть» свет из помещения или из уличных фонарей. Свет хранится в делюминаторе, пока его не вернут в источник освещения.`, price: 500, type: 'unlimited' },
+					{ name: `Маховик времени`, description: `Используется для того, чтобы посещать несколько лекций одновременно. С его помощью можно заново пережить недавнее прошлое, но изменить его нельзя. Действует в течение ролевого года с момента первого использования!`, price: 990, type: 'unlimited' }, 
+					{ name: `Мантия-невидимка`, description: `Действует в течение ролевого года с момента первого использования!`, price: 1500, type: 'unlimited' },
+					{ name: `Святой тапок`, description: `Заставляет собеседника соглашаться с вами и не бесить. Активируется шлепком собеседника по попе. Не действует на администрацию!`, price: 150, type: 'unlimited' },
+					{ name: `Ремень-худобздень`, description: `Делает фигуру стройнее, пока надет на владельца`, price: 100, type: 'unlimited' },
+					{ name: `Очки-нескрывайки`, description: `Позволяют видеть сквозь стены и иные препятствия`, price: 170, type: 'unlimited' },
+					{ name: `Рубаха-летяга`, description: `Если надеть ее на себя и потереть пуговицу, человек будет летать без метлы час. Можно использовать 5 раз с момента первого использования, затем становится обычной рубахой.`, price: 160, type: 'unlimited' },
+					{ name: `ОстроУх`, description: `Позволяет подслушать разговор на расстоянии 300 метров. Через стену - 200 метров`, price: 120, type: 'unlimited' },
+					{ name: `Робот-рукожоп`, description: `Робот для выполнения повседневных задач, сконструирован Агнетой Винтер`, price: 200, type: 'unlimited' },
 				]
 			},
 			{ 
 				target: `Спорт`, item: [
-					{ name: `Форма для квиддича`, price: 40, type: 'unlimited' }, { name: `Обмундирование вратаря`, price: 55, type: 'unlimited' }, 
-					{ name: `Набор для игры в квиддич`, price: 90, type: 'unlimited' }, { name: `Спортивная метла`, price: 110, type: 'unlimited' }, 
-					{ name: `Полный комплект для квиддича`, price: 200, type: 'unlimited' }, 
+					{ name: `Форма для квиддича`, description: `Для ловца, охотника и загонщика. В наличии все расцветки.`, price: 40, type: 'unlimited' },
+					{ name: `Обмундирование вратаря`, description: `В комплект входит форма, шлем, защита ног и рук, доспех.`, price: 55, type: 'unlimited' }, 
+					{ name: `Набор для игры в квиддич`, description: `1 квофл, 2 бладжера, 2 биты, 1 снитч.`, price: 90, type: 'unlimited' },
+					{ name: `Спортивная метла`, description: `В ассортименте.`, price: 110, type: 'unlimited' }, 
+					{ name: `Полный комплект для квиддича`, description: `Набор для квиддича, обмундирование для любой позиции, метла. В наличии все расцветки.`, price: 200, type: 'unlimited' }, 
 				]
 			}
 		]
@@ -72,10 +92,11 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			for (const item of el.item) {
 				const item_check = await prisma.item.findFirst({ where: { name: item.name, id_category: category.id } })
 				if (!item_check) { 
-					const item_cr = await prisma.item.create({ data: { name: item.name, price: item.price, id_category: category.id, type: item.type } }) 
+					const item_cr = await prisma.item.create({ data: { name: item.name, description: item.description, price: item.price, id_category: category.id, type: item.type } }) 
 					console.log(`Init item shop id: ${item_cr.id} name: ${item_cr.name} for users`)
 					res.count_item++
 				} else {
+					const item_up = await prisma.item.update({ where: { id: item_check.id }, data: { description: item.description } })
 					console.log(`Already init category shop name: ${item.name} for users`)
 				}
 			}
@@ -104,7 +125,7 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 				console.log(`Init alliance id: ${alli_cr.id} name: ${alli_cr.name} for users`)
 				res.count_alliance++
 			} else {
-				console.log(`Already init alliance name: ${group} for users`)
+				console.log(`Already init alliance name: ${group.id} for users`)
 			}
 		}
 		context.send(`✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}\n 🏠 Добавлено новых союзов: ${res.count_alliance}`)

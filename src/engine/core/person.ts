@@ -6,6 +6,20 @@ import { Alliance, User } from "@prisma/client"
 
 export async function Person_Register(context: any) {
     const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string } = { name: null, id_alliance: null, alliance: null, class: null, spec: null }
+    const answer = await context.question(`⌛ Вы уверены, что хотите приступить к процедуре создания нового персонажа?`,
+		{	
+			keyboard: Keyboard.builder()
+			.textButton({ label: 'Полностью', payload: { command: 'Согласиться' }, color: 'positive' }).row()
+			.textButton({ label: 'Передумал(а)', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime(),
+			answerTimeLimit
+		}
+	);
+	if (answer.isTimeout) { return await context.send(`⏰ Время ожидания подтверждения согласия истекло!`) }
+	if (!/да|yes|Согласиться|конечно|✏|Полностью|полностью/i.test(answer.text|| '{}')) {
+        await context.send(`⌛ Вы отменили создание персонажа!`)
+        await Keyboard_Index(context, `⌛ Отменяем алгоритмы...`)
+		return;
+	}
     let name_check = false
 	while (name_check == false) {
 		const name = await context.question( `🧷 Введите имя и фамилию нового персонажа`, timer_text)

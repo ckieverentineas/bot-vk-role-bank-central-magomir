@@ -113,7 +113,7 @@ export async function Shop_Enter(context: any) {
         let attached = null
         if (!user) { return }
         if (user) {
-            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.medal}`
+            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.medal}\n\n`
             const data: Item[] = await prisma.item.findMany({ where: { id_category: Number(input.id) } })
             const inventory: Inventory[] = await prisma.inventory.findMany({ where: { id_user: user.id } })
             if (data.length > 0) {
@@ -130,11 +130,12 @@ export async function Shop_Enter(context: any) {
                     const checker = await Searcher(inventory, data[i].id)
                     if (checker && data[i].type != 'unlimited') {
                         const text = `✅${data[i].name}`
-                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'positive' }).row()
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id }, color: 'positive' }).row()
                     } else {
                         const text = `🛒${data[i].price}🔘 - ${data[i].name}`
-                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i] }, color: 'secondary' }).row()
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id }, color: 'secondary' }).row()
                     }
+                    text += `🛒 Наименование: ${data[i].name}\n 💬 Описание: ${data[i].description}\n\n`
                 }
                 if (data.length >= 3 && bonus >= 3) {
                     keyboard.callbackButton({ label: '<', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current-3 }, color: 'secondary' })
@@ -166,6 +167,7 @@ export async function Shop_Enter(context: any) {
 export async function Shop_Bought(context: any) {
     if (context.eventPayload.command == "shop_bought" && context.eventPayload.item_sub == "item") {
         const input = context.eventPayload.value_sub
+        const item = await prisma.item.findFirst({ where: { id: Number(input) } })
         if (context?.eventPayload?.command == "shop_bought") {
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
@@ -173,7 +175,7 @@ export async function Shop_Bought(context: any) {
                 peer_id: context.peerId,
                 event_data: JSON.stringify({
                     type: "show_snackbar",
-                    text: `🔔 Вы уже купили ${input.name}`
+                    text: `🔔 Вы уже купили ${item!.name.slice(30)}`
                 })
             })
         }
@@ -181,7 +183,9 @@ export async function Shop_Bought(context: any) {
 }
 export async function Shop_Buy(context: any) {
     if (context.eventPayload.command == "shop_buy" && context.eventPayload.item_sub == "item") {
-        const input = context.eventPayload.value_sub
+        const item_id = context.eventPayload.value_sub
+        const input = await prisma.item.findFirst({ where: { id: Number(item_id) } })
+        if (!input) { return }
         const user: User | null | undefined = await Person_Get(context)
         if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })

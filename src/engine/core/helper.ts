@@ -1,7 +1,7 @@
 
 import { randomInt } from "crypto"
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { answerTimeLimit, chat_id, group_id, root, vk } from "../.."
+import { answerTimeLimit, chat_id, group_id, root, starting_date, vk } from "../.."
 import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
 import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
@@ -309,4 +309,23 @@ export async function Fixed_Number_To_Five(num: number) {
     res = num < 5 ? 0 : Math.floor(num / 5) * 5
     //console.log(`${num} --> ${res}`)
 	return res
+}
+export async function Worker_Checker() {
+    await vk.api.messages.send({
+        peer_id: chat_id,
+        random_id: 0,
+        message: `✅ Все ок! ${await Up_Time()}`,
+    })
+}
+
+async function Up_Time() {
+    const now = new Date();
+    const diff = now.getTime() - starting_date.getTime();
+    const timeUnits = [
+        { unit: "дней", value: Math.floor(diff / 1000 / 60 / 60 / 24) },
+        { unit: "часов", value: Math.floor((diff / 1000 / 60 / 60) % 24) },
+        { unit: "минут", value: Math.floor((diff / 1000 / 60) % 60) },
+        { unit: "секунд", value: Math.floor((diff / 1000) % 60) },
+    ];
+    return `Время работы: ${timeUnits.filter(({ value }) => value > 0).map(({ unit, value }) => `${value} ${unit}`).join(" ")}`
 }
