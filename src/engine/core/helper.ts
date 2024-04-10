@@ -124,7 +124,7 @@ export async function Keyboard_Index(context: any, messa: any) {
     .then(async (response: MessagesSendResponse) => { 
         await Sleep(1000)
         return vk.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
-    .then(() => { console.log(`User ${context.senderId} succes get keyboard`) })
+    .then(() => { Logger(`In a private chat, succes get keyboard is viewed by user ${context.senderId}`) })
     .catch((error) => { console.error(`User ${context.senderId} fail get keyboard: ${error}`) });
 
     // Получаем последнее сообщение из истории беседы
@@ -328,4 +328,21 @@ async function Up_Time() {
         { unit: "секунд", value: Math.floor((diff / 1000) % 60) },
     ];
     return `Время работы: ${timeUnits.filter(({ value }) => value > 0).map(({ unit, value }) => `${value} ${unit}`).join(" ")}`
+}
+
+
+export async function Logger(text: String) {
+    const project_name = `Magomir Central Bank`
+    /*const options = {
+        era: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long',
+        timeZone: 'UTC',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric'
+    };*/
+    console.log(`[${project_name}] --> ${text} <-- (${new Date().toLocaleString("ru"/*, options*/)})`)
 }

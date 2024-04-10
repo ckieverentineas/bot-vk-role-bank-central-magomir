@@ -4,6 +4,7 @@ import { UploadAllowedSource } from "vk-io";
 import { vk } from "../..";
 import { promises as fs } from 'fs';
 import prisma from "../events/module/prisma_client";
+import { Logger } from "./helper";
 
 export async function Image_Text_Add_Card(context: any, x: number, y: number, text: any) {
     const check = await prisma.user.findFirst({ where: { idvk: context.peerId } })
@@ -90,7 +91,7 @@ export async function Image_Interface(data: any, context: any) {
             need_px += Jimp.measureTextHeight(font, `${data[i].name} - ${data[i].price}`, need_max_width)
             need_px += Jimp.measureTextHeight(font, `${data[i].name} - ${data[i].price}`, need_max_width)
         } catch (e) {
-            console.log(`Нет картинки ${e}`)
+            await Logger(`Error found picture for generation: ${e}`)
         }
     }
     need_max_width = need_max_width > 0 ? need_max_width : 1920
@@ -106,7 +107,7 @@ export async function Image_Interface(data: any, context: any) {
             height_now += image_temp.getHeight()
             height_now += Jimp.measureTextHeight(font, `${data[i].name} - ${data[i].price}`, need_max_width)
         } catch (e) {
-            console.log(`Нет картинки ${e}`)
+            await Logger(`Error found picture for generation: ${e}`)
         }
     }
     image_interface.dither565().quality(0)
@@ -163,12 +164,12 @@ export async function Image_Interface_Inventory(data: any, context: any) {
                         counter2 = 0
                     }
                 } catch (e) {
-                    console.log(`Нет картинки ${e}`)
+                    await Logger(`Error found picture for generation: ${e}`)
                 }
             }
             image_interface.dither565().quality(0)
         } catch (e) {
-            console.log(`Нет картинки ${e}`)
+            await Logger(`Error found picture for generation: ${e}`)
         }
     }
     const attachment = await vk.upload.messagePhoto({

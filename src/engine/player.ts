@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, timer_text_oper, vk } from '../index';
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index } from "./core/helper";
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger } from "./core/helper";
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
@@ -126,7 +126,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/✏Тип/, async (context) => {
         if (context.messagePayload == null && context.senderId != root) {
-            console.log((`stop`))
+            await Logger(`In a private chat, stop correction item type user is viewed by admin ${context.senderId}`)
             return
         }
         const item_buy:any = await prisma.item.findFirst({ where: { name: context.messagePayload.command } })
@@ -155,7 +155,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/✏Имя/, async (context) => {
         if (context.messagePayload == null && context.senderId != root) {
-            console.log((`stop`))
+            await Logger(`In a private chat, stop correction name item is viewed by admin ${context.senderId}`)
             return
         }
         const item_buy:any = await prisma.item.findFirst({ where: { name: context.messagePayload.command } })
@@ -268,7 +268,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `🗿 @id${context.senderId}(Admin) > "+💰🧙" >\n${user_get?.gold}+${gold}=${money_put.gold}💰\n${user_get?.xp}+${xp}=${money_put.xp}🧙\n для @id${user_get?.idvk}(${user_get?.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get?.idvk} got ${gold} gold and ${xp} xp. Him/Her bank now ${money_put.gold}`)
+                await Logger(`In a private chat, user ${user_get?.idvk} got ${gold} gold and ${xp} xp. Him/Her bank now ${money_put.gold} by admin ${context.senderId}`)
             }
         }
         async function Multi_Down_Many(uids: number[]) {
@@ -298,7 +298,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `🗿 @id${context.senderId}(Admin) > "-💰🧙" >\n${user_get?.gold}-${gold}=${money_put.gold}💰\n${user_get?.xp}-${xp}=${money_put.xp}🧙\n для @id${user_get?.idvk}(${user_get?.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get?.idvk} left ${gold} gold and ${xp} xp. Him/Her bank now ${money_put.gold}`)
+                await Logger(`In a private chat, user ${user_get?.idvk} left ${gold} gold and ${xp} xp. Him/Her bank now ${money_put.gold} by admin ${context.senderId}`)
             }
         }
         //Модуль начислений
@@ -326,7 +326,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `🗿 @id${context.senderId}(Admin) > "+💰" > ${money_put.gold-count}💰+${count}💰=${money_put.gold}💰 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get.idvk} got ${count} gold. Him/Her bank now ${money_put.gold}`)
+                await Logger(`In a private chat, user ${user_get.idvk} got ${count} gold. Him/Her bank now ${money_put.gold} by admin ${context.senderId}`)
             }
         }
         async function Gold_Down_Many(uids: number[]) {
@@ -354,7 +354,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         random_id: 0,
                         message: `🗿 @id${context.senderId}(Admin) > "-💰" > ${money_put.gold+count}💰-${count}💰=${money_put.gold}💰 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                     })
-                    console.log(`User ${user_get.idvk} lost ${count} gold. Him/Her bank now ${money_put.gold}`)
+                    await Logger(`In a private chat, user ${user_get.idvk} lost ${count} gold. Him/Her bank now ${money_put.gold} by admin ${context.senderId}`)
                 } else {
                     const confirmq = await context.question(`⌛ Вы хотите снять ${count} 💰галлеонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.gold}. Уверены, что хотите сделать баланс: ${user_get.gold-count}`,
                         {
@@ -383,7 +383,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             random_id: 0,
                             message: `🗿 @id${context.senderId}(Admin) > "-💰" > ${money_put.gold+count}💰-${count}💰=${money_put.gold}💰 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                         })
-                        console.log(`User ${user_get.idvk} lost ${count} gold. Him/Her bank now ${money_put.gold}`)
+                        await Logger(`In a private chat, user ${user_get.idvk} lost ${count} gold. Him/Her bank now ${money_put.gold} by admin ${context.senderId}`)
                     } else {
                         await context.send(`💡 Нужно быть жестче! Греби бабло`)
                     }
@@ -414,7 +414,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `🗿 @id${context.senderId}(Admin) > "+🧙" > ${money_put.xp-count}🧙+${count}🧙=${money_put.xp}🧙 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get.idvk} got ${count} MO. Him/Her XP now ${money_put.xp}`)
+                await Logger(`In a private chat, user ${user_get.idvk} got ${count} MO. Him/Her XP now ${money_put.xp} by admin ${context.senderId}`)
             }
         }
         async function Xp_Down_Many(uids: number[]) {
@@ -443,7 +443,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         random_id: 0,
                         message: `🗿 @id${context.senderId}(Admin) > "-🧙" > ${money_put.xp+count}🧙-${count}🧙=${money_put.xp}🧙 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                     })
-                    console.log(`User ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp}`)
+                    await Logger(`In a private chat, user ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp} by admin ${context.senderId}`)
                 } else {
                     await context.send(`⌛ Вы хотите снять ${count} 🧙магического опыта c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.xp}. Уверены, что хотите сделать баланс: ${user_get.xp-count}? (Автоподтверждение)`)
                     const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { xp: user_get.xp - count } })
@@ -463,7 +463,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         random_id: 0,
                         message: `🗿 @id${context.senderId}(Admin) > "-🧙" > ${money_put.xp+count}🧙-${count}🧙=${money_put.xp}🧙 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                     })
-                    console.log(`User ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp}`)
+                    await Logger(`In a private chat, user ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp} by admin ${context.senderId}`)
                 }
             }
         }
@@ -496,7 +496,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         //Модуль вовзврата
         async function Back(id: number, count: number) {
-            console.log(`Admin ${context.senderId} canceled operation for user UID: ${id}`)
+            await Logger(`In a private chat, canceled operations for user UID ${id} by admin ${context.senderId}`)
             await context.send(`⚙ Операция отменена пользователем.`)
         }
         // модуль Министерских операций
@@ -525,7 +525,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `🗿 @id${context.senderId}(Admin) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal}`)
+                await Logger(`In a private chat, user ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
             }
         }
         async function Medal_Down_Many(uids: number[]) {
@@ -553,7 +553,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         random_id: 0,
                         message: `🗿 @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                     })
-                    console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                    await Logger(`In a private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
                 } else {
                     const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
                         {
@@ -582,7 +582,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             random_id: 0,
                             message: `🗿 @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                         })
-                        console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                        await Logger(`In a private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
                     } else {
                         await context.send(`💡 Нужно быть жестче! Греби жетоны`)
                     }
@@ -610,14 +610,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 			if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
                 const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
                 if (get_user) {
-                    console.log(`Admin ${context.senderId} opened ${get_user.idvk} card UID: ${get_user.id}`)
+                    await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
                     name_check = true
 				    datas.push({id: `${uid.text}`})
-                    const artefact_counter = await prisma.artefact.count({
-                        where: {
-                            id_user: Number(uid.text)
-                        }
-                    })
                     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
                     await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}` )
                     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
@@ -764,6 +759,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             random_id: 0,
                             message: `⚙ @id${context.senderId}(Admin) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`
                         })
+                        await Logger(`In a private chat, changed name user from ${user.name} on ${update_name.name} for ${update_name.idvk} by admin ${context.senderId}`)
                     }
                     if (name.text.length > 32) {
                         await context.send(`⚠ Новые инициалы не влезают на стандартный бланк (32 символа)! Придется использовать бланк повышенной ширины, с доплатой 1G за каждый не поместившийся символ.`)
@@ -811,6 +807,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             random_id: 0,
                             message: `⚙ @id${context.senderId}(Admin) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
                         })
+                        await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
                     }
                     answer_check = true
                 }
@@ -844,6 +841,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             random_id: 0,
                             message: `⚙ @id${context.senderId}(Admin) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name})`
                         })
+                        await Logger(`In a private chat, changed specialization user from ${user.spec} on ${update_spec.spec} for ${update_spec.idvk} by admin ${context.senderId}`)
                     }
                 } else {
                     await context.send(`💡 Ввведите до 32 символов включительно!`)
@@ -945,6 +943,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `⚙ @id${context.senderId}(Admin) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
                 })
+                await Logger(`In a private chat, changed alliance user from ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} on ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} for ${update_alliance.idvk} by admin ${context.senderId}`)
             }
         }
 
@@ -989,7 +988,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             message: `⚙ @id${context.senderId}(Admin) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name})`
                         })
                     }
-                    console.log(`Admin ${context.senderId} deleted user: ${user_del.idvk}`)
+                    await Logger(`In database, deleted user: ${user_del.idvk}-${user_del.id} by admin ${context.senderId}`)
                 } 
             } else {
                 await context.send(`⚙ Удаление ${user_get.name} отменено.`)
@@ -1131,7 +1130,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             } else {
                 await context.send(`✉ Товары отсутствуют =(`)
             }
-            console.log(`Admin ${context.senderId} see artefacts from user UID: ${id}`)
+            await Logger(`In private chat, the inventory user uid ${id} is viewed by admin ${context.senderId}`)
         }
 
         //Модуль мульти начислений
@@ -1350,7 +1349,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 random_id: 0,
                 message: `⚙ @id${context.senderId}(Admin) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
             })
-            console.log(`User ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal}`)
+            await Logger(`In private chat, user ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
         }
         async function Medal_Down(id: number) {
             const count: number = await Ipnut_Gold() 
@@ -1373,7 +1372,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     random_id: 0,
                     message: `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 })
-                console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                await Logger(`In private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
             } else {
                 const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
                     {
@@ -1401,7 +1400,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         random_id: 0,
                         message: `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                     })
-                    console.log(`User ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal}`)
+                    await Logger(`In private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
                 } else {
                     await context.send(`💡 Нужно быть жестче! Греби жетоны`)
                 }
@@ -1422,6 +1421,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     answerTimeLimit                                                                       
                 }
             )
+            await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
             if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
             if (ans_again.payload && ans_again.payload.command != 'back') {
                 const config: any = {
@@ -1466,7 +1466,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     message: `⚙ @id${context.senderId}(Admin) > "🚫👜" > товар ${item.name} пожертвовали в Азкабан! у @id${user_find.idvk}(${user_find.name})`
                 })
             }
-            console.log(`Admin ${context.senderId} destroy item from user UID: ${user_find?.idvk}`)
+            await Logger(`In database deleted item ${item.name}-${art_del.id} for user ${user_find?.idvk}-${user_find?.id} by admin ${context.senderId}`)
         }
         await Keyboard_Index(context, '💡 Был товар, нееет товара!')
     })
@@ -1515,9 +1515,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 random_id: 0,
                 message: `⚙ @id${context.senderId}(Root) становится администратором!)`
             })
-            console.log(`Super user ${context.senderId} got root`)
+            await Logger(`Super user ${context.senderId} got root`)
         }
-        
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/права/, async (context: any) => {
@@ -1565,7 +1564,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                                     random_id: 0,
                                     message: `⚙ @id${context.senderId}(Root) > делает администратором @id${get_user.idvk}(${get_user.name})`
                                 })
-                                console.log(`Admin ${context.senderId} set status admin for ${get_user.idvk}`)
+                                await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                             } else {
                                 await context.send(`💡 Ошибка`)
                             }
@@ -1589,7 +1588,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                                     random_id: 0,
                                     message: `⚙ @id${context.senderId}(Root) > делает обычным пользователем @id${get_user.idvk}(${get_user.name})`
                                 })
-                                console.log(`Admin ${context.senderId} drop status admin for ${get_user.idvk}`)
+                                await Logger(`In private chat, left status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                             } else {
                                 await context.send(`💡 Ошибка`)
                             }
@@ -1613,16 +1612,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 random_id: 0,
                 message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
             })
+            await Logger(`In private chat, did backup database by admin ${context.senderId}`)
         }
     })
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const user_count = await prisma.user.count()
 		const sums: any = await prisma.user.aggregate({ _sum: { medal: true, lvl: true, xp: true } })
-		const artefacts: any = await prisma.artefact.count()
-        const achievement: any = await prisma.achievement.count()
         const user_check: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
-        const artefact_counter = await prisma.artefact.count({ where: { id_user: user_check.id } })
-        const achievement_counter = await prisma.achievement.count({ where: { id_user: user_check.id } })
 		await Image_Random(context, "bank")
 		if (user_check.id_role != 1) {
 			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.13v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
@@ -1639,6 +1635,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 				}
 			}).inline()
 		})
+        await Logger(`In private chat, invite enter in system is viewed by user ${context.senderId}`)
     })
     hearManager.hear(/➕👤/, async (context) => {
         await Person_Register(context)

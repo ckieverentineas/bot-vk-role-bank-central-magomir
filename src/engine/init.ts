@@ -4,6 +4,7 @@ import { randomInt } from "crypto";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { vk } from "..";
+import { Logger } from "./core/helper";
 
 const prisma = new PrismaClient()
 
@@ -15,10 +16,10 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			const rol_check = await prisma.role.findFirst({ where: { name: rol } })
 			if (!rol_check) { 
 				const rol_cr = await prisma.role.create({ data: { name: rol } }) 
-				console.log(`Init role id: ${rol_cr.id} name: ${rol_cr.name} for users`)
+				await Logger(`In database, init role id ${rol_cr.id} name ${rol_cr.name} for users by admin ${context.senderId}`)
 				res.count_role++
 			} else {
-				console.log(`Already init role name: ${rol} for users`)
+				await Logger(`In database, already init role id ${rol_check.id} name ${rol_check.name} for users by admin ${context.senderId}`)
 			}
 		}
 		const categories_shop = [ `Питомцы`, `Магические предметы`, `Артефакты и реликвии`, `Спорт`]
@@ -26,10 +27,10 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			const cat_check = await prisma.category.findFirst({ where: { name: cat } })
 			if (!cat_check) { 
 				const cat_cr = await prisma.category.create({ data: { name: cat } }) 
-				console.log(`Init category shop id: ${cat_cr.id} name: ${cat_cr.name} for users`)
+				await Logger(`In database, init category shop id: ${cat_cr.id} name: ${cat_cr.name} for users by admin ${context.senderId}`)
 				res.count_shop++
 			} else {
-				console.log(`Already init category shop name: ${cat} for users`)
+				await Logger(`In database, already init category shop id ${cat_check.id} name ${cat_check.name} for users by admin ${context.senderId}`)
 			}
 		}
 		const items = [
@@ -93,11 +94,11 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 				const item_check = await prisma.item.findFirst({ where: { name: item.name, id_category: category.id } })
 				if (!item_check) { 
 					const item_cr = await prisma.item.create({ data: { name: item.name, description: item.description, price: item.price, id_category: category.id, type: item.type } }) 
-					console.log(`Init item shop id: ${item_cr.id} name: ${item_cr.name} for users`)
+					await Logger(`In database, init item shop id: ${item_cr.id} name: ${item_cr.name} for users by admin ${context.senderId}`)
 					res.count_item++
 				} else {
 					const item_up = await prisma.item.update({ where: { id: item_check.id }, data: { description: item.description } })
-					console.log(`Already init category shop name: ${item.name} for users`)
+					await Logger(`In database, already init item shop id: ${item_check.id} name: ${item_check.name} and updated for users by admin ${context.senderId}`)
 				}
 			}
 		}
@@ -113,7 +114,8 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			`https://vk.com/best_terra_britannia`, `https://vk.com/breakbills_academy`,
 			`https://vk.com/unimagicalarts`, `https://vk.com/rolle_wizard`,
 			`https://vk.com/rp_tv`, `https://vk.com/new_mm`,
-			`https://vk.com/megale_du_nama`, `https://vk.com/harrypotterpotteroman`
+			`https://vk.com/megale_du_nama`, `https://vk.com/harrypotterpotteroman`,
+			`https://vk.com/marjoramrg`
 		]
 		for (const alli of alliance) {
 			const temp = alli.replace(/.*[/]/, "");
@@ -122,10 +124,10 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 			const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
 			if (!alli_check) {
 				const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, }})
-				console.log(`Init alliance id: ${alli_cr.id} name: ${alli_cr.name} for users`)
+				await Logger(`In database, init alliance id: ${alli_cr.id} name: ${alli_cr.name} for users by admin ${context.senderId}`)
 				res.count_alliance++
 			} else {
-				console.log(`Already init alliance name: ${group.id} for users`)
+				await Logger(`In database, already init alliance id: ${alli_check.id} name: ${alli_check.name} for users by admin ${context.senderId}`)
 			}
 		}
 		context.send(`✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}\n 🏠 Добавлено новых союзов: ${res.count_alliance}`)

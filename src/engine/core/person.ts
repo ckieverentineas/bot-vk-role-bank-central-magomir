@@ -1,6 +1,6 @@
 import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
-import { Fixed_Number_To_Five, Keyboard_Index } from "./helper"
+import { Fixed_Number_To_Five, Keyboard_Index, Logger } from "./helper"
 import prisma from "../events/module/prisma_client"
 import { Alliance, User } from "@prisma/client"
 
@@ -146,7 +146,7 @@ export async function Person_Register(context: any) {
     if (!role) { await prisma.role.create({ data: { name: "user" } }) }
     const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
     await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
-    console.log(`Success save new person idvk: ${context.senderId}`)
+    await Logger(`In database, created new person GUID ${account?.id} UID ${save.id} by user ${context.senderId}`)
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
 	const ans_selector = `⁉ ${save.class} @id${account?.idvk}(${save.name}) ${save.spec} ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
 	await vk.api.messages.send({
@@ -225,6 +225,7 @@ export async function Person_Selector(context: any) {
     const person_was = await prisma.user.findFirst({ where: { id: account?.select_user } })
     const person_sel_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel } })
     await context.send(`⚙ Вы сменили персонажа\n с ${person_was?.id}💳 ${person_was?.name}👤\n на ${person_get?.id}💳 ${person_get?.name}👤`)
+    await Logger(`In private chat, changed drom person ${person_was?.name}-${person_was?.id} on ${person_get?.name}-${person_get?.id} by user ${context.senderId}`)
     await Keyboard_Index(context, `⌛ Сменили вам персонажа...`)
     //await context.send(`Ваш персонаж:\nGUID: ${person_get?.id_account}\nUID: ${person_get?.id}\nФИО: ${person_get?.name}\nАльянс: ${person_get?.alliance}\nЖетоны: ${person_get?.medal}\nРегистрация: ${person_get?.crdate}\n\nИнвентарь: Ла-Ла-Ла`)
 }
@@ -244,7 +245,7 @@ export async function Person_Detector(context: any) {
             )
         } else {
             const account_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel?.id } })
-            if (account_up) { console.log(`succes init default person for ${account?.idvk}`) }
+            if (account_up) { await Logger(`In private chat, succes init default person ${account_up.select_user} by user ${context.senderId}`) }
         }
         
     }

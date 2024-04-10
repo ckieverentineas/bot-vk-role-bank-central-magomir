@@ -6,7 +6,7 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Keyboard_Index, Worker_Checker } from './engine/core/helper';
+import { Keyboard_Index, Logger, Worker_Checker } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
@@ -59,10 +59,10 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	if (context.peerType == 'chat') { 
 		try { 
 			await vk.api.messages.delete({'peer_id': context.peerId, 'delete_for_all': 1, 'cmids': context.conversationMessageId, 'group_id': group_id})
-			console.log(`User ${context.senderId} sent message and deleted`)
+			await Logger(`In chat received a message from the user ${context.senderId} and was deleted`)
 			//await vk.api.messages.send({ peer_id: chat_id, random_id: 0, message: `✅🚫 @id${context.senderId} ${context.text}`})  
 		} catch (error) { 
-			console.log(`User ${context.senderId} sent message and can't deleted`)
+			await Logger(`In chat received a message from the user ${context.senderId} and wasn't deleted`)
 			//await vk.api.messages.send({ peer_id: chat_id, random_id: 0, message: `⛔🚫 @id${context.senderId} ${context.text}`}) 
 		}  
 		return
@@ -98,7 +98,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		const save = await prisma.account.create({	data: {	idvk: context.senderId } })
 		const info = await User_Info(context)
 		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Добро пожаловать в мир меча и магии! \n И протянул вам вашу карточку.\n ⚖Вы получили картотеку, ${info.first_name}\n 🕯 GUID: ${save.id}. \n 🎥 idvk: ${save.idvk}\n ⚰ Дата Регистрации: ${save.crdate}\n`)
-		console.log(`Success save user idvk: ${context.senderId}`)
+		await Logger(`In database created new user with uid [${save.id}] and idvk [${context.senderId}]`)
 		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
 		const ans_selector = `⁉ @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту GUID: ${save.id}!`
 		await vk.api.messages.send({
@@ -152,13 +152,13 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 	try {
 		await config[context.eventPayload.command](context)
 	} catch (e) {
-		console.log(`Ошибка события ${e}`)
+		await Logger(`Error event detected for callback buttons: ${e}`)
 	}
 	return await next();
 })
 
 vk.updates.start().then(() => {
-	console.log('The Central Bank of the Ministry of Magic ready for services clients!')
+	Logger('running succes')
 }).catch(console.error);
 setInterval(Worker_Checker, 86400000);
 process.on('warning', e => console.warn(e.stack))

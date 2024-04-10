@@ -1,5 +1,5 @@
 import { Context, KeyboardBuilder } from "vk-io"
-import { Fixed_Number_To_Five } from "../../core/helper"
+import { Fixed_Number_To_Five, Logger } from "../../core/helper"
 import prisma from "./prisma_client"
 import { Alliance } from "@prisma/client"
 import { chat_id, timer_text, vk } from "../../.."
@@ -114,7 +114,7 @@ export async function Alliance_Add(context: Context) {
 	    const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
 	    if (!alli_check) {
 	    	const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, }})
-	    	console.log(`Add new alliance id: ${alli_cr.id} name: ${alli_cr.name} for users`)
+	    	await Logger(`In database created new alliance id ${alli_cr.id} name ${alli_cr.name} by user ${context.peerId}`)
 	    	await context.send(`✅ Поздравляем с заключением нового союза!\n\n💬 ${alli_cr.id} - ${alli_cr.name}\n 🧷 Ссылка: https://vk.com/club${alli_cr.idvk}`)
             await vk.api.messages.send({
                 peer_id: chat_id,
@@ -122,7 +122,7 @@ export async function Alliance_Add(context: Context) {
                 message: `🌐 Поздравляем с заключением нового союза!\n\n💬 ${alli_cr.id} - ${alli_cr.name}\n 🧷 Ссылка: https://vk.com/club${alli_cr.idvk}`
             })
 	    } else {
-	    	console.log(`Already added alliance name: ${group} for users`)
+	    	await Logger(`In database already created alliance name ${group.id}`)
             await context.send(`🤝🏻 Союз уже был заключен с:\n\n💬 ${alli_check.id} - ${alli_check.name}\n 🧷 Ссылка: https://vk.com/club${alli_check.idvk}`)
 	    }
     } catch (e) {
@@ -142,7 +142,7 @@ async function Alliance_Destroy(context: Context, target: number) {
                 prisma.alliance.delete({ where: { id: alliance.id } }),
             ]).then(([alli_del]) => {
                 event_logger = `✅ Поздравляем с разрушением союза для:\n\n💬 ${alli_del.id} - ${alli_del.name}\n 🧷 Ссылка: https://vk.com/club${alli_del.idvk}` 
-                console.log(`User ${context.peerId} destroy alliance with ${alli_del.name}`);
+                Logger(`In database deleted alliance ${alli_del.name}-${alli_del.id} by user ${context.peerId}`);
                 vk.api.messages.send({
                     peer_id: chat_id,
                     random_id: 0,
@@ -151,7 +151,7 @@ async function Alliance_Destroy(context: Context, target: number) {
             })
             .catch((error) => {
                 event_logger = `⌛ Произошла ошибка разрушения союза, попробуйте позже` 
-                console.error(`Ошибка: ${error.message}`);
+                Logger(`Error delete alliance from database: ${error.message}`);
             });
         } else {
             event_logger = `🌐 Вы уверены, что хотите рассторгнуть союз с:\n\n💬 ${alliance.id} - ${alliance.name}\n 🧷 Ссылка: https://vk.com/club${alliance.idvk}`

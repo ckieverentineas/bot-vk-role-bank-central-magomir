@@ -5,6 +5,7 @@ import { Image_Interface, Image_Random } from "../../core/imagecpu"
 import { chat_id, vk } from "../../.."
 import { Analyzer_Buying_Counter } from "./analyzer"
 import { Person_Get } from "../../core/person"
+import { Logger } from "../../core/helper"
 
 async function Searcher(data: any, target: number) {
     let counter = 0
@@ -148,7 +149,7 @@ export async function Shop_Enter(context: any) {
             }
             keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_cancel' }, color: 'secondary' })
             .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
-            
+            await Logger(`In a private chat, open shop ${input.name} is viewed by user ${context.peerId}`)
             await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
             if (context?.eventPayload?.command == "shop_enter") {
                 await vk.api.messages.sendMessageEventAnswer({
@@ -192,7 +193,7 @@ export async function Shop_Buy(context: any) {
         if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
             const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
             const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: input.id } })
-            console.log(`User ${context.peerId} bought new item ${input.id}`)
+            await Logger(`In a private chat, bought a new item ${input.id} by user ${user.idvk}`)
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
@@ -212,7 +213,7 @@ export async function Shop_Buy(context: any) {
             await Analyzer_Buying_Counter(context)
             await Shop_Enter(context)
         } else {
-            console.log(`User ${context.peerId} can't buy new item ${input.id}`)
+            await Logger(`In a private chat, can't bought a new item ${input.id} by user ${user.idvk}`)
             if (context?.eventPayload?.command == "shop_buy") {
                 const ii = !item_inventory || input.type == 'unlimited' ? `💡 У вас  недостаточно средств для покупки ${input.name}!!` : `💡 У вас уже есть ${input.name}!`
                 await vk.api.messages.sendMessageEventAnswer({
@@ -229,6 +230,7 @@ export async function Shop_Buy(context: any) {
     }
 }
 export async function Shop_Cancel(context: any) {
+    await Logger(`In a private chat, left in shopping is viewed by user ${context.peerId}`)
     await Shop_Category_Enter(context)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -242,7 +244,6 @@ export async function Shop_Cancel(context: any) {
 }
 export async function Shop_Category_Enter(context: any) {
     const attached = await Image_Random(context, "shop")
-    console.log(`User ${context.peerId} enter in shopping`)
     const category: Category[] = await prisma.category.findMany({})
     let text = '✉ Орк сопроводил вас в Маголавку "Чудо в перьях" или по крайней мере дал карту...'
     if (category.length == 0) {
@@ -254,6 +255,7 @@ export async function Shop_Category_Enter(context: any) {
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+    await Logger(`In a private chat, enter in shopping is viewed by user ${context.peerId}`)
     if (context?.eventPayload?.command == "shop_category_enter") {
         await vk.api.messages.sendMessageEventAnswer({
             event_id: context.eventId,

@@ -6,6 +6,7 @@ import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "..
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "../../core/person"
+import { Logger } from "../../core/helper"
 
 export async function Card_Enter(context:any) {
     const get_user: User | null | undefined = await Person_Get(context)
@@ -23,7 +24,7 @@ export async function Card_Enter(context:any) {
         }
         keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-        console.log(`User ${get_user.idvk} see card`)
+        await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
         let ii = `В общем вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
         await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
         if (context?.eventPayload?.command == "card_enter") {
@@ -94,7 +95,7 @@ export async function Inventory_Enter(context: any) {
     const attached = await Image_Interface_Inventory(fUArr, context)
     let final: any = Array.from(new Set(compile));
     const text = final.length > 0 ? `✉ Вы приобрели следующее: \n ${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
-    console.log(`User ${context.peerId} see self inventory`)  
+    await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
     let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
@@ -121,7 +122,7 @@ export async function Admin_Enter(context: any) {
     }
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${puller}`, keyboard: keyboard, attachment: attached?.toString()})
-    console.log(`Admin ${context.peerId} see list administrators`) 
+    await Logger(`In a private chat, the list administrators is viewed by admin ${user.idvk}`)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
@@ -231,7 +232,7 @@ export async function Rank_Enter(context: any) {
         counter_last++
     }
     text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
-    console.log(`User ${context.peerId} get rank information`)
+    await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
 }
