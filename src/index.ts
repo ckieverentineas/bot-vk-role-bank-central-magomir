@@ -33,7 +33,7 @@ async function Group_Id_Get() {
 	const groupId = group.id;
 	return groupId
 }
-export const vk = new VK({ token: token, pollingGroupId: Number(Group_Id_Get()), apiLimit: 1 });
+export const vk = new VK({ token: token, pollingGroupId: Number(Group_Id_Get()), apiLimit: 20 });
 //инициализация
 const questionManager = new QuestionManager();
 const hearManager = new HearManager<IQuestionMessageContext>();

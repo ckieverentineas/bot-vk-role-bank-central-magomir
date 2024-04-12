@@ -139,7 +139,7 @@ export async function Person_Register(context: any) {
 		if (name.text.length <= 30) {
 			spec_check = true
 			person.spec = name.text
-		} else { await context.send(`💡 Ввведите до 30 символов включительно!`) }
+		} else { await context.send(`💡 Введите до 30 символов включительно!`) }
 	}
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     const role = await prisma.role.findFirst({})

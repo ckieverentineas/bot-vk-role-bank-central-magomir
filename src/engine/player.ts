@@ -844,7 +844,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         await Logger(`In a private chat, changed specialization user from ${user.spec} on ${update_spec.spec} for ${update_spec.idvk} by admin ${context.senderId}`)
                     }
                 } else {
-                    await context.send(`💡 Ввведите до 32 символов включительно!`)
+                    await context.send(`💡 Введите до 32 символов включительно!`)
                 }
             }
         }
@@ -976,7 +976,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk.api.messages.send({
                                 user_id: user_del.idvk,
                                 random_id: 0,
-                                message: `❗ Ваша карточка 💳UID: ${user_del.id} больше не действительна. Спасибо, что пользовались Центробанком ММ 🏦, ${user_del.name}. Возвращайтесь к нам снова!`
+                                message: `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались Центробанком Магомира Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`
                             })
                             await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
                         } catch (error) {
@@ -1005,7 +1005,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     trigger = true
                     datas.push({name: `${name.text}`})
                 } else {
-                    await context.send(`💡 Ввведите до 30 символов включительно!`)
+                    await context.send(`💡 Введите до 30 символов включительно!`)
                 }
             }
 
@@ -1038,7 +1038,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     trigger = true
                     datas.push({description: `${description.text}`})
                 } else {
-                    await context.send(`💡 Ввведите до 1000 символов включительно!`)
+                    await context.send(`💡 Введите до 1000 символов включительно!`)
                 }
             }
             const target: any = await prisma.user.findFirst({ where: { id } })

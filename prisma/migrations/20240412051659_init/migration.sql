@@ -62,6 +62,7 @@ CREATE TABLE "Inventory" (
 CREATE TABLE "Item" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT NOT NULL,
+    "description" TEXT,
     "price" INTEGER NOT NULL,
     "id_category" INTEGER NOT NULL,
     "type" TEXT NOT NULL,

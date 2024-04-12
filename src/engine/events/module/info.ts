@@ -92,7 +92,8 @@ export async function Inventory_Enter(context: any) {
         self.map( (itm: { [s: string]: any; } | ArrayLike<any>) => Object.values(itm).reduce((r, c) => r.concat(c), '') )
         .indexOf( Object.values(li).reduce((r, c) => r.concat(c), '') ) === idx
     )
-    const attached = await Image_Interface_Inventory(fUArr, context)
+    let attached = null
+    if ((fUArr && fUArr[0] != undefined) && fUArr.length <= 20) { attached = await Image_Interface_Inventory(fUArr, context) }
     let final: any = Array.from(new Set(compile));
     const text = final.length > 0 ? `✉ Вы приобрели следующее: \n ${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
     await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)

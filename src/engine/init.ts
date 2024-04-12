@@ -3,13 +3,14 @@ import { HearManager } from "@vk-io/hear";
 import { randomInt } from "crypto";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
-import { vk } from "..";
+import { root, vk } from "..";
 import { Logger } from "./core/helper";
 
 const prisma = new PrismaClient()
 
 export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
 	hearManager.hear(/init/, async (context: any) => {
+		if (context.senderId != root) { return }
 		const roles = [ 'user', 'admin' ]
 		const res = { count_role: 0, count_shop: 0, count_item: 0, count_alliance: 0 }
 		for (const rol of roles) {

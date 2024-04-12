@@ -108,6 +108,7 @@ async function Searcher(data: any, target: number) {
 
 export async function Shop_Enter(context: any) {
     if (context.eventPayload.item == "id") {
+        //console.log(`Shop: ${JSON.stringify(context)}`)
         const input = context.eventPayload.value
         const user: User | null | undefined = await Person_Get(context)
         let keyboard = new KeyboardBuilder()
@@ -122,7 +123,7 @@ export async function Shop_Enter(context: any) {
                 let counter_pict = 0
                 let bonus = context.eventPayload.current
                 for (let j = bonus; j < data.length; j++) { counter_pict++; if (counter_pict > 3) { continue } item_render.push({ name: data[j].name, price: `${data[j].price}` }) }
-                attached = await Image_Interface(item_render, context)
+                if (context.eventPayload.rendering) { attached = await Image_Interface(item_render, context) }
                 
                 let counter = 0
                 for (let i = bonus; i < data.length; i++) {
@@ -131,18 +132,18 @@ export async function Shop_Enter(context: any) {
                     const checker = await Searcher(inventory, data[i].id)
                     if (checker && data[i].type != 'unlimited') {
                         const text = `✅${data[i].name}`
-                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id }, color: 'positive' }).row()
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id, rendering: true }, color: 'positive' }).row()
                     } else {
                         const text = `🛒${data[i].price}🔘 - ${data[i].name}`
-                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id }, color: 'secondary' }).row()
+                        keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, current: bonus, item_sub: "item", value_sub: data[i].id, rendering: false }, color: 'secondary' }).row()
                     }
                     text += `🛒 Наименование: ${data[i].name}\n 💬 Описание: ${data[i].description}\n\n`
                 }
                 if (data.length >= 3 && bonus >= 3) {
-                    keyboard.callbackButton({ label: '<', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current-3 }, color: 'secondary' })
+                    keyboard.callbackButton({ label: '<', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current-3, rendering: true }, color: 'secondary' })
                 }
                 if (data.length >= 3 && bonus+3 < data.length) {
-                    keyboard.callbackButton({ label: '>', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current+3 }, color: 'secondary' })
+                    keyboard.callbackButton({ label: '>', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current+3, rendering: true }, color: 'secondary' })
                 }
             } else {
                 text += `\n ⛔ Здесь еще нет товаров!`
@@ -150,7 +151,12 @@ export async function Shop_Enter(context: any) {
             keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_cancel' }, color: 'secondary' })
             .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
             await Logger(`In a private chat, open shop ${input.name} is viewed by user ${context.peerId}`)
-            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+            if (context.eventPayload.rendering) {
+                await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+            } else {
+                await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard })
+            }
+            
             if (context?.eventPayload?.command == "shop_enter") {
                 await vk.api.messages.sendMessageEventAnswer({
                     event_id: context.eventId,
@@ -184,6 +190,7 @@ export async function Shop_Bought(context: any) {
 }
 export async function Shop_Buy(context: any) {
     if (context.eventPayload.command == "shop_buy" && context.eventPayload.item_sub == "item") {
+        //console.log(`Byuing: ${JSON.stringify(context)}`)
         const item_id = context.eventPayload.value_sub
         const input = await prisma.item.findFirst({ where: { id: Number(item_id) } })
         if (!input) { return }
@@ -251,7 +258,7 @@ export async function Shop_Category_Enter(context: any) {
     } 
     const keyboard = new KeyboardBuilder()
     for(const i in category) {
-        keyboard.callbackButton({ label: `🎪 ${category[i].name}`, payload: { command: "shop_enter", item: "id", value: category[i], current: 0 }, color: 'primary' }).row()
+        keyboard.callbackButton({ label: `🎪 ${category[i].name}`, payload: { command: "shop_enter", item: "id", value: category[i], current: 0, rendering: true }, color: 'primary' }).row()
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
