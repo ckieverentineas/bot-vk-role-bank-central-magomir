@@ -346,3 +346,12 @@ export async function Logger(text: String) {
     };*/
     console.log(`[${project_name}] --> ${text} <-- (${new Date().toLocaleString("ru"/*, options*/)})`)
 }
+
+export async function Send_Message(idvk: number, message: string, keyboard?: Keyboard) {
+    message = message ? message : 'invalid message'
+    try {
+        keyboard ? await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) : await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } )
+    } catch (e) {
+        console.log(`Ошибка отправки сообщения: ${e}`)
+    }
+}
