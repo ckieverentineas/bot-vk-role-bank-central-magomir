@@ -1646,6 +1646,25 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/🔃👥/, async (context) => {
         await Person_Selector(context)
     })
+    hearManager.hear(/отчет по ролкам/, async (context) => {
+        const res: Array<{ name: String, count: number }> = []
+        for (const alli of await prisma.alliance.findMany({})) {
+            res.push({ name: alli.name, count: 0 })
+        }
+        res.push({ name: `Соло`, count: 0 })
+        res.push({ name: `Не союзник`, count: 0 })
+        for (const us of await prisma.user.findMany({})) {
+            const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(us.id_alliance) } })
+            const alli_name = `${us.id_alliance == 0 ? `Соло` : us.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
+            for (const re of res) {
+                if (re.name == alli_name) {
+                    re.count++
+                }
+            }
+        }
+        const res_ans = res.map(re => `🌐 ${re.name} - ${re.count}\n`).join('')
+        await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
+    })
 }
 
     
