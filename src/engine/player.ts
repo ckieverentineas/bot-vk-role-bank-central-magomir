@@ -748,7 +748,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk.api.messages.send({
                                 user_id: user.idvk,
                                 random_id: 0,
-                                message: `⚙ Ваше имя в Хогвартс Онлайн изменилось с ${user.name} на ${update_name.name}.`
+                                message: `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`
                             })
                             await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
                         } catch (error) {
@@ -796,7 +796,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk.api.messages.send({
                                 user_id: user.idvk,
                                 random_id: 0,
-                                message: `⚙ Ваше положение в Хогвартс Онлайн изменилось с ${user.class} на ${update_class.class}.`
+                                message: `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`
                             })
                             await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
                         } catch (error) {
@@ -830,7 +830,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk.api.messages.send({
                                 user_id: user.idvk,
                                 random_id: 0,
-                                message: `⚙ Ваша специализация в Хогвартс Онлайн изменилась с ${user.spec} на ${update_spec.spec}.`
+                                message: `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`
                             })
                             await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
                         } catch (error) {
