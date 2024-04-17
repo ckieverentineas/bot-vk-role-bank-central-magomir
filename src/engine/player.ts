@@ -1647,6 +1647,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Person_Selector(context)
     })
     hearManager.hear(/отчет по ролкам/, async (context) => {
+        if (await Accessed(context) != 2) {
+            return
+        }
         const res: Array<{ name: String, count: number }> = []
         for (const alli of await prisma.alliance.findMany({})) {
             res.push({ name: alli.name, count: 0 })
