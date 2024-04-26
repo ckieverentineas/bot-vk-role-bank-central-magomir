@@ -1,5 +1,5 @@
 import { Context, KeyboardBuilder } from "vk-io"
-import { Fixed_Number_To_Five, Logger } from "../../core/helper"
+import { Fixed_Number_To_Five, Logger, Send_Message } from "../../core/helper"
 import prisma from "./prisma_client"
 import { Alliance } from "@prisma/client"
 import { chat_id, timer_text, vk } from "../../.."
@@ -101,7 +101,7 @@ export async function Alliance_Add(context: Context) {
     let targeta = null
 	while (spec_check == false) {
 		const name = await context.question( `🧷 Введите ссылку на сообщество нового союзника`, timer_text)
-		if (name.isTimeout) { return await context.send(`⏰ Время ожидания выбора специализации истекло!`) }
+		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода сообщества для нового союза истекло!`) }
 		if (name.text.length <= 256) {
 			spec_check = true
 			targeta = name.text
@@ -161,4 +161,25 @@ async function Alliance_Destroy(context: Context, target: number) {
     //назад хз куда
     keyboard.callbackButton({ label: '❌', payload: { command: 'alliance_control', office_current: 0, id_builder_sent, target: undefined, id_planet: id_planet }, color: 'secondary' }).inline().oneTime() 
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${event_logger}`, keyboard: keyboard/*, attachment: attached.toString()*/ })
+}
+
+export async function Alliance_Updater(context: any) {
+    await Send_Message(context.senderId, `🌐 Приступаем к процессу сверки названий ролевых проектов!`)
+    for (const alli of await prisma.alliance.findMany({})) {
+        const temp = alli.idvk
+        const [group] = await vk.api.groups.getById({ group_id: temp });
+        if (!group) { continue }
+        const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
+        if (alli_check) {
+            if (alli_check.name != group.name! ) {
+                const alli_cr = await prisma.alliance.update({ where: { id: alli_check.id }, data: { name: group.name! }})
+                await Logger(`In database, updated name alliance id: ${alli_check.id} from ${alli_check.name} to ${alli_cr.name} by admin ${context.senderId}`)
+                await Send_Message(chat_id, `🌐 Название Ролевого проекта ${alli_cr.id}-${alli_cr.idvk} изменилось с ${alli_check.name} на ${alli_cr.name}.`)
+                await Send_Message(context.senderId, `🌐 Название Ролевого проекта ${alli_cr.id}-${alli_cr.idvk} изменилось с ${alli_check.name} на ${alli_cr.name}.`)
+            } else {
+                await Logger(`In database, not need update name alliance id: ${alli_check.id} name: ${alli_check.name} by admin ${context.senderId}`)
+            }
+        }
+    }
+    await Send_Message(context.senderId, `🌐 Процесс сверки названий ролевых проектов завершен!`)
 }

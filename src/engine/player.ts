@@ -8,7 +8,7 @@ import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Alliance, Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
-import { Alliance_Add } from "./events/module/alliance";
+import { Alliance_Add, Alliance_Updater } from "./events/module/alliance";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1667,6 +1667,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         const res_ans = res.map(re => `🌐 ${re.name} - ${re.count}\n`).join('')
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
+    })
+    hearManager.hear(/!обновить ролки/, async (context) => {
+        if (await Accessed(context) != 2) {
+            return
+        }
+        await Alliance_Updater(context)
     })
 }
 
