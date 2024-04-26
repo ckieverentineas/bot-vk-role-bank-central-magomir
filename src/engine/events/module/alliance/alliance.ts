@@ -1,8 +1,8 @@
 import { Context, KeyboardBuilder } from "vk-io"
-import { Fixed_Number_To_Five, Logger, Send_Message } from "../../core/helper"
-import prisma from "./prisma_client"
+import { Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper"
+import prisma from "../prisma_client"
 import { Alliance } from "@prisma/client"
-import { chat_id, timer_text, vk } from "../../.."
+import { chat_id, timer_text, vk } from "../../../.."
 
 export async function Alliance_Control_Multi(context: Context) {
     const keyboard = new KeyboardBuilder()

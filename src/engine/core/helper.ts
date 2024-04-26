@@ -355,3 +355,24 @@ export async function Send_Message(idvk: number, message: string, keyboard?: Key
         console.log(`Ошибка отправки сообщения: ${e}`)
     }
 }
+
+export async function Confirm_User_Success(context: any, text: string) {
+    let res = { status: false, text: `` }
+    const confirmq = await context.question(`⁉ Вы уверены, что хотите ${text}`,
+        {
+            keyboard: Keyboard.builder()
+            .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+            .textButton({ label: 'Нет', payload: { command: 'not' }, color: 'secondary' })
+            .oneTime().inline(),
+            answerTimeLimit
+        }
+    )
+    if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение операции ${text} истекло!`) }
+    if (confirmq.payload.command === 'confirm') {
+        res.status = true
+        res.text = `✅ Success agree: ${text}`
+    } else {
+        res.text = `🚫 Success denied: ${text}`
+    }
+    return res
+}

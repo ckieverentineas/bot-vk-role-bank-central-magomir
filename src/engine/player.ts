@@ -8,7 +8,8 @@ import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Alliance, Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
-import { Alliance_Add, Alliance_Updater } from "./events/module/alliance";
+import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
+import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1673,6 +1674,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             return
         }
         await Alliance_Updater(context)
+    })
+    hearManager.hear(/!настроить коины/, async (context) => {
+        if (await Accessed(context) != 2) {
+            return
+        }
+        await Alliance_Coin_Printer(context)
     })
 }
 

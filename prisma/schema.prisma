@@ -125,4 +125,31 @@ model Alliance {
   id      Int      @id @default(autoincrement())
   name    String
   idvk  Int
+  AllianceCoin AllianceCoin[]
+  AllianceFacult AllianceFacult[]
+  AllianceStat AllianceStat[]
+}
+
+model AllianceCoin {
+  id      Int      @id @default(autoincrement())
+  name String
+  smile String
+  point Boolean @default(false)
+  alliance         Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance      Int
+}
+
+model AllianceFacult {
+  id      Int      @id @default(autoincrement())
+  name String
+  smile String
+  alliance         Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance      Int
+}
+
+model AllianceStat {
+  id      Int      @id @default(autoincrement())
+  facult_rank String
+  alliance         Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance      Int
 }
