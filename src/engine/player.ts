@@ -10,6 +10,7 @@ import { Alliance, Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
+import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1680,6 +1681,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             return
         }
         await Alliance_Coin_Printer(context)
+    })
+    hearManager.hear(/!настроить факультеты/, async (context) => {
+        if (await Accessed(context) != 2) {
+            return
+        }
+        await Alliance_Facult_Printer(context)
     })
 }
 
