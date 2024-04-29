@@ -44,9 +44,10 @@ export async function Main_Menu(context: any) {
     .callbackButton({ label: 'Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
     //.callbackButton({ label: 'Услуги', payload: { command: 'service_enter' }, color: 'primary' })
     if (user_check.id_role === 2) {
-        keyboard.callbackButton({ label: 'Админы', payload: { command: 'admin_enter' }, color: 'secondary' }).row()
-        .callbackButton({ label: 'Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' })
+        keyboard.callbackButton({ label: 'Админы', payload: { command: 'admin_enter' }, color: 'secondary' })
+        .callbackButton({ label: 'Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
     }
+    keyboard.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` })
     keyboard.callbackButton({ label: '🚫', payload: { command: 'exit' }, color: 'secondary' }).oneTime().inline()
     return keyboard
 }

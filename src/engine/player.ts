@@ -224,13 +224,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${JSON.stringify(uids)} истекло!`) }
         if (ans.payload && ans.payload.command != 'back') {
             const config: any = {
-                'gold_up_many': Gold_Up_Many,
-                'gold_down_many': Gold_Down_Many,
-                'xp_up_many': Xp_Up_Many,
-                'xp_down_many': Xp_Down_Many,
+                //'gold_up_many': Gold_Up_Many,
+                //'gold_down_many': Gold_Down_Many,
+                //'xp_up_many': Xp_Up_Many,
+                //'xp_down_many': Xp_Down_Many,
                 'back': Back,
-                'multi_up_many': Multi_Up_Many,
-                'multi_down_many': Multi_Down_Many,
+                //'multi_up_many': Multi_Up_Many,
+                //'multi_down_many': Multi_Down_Many,
                 'medal_up_many': Medal_Up_Many,
                 'medal_down_many': Medal_Down_Many
             }
@@ -241,7 +241,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await context.send(`✅ Процедура массовых операций под названием операция "Ы" успешно завершена!`)
         await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
-
+/*
         //Модуль мульти начислений
         async function Multi_Up_Many(uids: number[]) {
             await context.send(`⚠ Приступаем к начислению галлеонов`)
@@ -469,6 +469,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 }
             }
         }
+        */
         //Модуль обработки ввода пользователем 
         async function Ipnut_Gold() {
             let golden: number = 0
@@ -676,16 +677,16 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
         if (ans.payload && ans.payload.command != 'back') {
             const config: any = {
-                'gold_up': Gold_Up,
-                'gold_down': Gold_Down,
-                'xp_up': Xp_Up,
-                'xp_down': Xp_Down,
+                //'gold_up': Gold_Up,
+                //'gold_down': Gold_Down,
+                //'xp_up': Xp_Up,
+                //'xp_down': Xp_Down,
                 'back': Back,
                 'sub_menu': Sub_Menu,
-                'multi_up': Multi_Up,
-                'multi_down': Multi_Down,
-                'medal_up': Medal_Up,
-                'medal_down': Medal_Down
+                //'multi_up': Multi_Up,
+                //'multi_down': Multi_Down,
+                //'medal_up': Medal_Up,
+                //'medal_down': Medal_Down
             }
             const answergot = await config[ans.payload.command](Number(datas[0].id))
         } else {
@@ -1134,7 +1135,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
             await Logger(`In private chat, the inventory user uid ${id} is viewed by admin ${context.senderId}`)
         }
-
+/*
         //Модуль мульти начислений
         async function Multi_Up(id: number) {
             await context.send(`⚠ Приступаем к начислению галлеонов`)
@@ -1330,6 +1331,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 console.log(`User ${user_get.idvk} lost ${count} MO. Him/Her XP now ${money_put.xp}`)
             }
         }
+        */
         // модуль Министреских начислений
         async function Medal_Up(id: number) {
             const count: number = await Ipnut_Gold() 
@@ -1532,7 +1534,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 if (get_user) {
                     const artefact_counter = await prisma.artefact.count({ where: { id_user: Number(uid.text) } })
                     const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
-                    await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳UID: ${get_user.id} \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🔮Количество артефактов: ${artefact_counter}\n \n Права пользователя: ${role.name} `)
+                    await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳UID: ${get_user.id} \n 🔮Количество артефактов: ${artefact_counter}\n \n Права пользователя: ${role.name} `)
                     const answer1 = await context.question(`⌛ Что будем делать?`,
                         {
                             keyboard: Keyboard.builder()
@@ -1619,7 +1621,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const user_count = await prisma.user.count()
-		const sums: any = await prisma.user.aggregate({ _sum: { medal: true, lvl: true, xp: true } })
+		const sums: any = await prisma.user.aggregate({ _sum: { medal: true } })
         const user_check: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
 		await Image_Random(context, "bank")
 		if (user_check.id_role != 1) {

@@ -2,10 +2,10 @@ import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
 import { Fixed_Number_To_Five, Keyboard_Index, Logger } from "./helper"
 import prisma from "../events/module/prisma_client"
-import { Alliance, User } from "@prisma/client"
+import { Alliance, AllianceFacult, User } from "@prisma/client"
 
 export async function Person_Register(context: any) {
-    const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string } = { name: null, id_alliance: null, alliance: null, class: null, spec: null }
+    const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string, facult: null | string, id_facult: null | number } = { name: null, id_alliance: null, alliance: null, class: null, spec: null, facult: null, id_facult: null }
     const answer = await context.question(`⌛ Вы уверены, что хотите приступить к процедуре создания нового персонажа?`,
 		{	
 			keyboard: Keyboard.builder()
@@ -147,10 +147,62 @@ export async function Person_Register(context: any) {
 			person.spec = name.text
 		} else { await context.send(`💡 Введите до 30 символов включительно!`) }
 	}
+    let facult_check = false
+	if (await prisma.allianceFacult.findFirst({ where: { id_alliance: Number(person.id_alliance) } })) {
+        let id_builder_sent = 0
+        while (!facult_check) {
+            const keyboard = new KeyboardBuilder()
+            id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
+            let event_logger = `❄ Выберите факультет в ${person.alliance} на котором учитесь или к которому принадлежите:\n\n`
+            const builder_list: AllianceFacult[] = await prisma.allianceFacult.findMany({ where: { id_alliance: Number(person.id_alliance) } })
+
+            if (builder_list.length > 0) {
+                const limiter = 5
+                let counter = 0
+                for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                    const builder = builder_list[i]
+                    keyboard.textButton({ label: `${builder.smile} ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                    //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
+                    event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.smile} ${builder.name}\n`
+                    /*
+                    const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                    counter++
+                }
+                event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+                //предыдущий офис
+                if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
+                    keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+                }
+                //следующий офис
+                if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
+                    keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
+                }
+            } else {
+                event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+            }
+            const answer1: any = await context.question(`${event_logger}`,
+		    	{	
+		    		keyboard: keyboard.inline(), answerTimeLimit
+		    	}
+		    )
+            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+		    if (!answer1.payload) {
+		    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
+		    } else {
+                if (answer1.text == '→' || answer1.text =='←') {
+                    id_builder_sent = answer1.payload.id_builder_sent
+                } else {
+                    person.facult = answer1.payload.target.name
+                    person.id_facult = answer1.payload.target.id
+                    facult_check = true
+                }
+		    }
+        }
+    }
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     const role = await prisma.role.findFirst({})
     if (!role) { await prisma.role.create({ data: { name: "user" } }) }
-    const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk! } })
+    const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk!, id_facult: person.id_facult } })
     await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
     await Logger(`In database, created new person GUID ${account?.id} UID ${save.id} by user ${context.senderId}`)
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })

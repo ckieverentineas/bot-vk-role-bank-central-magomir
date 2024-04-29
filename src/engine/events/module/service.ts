@@ -31,7 +31,7 @@ export async function Service_Enter(context: any) {
             peer_id: context.peerId,
             event_data: JSON.stringify({
                 type: "show_snackbar",
-                text: `🔔 Ваш баланс: ${user?.xp}🧙 ${user?.gold}💰`
+                text: `🔔 Ваш баланс: ${user?.medal}💰`
             })
         })
     }
@@ -54,12 +54,12 @@ export async function Service_Convert_Galleon(context: any) {
     const attached = await Image_Random(context, "conv_gal")
     let text = `✉ Гоблин в черных очках предлагает обменять галлеоны на магический опыт.`
     const keyboard = new KeyboardBuilder()
-    if (user.gold >= 1) { keyboard.callbackButton({ label: '1💰 => 2🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 1 }, color: 'secondary' }) }
-    if (user.gold >= 10) { keyboard.callbackButton({ label: '10💰 => 20🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 10 }, color: 'secondary' }).row() }
-    if (user.gold >= 100) { keyboard.callbackButton({ label: '100💰 => 200🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 100 }, color: 'secondary' }) }
-    if (user.gold >= 1000) { keyboard.callbackButton({ label: '1000💰 => 2000🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 1000 }, color: 'secondary' }).row() }
+    if (user.medal >= 1) { keyboard.callbackButton({ label: '1💰 => 2🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 1 }, color: 'secondary' }) }
+    if (user.medal >= 10) { keyboard.callbackButton({ label: '10💰 => 20🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 10 }, color: 'secondary' }).row() }
+    if (user.medal >= 100) { keyboard.callbackButton({ label: '100💰 => 200🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 100 }, color: 'secondary' }) }
+    if (user.medal >= 1000) { keyboard.callbackButton({ label: '1000💰 => 2000🧙', payload: { command: 'service_convert_galleon_change', item: "gold", value: 1000 }, color: 'secondary' }).row() }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'service_cancel' }, color: 'secondary' }).row().inline().oneTime()
-    text += user.gold <= 0 ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.gold}💰 ${user?.xp}🧙, сколько сконвертируем?`
+    text += user.medal <= 0 ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.medal}💰, сколько сконвертируем?`
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()}) 
     if (context?.eventPayload?.command == "service_convert_galleon") {
         await vk.api.messages.sendMessageEventAnswer({
@@ -78,8 +78,8 @@ export async function Service_Convert_Galleon_Change(context: any) {
     if (!user) { return }
     if (context.eventPayload.command == "service_convert_galleon_change" && context.eventPayload.item == "gold") {
         const input = context.eventPayload.value
-        if (input <= user.gold) {
-            const convert_gal = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold-input, xp: user.xp+input*2 } })
+        if (input <= user.medal) {
+            const convert_gal = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal-input, } })
             console.log(`User ${context.peerId} converted ${input} G in ${input*2}MO`)
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
@@ -93,7 +93,7 @@ export async function Service_Convert_Galleon_Change(context: any) {
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⌛ @id${user.idvk}(${user.name}) конвертирует ${input}💰 в ${input*2}🧙. \n💳 Баланс: ${convert_gal?.gold}💰 ${convert_gal?.xp}🧙`
+                message: `⌛ @id${user.idvk}(${user.name}) конвертирует ${input}💰 в ${input*2}🧙. \n💳 Баланс: ${convert_gal?.medal}💰 ${convert_gal?.medal}🧙`
             })
             await Service_Convert_Galleon(context)
         } else {
@@ -115,12 +115,12 @@ export async function Service_Convert_Magic_Experience(context: any) {
     const attached = await Image_Random(context, "conv_mo")
     let text = `✉ Гоблин в черной одежде предлагает обменять магический опыт на галлеоны.`
     const keyboard = new KeyboardBuilder()
-    if (user.xp >= 15) { keyboard.callbackButton({ label: '15🧙 => 5💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 15 }, color: 'secondary' }) }
-    if (user.xp >= 30) { keyboard.callbackButton({ label: '30🧙 => 10💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 30 }, color: 'secondary' }).row() }
-    if (user.xp >= 75) { keyboard.callbackButton({ label: '75🧙 => 25💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 75 }, color: 'secondary' }) }
-    if (user.xp >= 150) { keyboard.callbackButton({ label: '150🧙 => 50💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 150 }, color: 'secondary' }).row() }
+    if (user.medal >= 15) { keyboard.callbackButton({ label: '15🧙 => 5💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 15 }, color: 'secondary' }) }
+    if (user.medal >= 30) { keyboard.callbackButton({ label: '30🧙 => 10💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 30 }, color: 'secondary' }).row() }
+    if (user.medal >= 75) { keyboard.callbackButton({ label: '75🧙 => 25💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 75 }, color: 'secondary' }) }
+    if (user.medal >= 150) { keyboard.callbackButton({ label: '150🧙 => 50💰', payload: { command: 'service_convert_magic_experience_change', item: "xp", value: 150 }, color: 'secondary' }).row() }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'service_cancel' }, color: 'secondary' }).row().inline().oneTime()
-    text += user.xp < 15 ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.xp}🧙 ${user?.gold}💰, сколько сконвертируем?`
+    text += user.medal < 15 ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.medal}💰, сколько сконвертируем?`
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()}) 
     if (context?.eventPayload?.command == "service_convert_magic_experience") {
         await vk.api.messages.sendMessageEventAnswer({
@@ -139,8 +139,8 @@ export async function Service_Convert_Magic_Experience_Change(context: any) {
     if (!user) { return }
     if (context.eventPayload.command == "service_convert_magic_experience_change" && context.eventPayload.item == "xp") {
         const input = context.eventPayload.value
-        if (input <= user.xp) {
-            const convert_mo = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold+input/3, xp: user.xp-input } })
+        if (input <= user.medal) {
+            const convert_mo = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal+input/3 } })
             console.log(`User ${context.peerId} converted ${input}MO in ${input/3}G`)
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
@@ -154,7 +154,7 @@ export async function Service_Convert_Magic_Experience_Change(context: any) {
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⌛ @id${user.idvk}(${user.name}) конвертирует ${input}🧙 в ${input/3}💰. \n💳 Баланс: ${convert_mo?.xp}🧙 ${convert_mo?.gold}💰`
+                message: `⌛ @id${user.idvk}(${user.name}) конвертирует ${input}🧙 в ${input/3}💰. \n💳 Баланс: ${convert_mo?.medal}💰`
             })
             await Analyzer_Convert_MO_Counter(context)
             await Service_Convert_Magic_Experience(context)
@@ -178,10 +178,10 @@ export async function Service_Level_Up(context: any) {
     let text = `✉ Гоблин в темных очках, предлагает вам повысить свой уровень.`
     const keyboard = new KeyboardBuilder()
     let paying = 250
-    if (user.lvl == 0) { paying = 0 }
-    if (user.xp >= paying) { keyboard.callbackButton({ label: `${paying}🧙 => 1📈`, payload: { command: 'service_level_up_change', item: "xp", value: paying }, color: 'secondary' }) }
+    if (user.medal == 0) { paying = 0 }
+    if (user.medal >= paying) { keyboard.callbackButton({ label: `${paying}🧙 => 1📈`, payload: { command: 'service_level_up_change', item: "xp", value: paying }, color: 'secondary' }) }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'service_cancel' }, color: 'secondary' }).row().inline().oneTime()
-    text += user.xp < paying ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.xp}🧙, так давайте же прокачаемся?`
+    text += user.medal < paying ? `\n\n💬 Ээээ, Бомжара, тикай с района! Кричали гоблины, выпинывая вас из учреждения...` : `\n\n🧷 На вашем балансе ${user?.medal}🧙, так давайте же прокачаемся?`
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()}) 
     if (context?.eventPayload?.command == "service_level_up") {
         await vk.api.messages.sendMessageEventAnswer({
@@ -194,7 +194,7 @@ export async function Service_Level_Up(context: any) {
             })
         })
     }
-}
+}/*
 export async function Service_Level_Up_Change(context: any) {
     const attached = await Image_Random(context, "lvl_up")
     const user: User | null | undefined = await Person_Get(context)
@@ -219,13 +219,13 @@ export async function Service_Level_Up_Change(context: any) {
     const keyboard = new KeyboardBuilder()
     let paying = 250
     if (user.lvl == 0) { paying = 0 }
-    if (user.xp >= paying) { keyboard.callbackButton({ label: `${paying}🧙 => 1📈`, payload: { command: 'service_level_up_change', item: "xp", value: paying }, color: 'secondary' }) }
+    if (user.medal >= paying) { keyboard.callbackButton({ label: `${paying}🧙 => 1📈`, payload: { command: 'service_level_up_change', item: "xp", value: paying }, color: 'secondary' }) }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'service_cancel' }, color: 'secondary' }).row().inline().oneTime()
     let text = ''
     let ii =''
     
-    if (user.xp >= paying && user.lvl < 15) {
-        const user_update = await prisma.user.update({ where: { id: user.id }, data: { xp: user.xp-paying, lvl: user.lvl+1 } })
+    if (user.medal >= paying && user.lvl < 15) {
+        const user_update = await prisma.user.update({ where: { id: user.id }, data: { xp: user.medal-paying, lvl: user.lvl+1 } })
         text += user.lvl == 0 ? `⚙ Поздравляем с повышением, первый раз бесплатно, далее за уровень по ${paying}🧙\n 🏦Разблокировка: ${leveling[user_update.lvl]}` : `⚙ Поздравляем с повышением! \n 🏦Разблокировка: ${leveling[user_update.lvl]}`
         ii += `Ваш уровень повышен с ${user.lvl} до ${user_update.lvl}. `
         await vk.api.messages.send({
@@ -248,7 +248,7 @@ export async function Service_Level_Up_Change(context: any) {
             text: `🔔 Услуга повышения уровня.`
         })
     })
-}
+}*/
 export async function Service_Beer_Open(context: any) {
     let attached = await Image_Random(context, "beer")
     const user: User | null | undefined = await Person_Get(context)
@@ -263,14 +263,14 @@ export async function Service_Beer_Open(context: any) {
     
     const trigger_check: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'beer' } })
     if (trigger_check.value == false) {
-        if (user.gold >= 5 && context.eventPayload?.command_sub == 'beer_buying') {
-            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold-5 } })
+        if (user.medal >= 5 && context.eventPayload?.command_sub == 'beer_buying') {
+            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal-5 } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: true } })
             text = `⚙ Кто-бы мог подумать, у дверей возникло сливочное пиво прямиком из Хогсмида, снято 5💰. Теперь ваш баланс: ${underwear_sold.gold}`
             console.log(`User ${context.peerId} sold self beer`)
             await Analyzer_Beer_Counter(context)
         } else {
-            if (user.gold >= 5) {
+            if (user.medal >= 5) {
                 text += `🍺 Желаете сливочного пива прямиком из Хогсмида с доставкой на дом, всего лишь за 5💰?`
                 keyboard.callbackButton({ label: '-5💰+🍺', payload: { command: 'service_beer_open', command_sub: "beer_buying" }, color: 'secondary' }).row()
             } else {
@@ -288,7 +288,7 @@ export async function Service_Beer_Open(context: any) {
             text = `🔔 Вы уже бухали по сливочному: ${dateold.getDate()}-${dateold.getMonth()}-${dateold.getFullYear()} ${dateold.getHours()}:${dateold.getMinutes()}! Приходите через ${((timeouter-(datenow-trigger_check.crdate))/60000/60).toFixed(2)} часов.`
         }
         if (context.eventPayload?.command_sub == 'beer_selling') {
-            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold+1 } })
+            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal+1 } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: false } })
             text = `⚙ Даже ваш староста зауважает вас, если узнает, что вы за экологию, +1💰. Теперь ваш баланс: ${underwear_sold.gold} Когда вы сдавали стеклотару, то вслед послышалось: \n — Воу респект, респект, еще бы пластик сдавали!`
             console.log(`User ${context.peerId} return self beer`)
@@ -327,14 +327,14 @@ export async function Service_Beer_Premium_Open(context: any) {
     
     const trigger_check: any = await prisma.trigger.findFirst({ where: { id_user: user.id, name: 'beer_premium' } })
     if (trigger_check.value == false) {
-        if (user.gold >= 50 && context.eventPayload?.command_sub == 'beer_buying') {
-            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold-50 } })
+        if (user.medal >= 50 && context.eventPayload?.command_sub == 'beer_buying') {
+            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal-50 } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: true } })
             text = `⚙ Кто-бы мог подумать, у дверей возникло бамбуковое пиво прямиком из Хогсмида, снято 50💰. Теперь ваш баланс: ${underwear_sold.gold}`
             console.log(`User ${context.peerId} sold self beer premium`)
             await Analyzer_Beer_Premium_Counter(context)
         } else {
-            if (user.gold >= 50) {
+            if (user.medal >= 50) {
                 text += `🍵 Желаете бамбукового пива PREMIUM прямиком из Хогсмида с доставкой на дом, всего лишь за 50💰?`
                 keyboard.callbackButton({ label: '-50💰+🍵', payload: { command: 'service_beer_premium_open', command_sub: "beer_buying" }, color: 'secondary' }).row()
             } else {
@@ -352,7 +352,7 @@ export async function Service_Beer_Premium_Open(context: any) {
             text = `🔔 ТАААК, вам больше не наливаем, последний раз бухали: ${dateold.getDate()}-${dateold.getMonth()}-${dateold.getFullYear()} ${dateold.getHours()}:${dateold.getMinutes()}! Приходите через ${((timeouter-(datenow-trigger_check.crdate))/60000/60).toFixed(2)} часов за новой порцией.`
         }
         if (context.eventPayload?.command_sub == 'beer_selling') {
-            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold+10 } })
+            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal+10 } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: false } })
             text = `⚙ Даже ваш староста зауважает вас, если узнает, что вы за PREMIUM экологию, +10💰. Теперь ваш баланс: ${underwear_sold.gold} Когда вы сдавали стеклотару, то вслед послышалось: \n — Воу респект, респект, теперь мы на эту бутылку аж целых два сливочных пива прямиком из Хогсмида накатим!`
             console.log(`User ${context.peerId} return self beer`)
@@ -510,7 +510,7 @@ export async function Service_Underwear_Open(context: any) {
     if (trigger_check.value == false) {
         text += `✉ Заложить трусы?`
         if (context.eventPayload?.command_sub == 'underwear_buying') {
-            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold+5 } })
+            const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal+5 } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: true } })
             text = `⚙ Вы заложили свои трусы Гоблинам, держите 5💰. Теперь ваш баланс: ${underwear_sold.gold}`
             await vk.api.messages.send({
@@ -525,8 +525,8 @@ export async function Service_Underwear_Open(context: any) {
     } else {
         text += `✉ Выкупить трусы, не хотите?`
         if (context.eventPayload?.command_sub == 'underwear_selling') {
-            if (user.gold >= 10) {
-                const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { gold: user.gold-10 } })
+            if (user.medal >= 10) {
+                const underwear_sold: any = await prisma.user.update({ where: { id: user.id }, data: { medal: user.medal-10 } })
                 const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { value: false } })
                 text = `⚙ Вы выкупили свои трусы у Гоблинов, держите за 10💰. Теперь ваш баланс: ${underwear_sold.gold} Когда вы их забирали, то стоял шум от всего персонала банка: \n — Забирайте свои вонючие труханы, все хранилище нам завоняли!`
                 await vk.api.messages.send({
@@ -540,7 +540,7 @@ export async function Service_Underwear_Open(context: any) {
                 text = 'Соболезнуем, для выкупа нужно 10 галлеонов, хотите в рабство? Дайте нам об этом знать:)'
             }
         } else {
-            if (user.gold >= 10) {
+            if (user.medal >= 10) {
                 keyboard.callbackButton({ label: '—10💰+👙', payload: { command: 'service_underwear_open', command_sub: "underwear_selling" }, color: 'secondary' }).row()
             }
         }

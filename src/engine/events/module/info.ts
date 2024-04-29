@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io"
 import prisma from "./prisma_client"
 import { chat_id, vk } from "../../.."
-import { Alliance, Trigger, User } from "@prisma/client"
+import { Alliance, AllianceFacult, Trigger, User } from "@prisma/client"
 import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "../../core/imagecpu"
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
@@ -13,7 +13,8 @@ export async function Card_Enter(context:any) {
     if (get_user) {
         const attached = await Image_Text_Add_Card(context, 50, 650, get_user)
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-        const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} `
+        const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
+        const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n ${facult_get ? facult_get.smile : `🎓`} Факультет: ${facult_get ? facult_get.name : `Фигачит на заводе!`}`
         //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
@@ -159,7 +160,7 @@ export async function Birthday_Enter(context: any) {
         if (context.eventPayload?.command_sub == 'beer_buying') {
             const gold = randomInt(365, 778)
             const xp = randomInt(15, 151)
-            const user_update: any = await prisma.user.update({ where: { id: user.id }, data: { gold: { increment: gold }, xp: { increment: xp } } })
+            const user_update: any = await prisma.user.update({ where: { id: user.id }, data: { medal: { increment: gold } } })
             const trigger_update: any = await prisma.trigger.update({ where: { id: trigger_check.id }, data: { crdate: new Date(year, month, day) } })
             text = `⚙ Развязав бантик бантиков c красивой упакованной коробочки, вы нашли внутри ${gold}💰 и ${xp}🧙. В самом дне коробки лежала записочка: С днем Рождения, сук@!`
             console.log(`User ${context.peerId} get gift for birthday`)

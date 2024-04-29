@@ -99,6 +99,11 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		const info = await User_Info(context)
 		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Добро пожаловать в мир меча и магии! \n И протянул вам вашу карточку.\n ⚖Вы получили картотеку, ${info.first_name}\n 🕯 GUID: ${save.id}. \n 🎥 idvk: ${save.idvk}\n ⚰ Дата Регистрации: ${save.crdate}\n`)
 		await Logger(`In database created new user with uid [${save.id}] and idvk [${context.senderId}]`)
+		await context.send(`⚠ Настоятельно рекомендуем ознакомиться с инструкцией эксплуатации системы "Центробанк Магомира":`,{ 	
+			keyboard: Keyboard.builder()
+			.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` }).row().inline(),
+			answerTimeLimit
+		})
 		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
 		const ans_selector = `⁉ @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту GUID: ${save.id}!`
 		await vk.api.messages.send({

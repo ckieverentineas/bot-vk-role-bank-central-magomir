@@ -54,7 +54,7 @@ export async function Analyzer_Birthday_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `🎁 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -107,7 +107,7 @@ export async function Analyzer_Beer_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `🍺 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -160,7 +160,7 @@ export async function Analyzer_Beer_Premium_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `🍵 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -213,7 +213,7 @@ export async function Analyzer_Underwear_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `👙 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -266,7 +266,7 @@ export async function Analyzer_Quest_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `📅 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -319,7 +319,7 @@ export async function Analyzer_Convert_MO_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `✨ ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
@@ -372,7 +372,7 @@ export async function Analyzer_Buying_Counter(context: any) {
                         const achive_add = await prisma.achievement.create({ data: { uid: birthday[i].uid, name: `🛒 ${birthday[i].name} - ${birthday[i].subname[randomInt(0, 3)]}`, id_user: id_user } })
                         if (achive_add) {
                             const xp = randomInt(1, 15)
-                            await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
+                            await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
                             await vk.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,

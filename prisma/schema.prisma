@@ -22,10 +22,9 @@ model User {
   idvk        Int
   spec        String
   id_alliance Int?
-  lvl         Int           @default(0)
   medal      Int           @default(5)
-  gold        Int           @default(0)
-  xp          Int           @default(0)
+  id_facult Int?
+  coin      String?
   private     Boolean       @default(false)
   crdate      DateTime      @default(now())
   id_role     Int           @default(1)

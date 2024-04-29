@@ -222,18 +222,18 @@ export async function Gen_Inline_Button_Item(category: any, context: any) {
         if (push.isTimeout) { await context.send('⏰ Время ожидания выбора товаров истекло!'); return true }
         if (push.payload) {
             if (push.payload.operation == 'byuing') {
-                const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+                const user: User | null = await prisma.user.findFirst({ where: { idvk: context.senderId } })
                 const item_buy:any = data[push.payload.command]
-                const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: item_buy.id, id_user: user.id } })
-                if ((!item_inventory || item_buy.type == 'unlimited') && user.gold >= item_buy.price) {
-                    const money = await prisma.user.update({ data: { gold: user.gold - item_buy.price }, where: { id: user.id } })
-                    await context.send(`⚙ С вашего счета списано ${item_buy.price}💰, остаток: ${money.gold}💰`)
-                    const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: item_buy.id } })
+                const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: item_buy.id, id_user: user!.id } })
+                if ((!item_inventory || item_buy.type == 'unlimited') && user!.medal >= item_buy.price) {
+                    const money = await prisma.user.update({ data: { medal: user!.medal - item_buy.price }, where: { id: user!.id } })
+                    await context.send(`⚙ С вашего счета списано ${item_buy.price}💰, остаток: ${money.medal}💰`)
+                    const inventory = await prisma.inventory.create({ data: { id_user: user!.id, id_item: item_buy.id } })
                     console.log(`User ${context.senderId} bought new item ${item_buy.id}`)
                     await vk.api.messages.send({
                         peer_id: chat_id,
                         random_id: 0,
-                        message: `🛍 @id${user.idvk}(${user.name}) покупает "${item_buy.name}" в "${category.name}" Косого переулка`
+                        message: `🛍 @id${user!.idvk}(${user!.name}) покупает "${item_buy.name}" в "${category.name}" Косого переулка`
                     })
                     await context.send(`⚙ Ваша покупка доставится в течение нескольких секунд: ${item_buy.name}`)
                 } else {
