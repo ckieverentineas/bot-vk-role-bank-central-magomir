@@ -1,6 +1,7 @@
 import { AllianceCoin, User } from "@prisma/client";
 import { Person_Get } from "./person";
 import prisma from "../prisma_client";
+import { Logger } from "../../../core/helper";
 
 async function Person_Coin_Finder(context: any, data: Array<{ id: number, amount: number }>, target: AllianceCoin) {
     let find = false
@@ -10,7 +11,12 @@ async function Person_Coin_Finder(context: any, data: Array<{ id: number, amount
         }
     }
     if (!find) {
-        data.push({ id: target.id, amount: 0 })
+        try {
+            data.push({ id: target.id, amount: 0 })
+        } catch(e) {
+            await Logger(`Error fatality with add new coin ${e}`)
+            data = []
+        }
     }
     return data
 }
@@ -23,6 +29,8 @@ export async function Person_Coin_Init(context: any) {
             console.log(coi)
             coin_get = await Person_Coin_Finder(context, coin_get, coi)
         }
+    } else {
+        console.log(`Ошибка дед`)
     }
     const data = await prisma.user.update({ where: { id: user.id }, data: { coin: JSON.stringify(coin_get) }})
     return coin_get
@@ -40,4 +48,28 @@ export async function Person_Coin_Printer(context: any) {
         }
     }
     return res
+}
+export async function Person_Coin_Change(context: any, data: { coin: AllianceCoin | null, operation: String | null, amount: number }, target: number) {
+    const user = await prisma.user.findFirst({ where: { id: target } })
+    let coin_get: Array<{ id: number, amount: number }> = user?.coin ? JSON.parse(user?.coin) : []
+    switch (data.operation) {
+        case '+':
+            for (const dat of coin_get) {
+                if (data.coin?.id == dat.id) {
+                    dat.amount += data.amount
+                }
+            }
+            break;
+        case '-':
+            for (const dat of coin_get) {
+                if (data.coin?.id == dat.id) {
+                    dat.amount -= data.amount
+                }
+            }
+            break;
+    
+        default:
+            break;
+    }
+    return coin_get
 }
