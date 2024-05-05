@@ -6,7 +6,7 @@ import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger } from "./core/h
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
-import { Alliance, Item, User } from "@prisma/client";
+import { Alliance, AllianceFacult, Item, User } from "@prisma/client";
 import { Person_Register, Person_Selector } from "./core/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
@@ -705,6 +705,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
                         .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
                         .textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row()
+                        .textButton({ label: '✏Факультет', payload: { command: 'edit_facult' }, color: 'secondary' }).row()
                         .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' })
                         .oneTime().inline(),
                         answerTimeLimit
@@ -720,7 +721,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             'edit_class': Edit_Class,
                             'edit_spec': Edit_Spec,
                             'edit_name': Edit_Name,
-                            'edit_alliance': Edit_Alliance
+                            'edit_alliance': Edit_Alliance,
+                            'edit_facult': Edit_Facult
                         }
                         await config[answer1.payload.command](id)
                     } else {
@@ -947,6 +949,89 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     message: `⚙ @id${context.senderId}(Admin) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
                 })
                 await Logger(`In a private chat, changed alliance user from ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} on ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} for ${update_alliance.idvk} by admin ${context.senderId}`)
+            }
+        }
+        async function Edit_Facult(id: number){
+            const user: User | null = await prisma.user.findFirst({ where: { id: id } })
+            if (!user) { return }
+            const person: { id_facult: null | number, facult: null | string,  } = { id_facult: null, facult: null }
+            const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
+            const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
+            const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(user.id_facult) } })
+            const facult_sel = `${facult_get ? facult_get.name : `Без факультета`}`
+            let facult_check = false
+	        if (await prisma.allianceFacult.findFirst({ where: { id_alliance: Number(user.id_alliance) } })) {
+                let id_builder_sent = 0
+                while (!facult_check) {
+                    const keyboard = new KeyboardBuilder()
+                    id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
+                    let event_logger = `❄ Выберите факультет для ${user.name} в ${alli_sel}, сейчас его(ее) факультет ${facult_sel}:\n\n`
+                    const builder_list: AllianceFacult[] = await prisma.allianceFacult.findMany({ where: { id_alliance: Number(user.id_alliance) } })
+                
+                    if (builder_list.length > 0) {
+                        const limiter = 5
+                        let counter = 0
+                        for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                            const builder = builder_list[i]
+                            keyboard.textButton({ label: `${builder.smile} ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                            //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
+                            event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.smile} ${builder.name}\n`
+                            /*
+                            const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                            counter++
+                        }
+                        event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+                        //предыдущий офис
+                        if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
+                            keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+                        }
+                        //следующий офис
+                        if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
+                            keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
+                        }
+                    } else {
+                        event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+                    }
+                    const answer1: any = await context.question(`${event_logger}`,
+	        	    	{	
+	        	    		keyboard: keyboard.inline(), answerTimeLimit
+	        	    	}
+	        	    )
+                    if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+	        	    if (!answer1.payload) {
+	        	    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
+	        	    } else {
+                        if (answer1.text == '→' || answer1.text =='←') {
+                            id_builder_sent = answer1.payload.id_builder_sent
+                        } else {
+                            person.facult = answer1.payload.target.name
+                            person.id_facult = answer1.payload.target.id
+                            facult_check = true
+                        }
+	        	    }
+                }
+            } else {
+                return await context.send(`⛔ В ролевом проекте еще не инициализированы факультеты`)
+            }
+            const update_facult = await prisma.user.update({ where: { id: user.id }, data: { id_facult: person.id_facult } })
+            if (update_facult) {
+                await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена факультета с ${facult_sel} на ${person.facult}.`)
+                try {
+                    await vk.api.messages.send({
+                        user_id: user.idvk,
+                        random_id: 0,
+                        message: `⚙ Ваша принадлежность ролевой сменилась с ${facult_sel} на ${person.facult}.`
+                    })
+                    await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
+                } catch (error) {
+                    console.log(`User ${user.idvk} blocked chating with bank`)
+                }
+                await vk.api.messages.send({
+                    peer_id: chat_id,
+                    random_id: 0,
+                    message: `⚙ @id${context.senderId}(Admin) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
+                })
+                await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)
             }
         }
 
