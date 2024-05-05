@@ -3,7 +3,7 @@ import prisma from "./module/prisma_client"
 import { root, vk } from "../.."
 import { Image_Random } from "../core/imagecpu";
 import { User } from "@prisma/client";
-import { Person_Get } from "../core/person";
+import { Person_Get } from "./module/person/person";
 
 export async function Main_Menu_Init(context: any) {
     const attached = await Image_Random(context, "bank")

@@ -4,7 +4,7 @@ import { KeyboardBuilder } from "vk-io"
 import { Image_Interface, Image_Random } from "../../core/imagecpu"
 import { chat_id, vk } from "../../.."
 import { Analyzer_Buying_Counter } from "./analyzer"
-import { Person_Get } from "../../core/person"
+import { Person_Get } from "./person/person"
 import { Logger } from "../../core/helper"
 
 async function Searcher(data: any, target: number) {

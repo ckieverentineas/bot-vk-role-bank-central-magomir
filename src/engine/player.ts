@@ -7,7 +7,7 @@ import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Alliance, AllianceFacult, Item, User } from "@prisma/client";
-import { Person_Register, Person_Selector } from "./core/person";
+import { Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";

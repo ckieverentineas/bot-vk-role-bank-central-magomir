@@ -4,7 +4,7 @@ import prisma from "./prisma_client"
 import { chat_id, vk } from "../../.."
 import { randomInt } from "crypto"
 import { Analyzer_Beer_Counter, Analyzer_Beer_Premium_Counter, Analyzer_Convert_MO_Counter, Analyzer_Quest_Counter, Analyzer_Underwear_Counter } from "./analyzer"
-import { Person_Get } from "../../core/person"
+import { Person_Get } from "./person/person"
 import { User } from "@prisma/client"
 
 const timeouter = 86400000 //время кд квестов

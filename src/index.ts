@@ -14,7 +14,7 @@ import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Ente
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_Convert_Galleon, Service_Convert_Galleon_Change, Service_Convert_Magic_Experience, Service_Convert_Magic_Experience_Change, Service_Enter, Service_Level_Up, /*Service_Level_Up_Change,*/ Service_Quest_Open, Service_Underwear_Open } from './engine/events/module/service';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
-import { Person_Detector } from './engine/core/person';
+import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
 dotenv.config()
 

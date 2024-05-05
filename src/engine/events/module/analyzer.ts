@@ -2,7 +2,7 @@ import { Analyzer, User } from "@prisma/client"
 import prisma from "./prisma_client"
 import { randomInt } from "crypto"
 import { chat_id, vk } from "../../.."
-import { Person_Get } from "../../core/person"
+import { Person_Get } from "./person/person"
 
 export async function Analyzer_Init(id_user: number) {
     const analyzer: Analyzer | null = await prisma.analyzer.findFirst({ where: { id_user: id_user } })

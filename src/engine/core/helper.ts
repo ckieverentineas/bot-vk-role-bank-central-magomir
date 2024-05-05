@@ -7,7 +7,7 @@ import { promises as fsPromises } from 'fs'
 import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
 import { User } from "@prisma/client"
-import { Person_Get } from "./person"
+import { Person_Get } from "../events/module/person/person"
 
 export function Sleep(ms: number) {
     return new Promise((resolve) => {

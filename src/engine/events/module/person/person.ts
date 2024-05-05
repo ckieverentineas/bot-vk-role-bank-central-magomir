@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
-import { answerTimeLimit, chat_id, timer_text, vk } from "../.."
-import { Fixed_Number_To_Five, Keyboard_Index, Logger } from "./helper"
-import prisma from "../events/module/prisma_client"
+import { answerTimeLimit, chat_id, timer_text, vk } from "../../../.."
+import { Fixed_Number_To_Five, Keyboard_Index, Logger } from "../../../core/helper"
+import prisma from "../prisma_client"
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 
 export async function Person_Register(context: any) {

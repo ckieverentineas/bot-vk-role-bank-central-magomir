@@ -3,7 +3,7 @@ import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text } from "../../../..";
 import { Confirm_User_Success, Logger } from "../../../core/helper";
-import { Person_Get } from "../../../core/person";
+import { Person_Get } from "../person/person";
 
 //контроллер управления валютами альянса
 async function Alliance_Facult_Get(cursor: number, alliance: Alliance) {
