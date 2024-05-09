@@ -37,3 +37,21 @@ export async function Person_Coin_Printer(context: any) {
     }
     return res
 }
+
+export async function Person_Coin_Printer_Self(context: any, id: number) {
+    const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
+    if (!user) { return }
+    let res = { text: '', smile: '' }
+    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance! } })) {
+        const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
+        if (!coin_check) {
+            const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
+            res.text += `${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+            await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId}`)
+        } else {
+            res.text += `${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+        }
+        res.smile += `${coin.smile}`
+    }
+    return res
+}

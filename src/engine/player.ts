@@ -11,6 +11,7 @@ import { Person_Get, Person_Register, Person_Selector } from "./events/module/pe
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
+import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -600,6 +601,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         let name_check = false
 		let datas: any = []
+        let info_coin: { text: string, smile: string } | undefined = { text: ``, smile: `` }
 		while (name_check == false) {
 			const uid: any = await context.question( `🧷 Введите 💳UID банковского счета получателя:`,
                 {   
@@ -612,12 +614,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
 			if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
                 const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
+                
                 if (get_user) {
+                    info_coin = await Person_Coin_Printer_Self(context, get_user.id)
                     await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
                     name_check = true
 				    datas.push({id: `${uid.text}`})
                     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}` )
+                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
                     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
                     let cart = ''
                     const underwear = await prisma.trigger.count({ where: {    id_user: get_user.id, name:   'underwear', value:  false } })
@@ -660,9 +664,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: '+🔘', payload: { command: 'medal_up' }, color: 'secondary' })
-                .textButton({ label: '—🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
-                .textButton({ label: 'Отчисления', payload: { command: 'coin_engine' }, color: 'secondary' }).row()/*
+                .textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
+                .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
+                .textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()/*
                 .textButton({ label: '—💰', payload: { command: 'gold_down' }, color: 'secondary' }).row()
                 .textButton({ label: '+🧙', payload: { command: 'xp_up' }, color: 'secondary' })
                 .textButton({ label: '—🧙', payload: { command: 'xp_down' }, color: 'secondary' }).row()
@@ -1083,6 +1087,46 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 await context.send(`⚙ Удаление ${user_get.name} отменено.`)
             }
         }
+        async function User_Drop(id: number) {
+            const user_get: any = await prisma.user.findFirst({ where: { id: id } })
+            const confirmq = await context.question(`⁉ Вы уверены, что хотите выпнуть с ролевого проекта ${user_get.name}`,
+                {
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+                    .textButton({ label: 'Нет', payload: { command: 'gold_down' }, color: 'secondary' })
+                    .oneTime().inline(),
+                    answerTimeLimit
+                }
+            )
+            if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение пинка для ${user_get.name} истекло!`) }
+            if (confirmq.payload.command === 'confirm' && user_get) {
+                if (user_get) {
+                    const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0 } })
+                    await context.send(`❗ Выпнут пользователь ${user_del.name}`)
+                    try {
+                        await vk.api.messages.send({
+                            user_id: user_del.idvk,
+                            random_id: 0,
+                            message: `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`
+                        })
+                        await context.send(`⚙ Операция пинка пользователю завершена успешно.`)
+                    } catch (error) {
+                        console.log(`User ${user_del.idvk} blocked chating with bank`)
+                    }
+                    await vk.api.messages.send({
+                        peer_id: chat_id,
+                        random_id: 0,
+                        message: `⚙ @id${context.senderId}(Admin) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name})`
+                        
+                    })
+                    await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
+                    
+                } 
+            } else {
+                await context.send(`⚙ Пинок ролевика ${user_get.name} отменено.`)
+                
+            }
+        }
         //Модуль артефактов
         async function Artefact_Add(id: number, count: number) {
             let datas: any = []
@@ -1475,11 +1519,11 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 {   
                     keyboard: Keyboard.builder()
                     //.textButton({ label: '➕🔮', payload: { command: 'artefact_add' }, color: 'secondary' })
-                    //.textButton({ label: '👁🔮', payload: { command: 'artefact_show' }, color: 'secondary' }).row()
                     .textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
                     .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
                     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
                     .textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' })
+                    .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
                     .oneTime().inline(),
                     answerTimeLimit                                                                       
                 }
@@ -1493,6 +1537,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     'artefact_show': Artefact_Show,
                     'inventory_show': Inventory_Show,
                     'user_delete': User_delete,
+                    'user_drop': User_Drop,
                     'editor': Editor,
                 }
                 const answergot = await config[ans_again.payload.command](Number(datas[0].id))
