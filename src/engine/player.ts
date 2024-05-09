@@ -6,12 +6,11 @@ import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger } from "./core/h
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
-import { Alliance, AllianceCoin, AllianceFacult, Item, User } from "@prisma/client";
+import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, Item, User } from "@prisma/client";
 import { Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
-import { Person_Coin_Change } from "./events/module/person/person_coin";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1355,13 +1354,27 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 	        }
             person.amount = await Ipnut_Gold() 
             const messa: string = await Ipnut_Message()
-            const res = await Person_Coin_Change(context, person, id)
-            const money_put = await prisma.user.update({ where: { id: user.id }, data: { coin: JSON.stringify(res) } })
+            const findas: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: user.id }})
+            let incomer = 0
+            switch (person.operation) {
+                case '+':
+                    const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { increment: person.amount } } })
+                    incomer = money_put_plus.amount
+                    break;
+                case '-':
+                    const money_put_minus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { decrement: person.amount } } })
+                    incomer = money_put_minus.amount
+                    break;
+            
+                default:
+                    break;
+            }
+            
             try {
                 await vk.api.messages.send({
                     user_id: user.idvk,
                     random_id: 0,
-                    message: `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт: слишком сложно посчитать, сами посмотрите \n Уведомление: ${messa}`
+                    message: `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}`
                 })
                 await context.send(`⚙ Операция завершена успешно`)
             } catch (error) {
@@ -1370,7 +1383,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${person.operation}${person.amount} для @id${user.idvk}(${user.name}) 🧷: ${messa}`
+                message: `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}`
             })
             console.log(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
         }

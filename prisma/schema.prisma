@@ -24,7 +24,6 @@ model User {
   id_alliance Int?
   medal      Int           @default(5)
   id_facult Int?
-  coin      String?
   private     Boolean       @default(false)
   crdate      DateTime      @default(now())
   id_role     Int           @default(1)
@@ -36,6 +35,7 @@ model User {
   Trigger     Trigger[]
   Achievement Achievement[]
   Analyzer    Analyzer[]
+  BalanceCoin BalanceCoin[]
 }
 
 model BlackBox {
@@ -136,8 +136,17 @@ model AllianceCoin {
   point Boolean @default(false)
   alliance         Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_alliance      Int
+  BalanceCoin BalanceCoin[]
 }
 
+model BalanceCoin {
+  id      Int      @id @default(autoincrement())
+  coin         AllianceCoin     @relation(fields: [id_coin], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_coin      Int
+  user         User     @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_user      Int
+  amount Int @default(0)
+}
 model AllianceFacult {
   id      Int      @id @default(autoincrement())
   name String
