@@ -240,6 +240,114 @@ export async function Rank_Enter(context: any) {
     }
     text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
     await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
+    if (await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
+        keyboard.callbackButton({ label: '🌐💳', payload: { command: 'rank_coin_enter' }, color: 'secondary' })
+    }
+    if (await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })) {
+        keyboard.callbackButton({ label: '🌐🔮', payload: { command: 'rank_facult_enter' }, color: 'secondary' })
+        keyboard.callbackButton({ label: '🌐🔘', payload: { command: 'rank_medal_enter' }, color: 'secondary' })
+    }
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
+    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+}
+
+export async function Rank_Coin_Enter(context: any) {
+    //let attached = await Image_Random(context, "birthday")
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
+    const stats = await prisma.analyzer.findFirst({ where: { id_user: user.id }})
+    let text = '⚙ Рейтинг персонажей:\n\n'
+    const keyboard = new KeyboardBuilder()
+
+
+    const stat: { rank: number, text: string, score: number, me: boolean }[] = []
+    let counter = 1
+    for (const userok of await prisma.user.findMany()) {
+        const ach_counter = await prisma.achievement.count({ where: { id_user: userok.id }})
+        stat.push({
+            rank: counter,
+            text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
+            score: userok.medal,
+            me: userok.idvk == user.idvk ? true : false
+        })
+        counter++
+    }
+    stat.sort(function(a, b){
+        return b.score - a.score;
+    });
+    let counter_last = 1
+    let trig_find_me = false
+    for (const stat_sel of stat) {
+        if (counter_last <= 10) {
+            text += `${stat_sel.me ? '✅' : '👤'} ${counter_last} ${stat_sel.text}`
+            if (stat_sel.me) { trig_find_me = true }
+        }
+        if (counter_last > 10 && !trig_find_me) {
+            if (stat_sel.me) {
+                text += `\n\n${stat_sel.me ? '✅' : '👤'} ${counter_last} ${stat_sel.text}`
+            }
+        }
+        counter_last++
+    }
+    text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
+    await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
+    if (await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
+        keyboard.callbackButton({ label: '💳🌐', payload: { command: 'rank_coin_enter' }, color: 'secondary' })
+    }
+    if (await prisma.allianceFacult.findFirst({ where: { id_alliance: user.id_facult ?? 0 } })) {
+        keyboard.callbackButton({ label: '💠🌐', payload: { command: 'rank_facult_enter' }, color: 'secondary' })
+        keyboard.callbackButton({ label: '🔘🌐', payload: { command: 'rank_medal_enter' }, color: 'secondary' })
+    }
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
+    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+}
+
+export async function Rank_Medal_Enter(context: any) {
+    //let attached = await Image_Random(context, "birthday")
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
+    const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 }})
+    let text = `⚙ Рейтинг персонажей по жетонам в ролевом проекте ${stats?.name}:\n\n`
+    const keyboard = new KeyboardBuilder()
+
+
+    const stat: { rank: number, text: string, score: number, me: boolean }[] = []
+    let counter = 1
+    for (const userok of await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
+        stat.push({
+            rank: counter,
+            text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
+            score: userok.medal,
+            me: userok.idvk == user.idvk ? true : false
+        })
+        counter++
+    }
+    stat.sort(function(a, b){
+        return b.score - a.score;
+    });
+    let counter_last = 1
+    let trig_find_me = false
+    for (const stat_sel of stat) {
+        if (counter_last <= 10) {
+            text += `${stat_sel.me ? '✅' : '👤'} ${counter_last} ${stat_sel.text}`
+            if (stat_sel.me) { trig_find_me = true }
+        }
+        if (counter_last > 10 && !trig_find_me) {
+            if (stat_sel.me) {
+                text += `\n\n${stat_sel.me ? '✅' : '👤'} ${counter_last} ${stat_sel.text}`
+            }
+        }
+        counter_last++
+    }
+    text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
+    await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
+    if (await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
+        keyboard.callbackButton({ label: 'Рейтинг Валют', payload: { command: 'statistics_enter' }, color: 'secondary' })
+    }
+    if (await prisma.allianceFacult.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
+        keyboard.callbackButton({ label: 'Рейтинг Факультетов', payload: { command: 'statistics_enter' }, color: 'secondary' })
+        keyboard.callbackButton({ label: 'Рейтинг Жетонов', payload: { command: 'statistics_enter' }, color: 'secondary' })
+    }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
 }

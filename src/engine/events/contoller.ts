@@ -37,15 +37,19 @@ export async function Main_Menu(context: any) {
     const user_check: User | null | undefined = await Person_Get(context)
     if (!user_check) { return }
     const keyboard = new KeyboardBuilder()
-    .callbackButton({ label: 'Карта', payload: { command: 'card_enter' }, color: 'secondary' })
-    .callbackButton({ label: 'Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
+    .callbackButton({ label: '💳 Карта', payload: { command: 'card_enter' }, color: 'secondary' })
+    .callbackButton({ label: '👜 Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
     
     //.callbackButton({ label: 'Артефакты', payload: { command: 'artefact_enter' }, color: 'secondary' })
-    .callbackButton({ label: 'Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
+    .callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
     //.callbackButton({ label: 'Услуги', payload: { command: 'service_enter' }, color: 'primary' })
+    const role_pr = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 }})
+    if (role_pr) {
+        keyboard.callbackButton({ label: `🌐 ${role_pr.name.slice(0,30)}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).row()
+    }
     if (user_check.id_role === 2) {
-        keyboard.callbackButton({ label: 'Админы', payload: { command: 'admin_enter' }, color: 'secondary' })
-        .callbackButton({ label: 'Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
+        keyboard.callbackButton({ label: '⚙ Админы', payload: { command: 'admin_enter' }, color: 'secondary' })
+        .callbackButton({ label: '⚙ Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
     }
     keyboard.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` })
     keyboard.callbackButton({ label: '🚫', payload: { command: 'exit' }, color: 'secondary' }).oneTime().inline()

@@ -10,12 +10,13 @@ import { Keyboard_Index, Logger, Worker_Checker } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
-import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
+import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Rank_Medal_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_Convert_Galleon, Service_Convert_Galleon_Change, Service_Convert_Magic_Experience, Service_Convert_Magic_Experience_Change, Service_Enter, Service_Level_Up, /*Service_Level_Up_Change,*/ Service_Quest_Open, Service_Underwear_Open } from './engine/events/module/service';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
 import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
+import { Alliance_Enter } from './engine/events/module/alliance/alliance_menu';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -150,9 +151,11 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 		"service_underwear_open": Service_Underwear_Open,
 		"statistics_enter": Statistics_Enter,
 		"rank_enter": Rank_Enter,
+		'rank_medal_enter': Rank_Medal_Enter,
 		"alliance_control_multi": Alliance_Control_Multi,
 		"alliance_control": Alliance_Control,
-		"alliance_controller": Alliance_Controller
+		"alliance_controller": Alliance_Controller,
+		'alliance_enter': Alliance_Enter
 	}
 	try {
 		await config[context.eventPayload.command](context)
