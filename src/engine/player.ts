@@ -6,12 +6,13 @@ import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger } from "./core/h
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
-import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, Item, User } from "@prisma/client";
+import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, Item, User } from "@prisma/client";
 import { Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
 import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
+import { Facult_Coin_Printer_Self } from "./events/module/alliance/facult_rank";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -617,6 +618,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 
                 if (get_user) {
                     info_coin = await Person_Coin_Printer_Self(context, get_user.id)
+                    const info_facult_rank = await Facult_Coin_Printer_Self(context, get_user.id)
                     await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
                     name_check = true
 				    datas.push({id: `${uid.text}`})
@@ -651,6 +653,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         let final: any = Array.from(new Set(compile));
                         await context.send(`✉ Были совершены следующие покупки:: \n ${final.toString().replace(/,/g, '')}`)
                     }
+                    //await context.send(`Рейтинги факультетов:\n\n ${info_facult_rank?.text}`)
                 } else { await context.send(`💡 Нет такого банковского счета!`) }
 			} else {
                 if (uid.text == "🚫Отмена") { 
@@ -1399,15 +1402,35 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             person.amount = await Ipnut_Gold() 
             const messa: string = await Ipnut_Message()
             const findas: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: user.id }})
+            const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult! } })
             let incomer = 0
+            let facult_income = ``
             switch (person.operation) {
                 case '+':
                     const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { increment: person.amount } } })
                     incomer = money_put_plus.amount
+                    if (person.coin?.point == true && alli_fac) {
+                        const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: user.id_facult! } }) 
+                        if (rank_put_plus_check) {
+                            const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } })
+                            if (rank_put_plus) {
+                                facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                            }
+                        }
+                    }
                     break;
                 case '-':
                     const money_put_minus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { decrement: person.amount } } })
                     incomer = money_put_minus.amount
+                    if (person.coin?.point == true && alli_fac) {
+                        const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: user.id_facult! } }) 
+                        if (rank_put_plus_check) {
+                            const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: person.amount } } })
+                            if (rank_put_plus) {
+                                facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                            }
+                        }
+                    }
                     break;
             
                 default:
@@ -1418,7 +1441,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 await vk.api.messages.send({
                     user_id: user.idvk,
                     random_id: 0,
-                    message: `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}`
+                    message: `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`
                 })
                 await context.send(`⚙ Операция завершена успешно`)
             } catch (error) {
@@ -1427,7 +1450,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}`
+                message: `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
             })
             console.log(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
         }

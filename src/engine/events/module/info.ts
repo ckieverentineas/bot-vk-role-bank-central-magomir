@@ -8,6 +8,7 @@ import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
 import { Logger } from "../../core/helper"
 import { Person_Coin_Printer } from "./person/person_coin"
+import { Facult_Rank_Printer } from "./alliance/facult_rank"
 
 export async function Card_Enter(context:any) {
     const get_user: User | null | undefined = await Person_Get(context)
@@ -15,9 +16,10 @@ export async function Card_Enter(context:any) {
         const attached = await Image_Text_Add_Card(context, 50, 650, get_user)
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const coin = await Person_Coin_Printer(context)
+        const facult_rank = await Facult_Rank_Printer(context)
         console.log(coin)
         const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
-        const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n ${facult_get ? facult_get.smile : `🎓`} Факультет: ${facult_get ? facult_get.name : `Фигачит на заводе!`}\n${coin}`
+        const text = `✉ Вы достали свою карточку: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n ${facult_get ? facult_get.smile : `🎓`} Факультет: ${facult_get ? facult_get.name : `Фигачит на заводе!`}\n${coin}\n${facult_rank}`
         //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })

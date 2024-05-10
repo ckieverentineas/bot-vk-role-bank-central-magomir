@@ -4,6 +4,8 @@ import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text } from "../../../..";
 import { Confirm_User_Success, Logger } from "../../../core/helper";
 import { Person_Get } from "../person/person";
+import { Facult_Rank_Printer } from "./facult_rank";
+import { Person_Coin_Printer } from "../person/person_coin";
 
 //контроллер управления валютами альянса
 async function Alliance_Facult_Get(cursor: number, alliance: Alliance) {
@@ -29,6 +31,8 @@ export async function Alliance_Facult_Printer(context: any) {
     let allifacult_tr = false
     let cursor = 0
     while (!allifacult_tr) {
+        const coin = await Person_Coin_Printer(context)
+        const facult_rank = await Facult_Rank_Printer(context)
         const keyboard = new KeyboardBuilder()
         let event_logger = ``
         for await (const alliance_facult of await Alliance_Facult_Get(cursor, alliance!)) {
