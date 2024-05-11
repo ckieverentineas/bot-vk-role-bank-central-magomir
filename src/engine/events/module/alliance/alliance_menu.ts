@@ -20,7 +20,7 @@ export async function Alliance_Enter(context:any) {
         //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
         .callbackButton({ label: '🛍 Лютный переулок', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
-            keyboard.callbackButton({ label: '⚖ Конвертер', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
+            keyboard.textButton({ label: '⚖ Конвертер', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         }
         
         keyboard.callbackButton({ label: '📊 Рейтинги', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()

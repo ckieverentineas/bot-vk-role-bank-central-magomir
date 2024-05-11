@@ -42,6 +42,7 @@ export async function Main_Menu(context: any) {
     
     //.callbackButton({ label: 'Артефакты', payload: { command: 'artefact_enter' }, color: 'secondary' })
     .callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
+    .callbackButton({ label: '🎓 Учебля', payload: { command: 'operation_enter' }, color: 'positive' }).row()
     //.callbackButton({ label: 'Услуги', payload: { command: 'service_enter' }, color: 'primary' })
     const role_pr = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 }})
     if (role_pr) {

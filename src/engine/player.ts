@@ -13,6 +13,7 @@ import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
 import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
 import { Facult_Coin_Printer_Self } from "./events/module/alliance/facult_rank";
+import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1816,6 +1817,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             return
         }
         await Alliance_Facult_Printer(context)
+    })
+    hearManager.hear(/⚖ Конвертер/, async (context) => {
+        await Alliance_Coin_Converter_Printer(context)
     })
 }
 
