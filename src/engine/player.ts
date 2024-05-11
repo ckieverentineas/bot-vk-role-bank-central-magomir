@@ -1805,13 +1805,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Alliance_Updater(context)
     })
-    hearManager.hear(/!настроить коины/, async (context) => {
+    hearManager.hear(/⚙ !настроить валюты/, async (context) => {
         if (await Accessed(context) != 2) {
             return
         }
         await Alliance_Coin_Printer(context)
     })
-    hearManager.hear(/!настроить факультеты/, async (context) => {
+    hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
         if (await Accessed(context) != 2) {
             return
         }

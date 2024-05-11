@@ -16,7 +16,8 @@ import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_C
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
 import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
-import { Alliance_Enter } from './engine/events/module/alliance/alliance_menu';
+import { Alliance_Enter, Alliance_Enter_Admin } from './engine/events/module/alliance/alliance_menu';
+import { Alliance_Rank_Enter } from './engine/events/module/alliance/alliance_rank';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -155,7 +156,9 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 		"alliance_control_multi": Alliance_Control_Multi,
 		"alliance_control": Alliance_Control,
 		"alliance_controller": Alliance_Controller,
-		'alliance_enter': Alliance_Enter
+		'alliance_enter': Alliance_Enter,
+		'alliance_enter_admin': Alliance_Enter_Admin,
+		'alliance_rank_enter': Alliance_Rank_Enter
 	}
 	try {
 		await config[context.eventPayload.command](context)
