@@ -18,9 +18,9 @@ export async function Alliance_Enter(context:any) {
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
         //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        .textButton({ label: '🛍 Лютный переулок', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+        .callbackButton({ label: '🛍 Лютный переулок', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
-            keyboard.textButton({ label: '⚖ Конвертер', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            keyboard.callbackButton({ label: '⚖ Конвертер', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         }
         
         keyboard.callbackButton({ label: '📊 Рейтинги', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
@@ -50,17 +50,12 @@ export async function Alliance_Enter_Admin(context:any) {
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const coin = await Person_Coin_Printer(context)
         const facult_rank = await Facult_Rank_Printer(context)
-        const text = `✉ Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name} <-- \n${facult_rank}]:`
+        const text = `✉ Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name}] --> \n`
         //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
         //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        .textButton({ label: '🛍 Лютный переулок', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
-        if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
-            keyboard.textButton({ label: '⚖ Конвертер', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
-        }
         
-        keyboard.callbackButton({ label: '📊 Рейтинги', payload: { command: 'rank_enter' }, color: 'secondary' }).row()
         if (get_user.id_role == 2) {
             keyboard.textButton({ label: '⚙ !настроить факультеты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !настроить валюты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()

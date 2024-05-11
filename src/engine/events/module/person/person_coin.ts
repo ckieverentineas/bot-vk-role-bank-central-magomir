@@ -47,7 +47,7 @@ export async function Person_Coin_Printer_Self(context: any, id: number) {
         if (!coin_check) {
             const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
             res.text += `${coin.smile} ${coin.name}: ${coin_init.amount}\n`
-            await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId}`)
+            await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId ?? context.peerId}`)
         } else {
             res.text += `${coin.smile} ${coin.name}: ${coin_check.amount}\n`
         }
