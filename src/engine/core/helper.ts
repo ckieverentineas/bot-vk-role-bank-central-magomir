@@ -368,7 +368,7 @@ export async function Confirm_User_Success(context: any, text: string) {
         }
     )
     if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение операции ${text} истекло!`) }
-    if (confirmq.payload.command === 'confirm') {
+    if (confirmq?.payload?.command === 'confirm') {
         res.status = true
         res.text = `✅ Success agree: ${text}`
     } else {

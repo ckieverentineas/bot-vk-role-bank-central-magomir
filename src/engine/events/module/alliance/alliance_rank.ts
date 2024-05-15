@@ -21,7 +21,7 @@ export async function Alliance_Rank_Enter(context:any) {
     for (const userok of facult_tr ? await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
         stat.push({
             rank: counter,
-            text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
+            text: `- UID-${userok.id} [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
             score: userok.medal,
             me: userok.idvk == user.idvk ? true : false
         })
@@ -85,7 +85,7 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
         if (user_balance) {
             stat.push({
                 rank: counter,
-                text: `- [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${user_balance.amount}${coin?.smile}\n`,
+                text: `- UID-${userok.id} [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${user_balance.amount}${coin?.smile}\n`,
                 score: user_balance.amount,
                 me: userok.idvk == user.idvk ? true : false
             })
@@ -125,10 +125,10 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
         keyboard.row().callbackButton({ label: `🌐 ${stats?.name.slice(0,30)}`, payload: { command: 'alliance_rank_coin_enter', facult: false, id_coin: id_coin }, color: 'secondary' }).row()
     }
     if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: '<', payload: { command: 'alliance_rank_coin_enter', counter_init: -10+counter_init, facult: facult_tr, }, color: 'secondary' })
+        keyboard.callbackButton({ label: '<', payload: { command: 'alliance_rank_coin_enter', counter_init: -10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary' })
     }
     if (10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, }, color: 'secondary', })
+        keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 

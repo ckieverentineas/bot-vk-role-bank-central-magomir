@@ -225,20 +225,20 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         )
         if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${JSON.stringify(uids)} истекло!`) }
-        if (ans.payload && ans.payload.command != 'back') {
-            const config: any = {
-                //'gold_up_many': Gold_Up_Many,
-                //'gold_down_many': Gold_Down_Many,
-                //'xp_up_many': Xp_Up_Many,
-                //'xp_down_many': Xp_Down_Many,
-                'back': Back,
-                //'multi_up_many': Multi_Up_Many,
-                //'multi_down_many': Multi_Down_Many,
-                'medal_up_many': Medal_Up_Many,
-                'medal_down_many': Medal_Down_Many
-            }
-            const answergot = await config[ans.payload.command](uids)
-            
+        const config: any = {
+            //'gold_up_many': Gold_Up_Many,
+            //'gold_down_many': Gold_Down_Many,
+            //'xp_up_many': Xp_Up_Many,
+            //'xp_down_many': Xp_Down_Many,
+            'back': Back,
+            //'multi_up_many': Multi_Up_Many,
+            //'multi_down_many': Multi_Down_Many,
+            'medal_up_many': Medal_Up_Many,
+            'medal_down_many': Medal_Down_Many
+        }
+        if (ans?.payload?.command in config) {
+            const commandHandler = config[ans.payload.command];
+            const answergot = await commandHandler(uids)
         } else {
             await context.send(`⚙ Операция отменена пользователем.`)
         }
@@ -683,21 +683,22 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         )
         if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
-        if (ans.payload && ans.payload.command != 'back') {
-            const config: any = {
-                //'gold_up': Gold_Up,
-                //'gold_down': Gold_Down,
-                //'xp_up': Xp_Up,
-                //'xp_down': Xp_Down,
-                'back': Back,
-                'sub_menu': Sub_Menu,
-                //'multi_up': Multi_Up,
-                //'multi_down': Multi_Down,
-                'medal_up': Medal_Up,
-                'medal_down': Medal_Down,
-                'coin_engine': Coin_Engine
-            }
-            const answergot = await config[ans.payload.command](Number(datas[0].id))
+        const config: any = {
+            //'gold_up': Gold_Up,
+            //'gold_down': Gold_Down,
+            //'xp_up': Xp_Up,
+            //'xp_down': Xp_Down,
+            'back': Back,
+            'sub_menu': Sub_Menu,
+            //'multi_up': Multi_Up,
+            //'multi_down': Multi_Down,
+            'medal_up': Medal_Up,
+            'medal_down': Medal_Down,
+            'coin_engine': Coin_Engine
+        }
+        if (ans?.payload?.command in config) {
+            const commandHandler = config[ans.payload.command];
+            const answergot = await commandHandler(Number(datas[0].id))
         } else {
             await context.send(`⚙ Операция отменена пользователем.`)
         }
@@ -1105,7 +1106,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение пинка для ${user_get.name} истекло!`) }
             if (confirmq.payload.command === 'confirm' && user_get) {
                 if (user_get) {
-                    const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0 } })
+                    const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0 } })
                     await context.send(`❗ Выпнут пользователь ${user_del.name}`)
                     try {
                         await vk.api.messages.send({
@@ -1554,17 +1555,18 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             )
             await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
             if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
-            if (ans_again.payload && ans_again.payload.command != 'back') {
-                const config: any = {
-                    'back': Back,
-                    'artefact_add': Artefact_Add,
-                    'artefact_show': Artefact_Show,
-                    'inventory_show': Inventory_Show,
-                    'user_delete': User_delete,
-                    'user_drop': User_Drop,
-                    'editor': Editor,
-                }
-                const answergot = await config[ans_again.payload.command](Number(datas[0].id))
+            const config: any = {
+                'back': Back,
+                'artefact_add': Artefact_Add,
+                'artefact_show': Artefact_Show,
+                'inventory_show': Inventory_Show,
+                'user_delete': User_delete,
+                'user_drop': User_Drop,
+                'editor': Editor,
+            }
+            if (ans_again?.payload?.command in config) {
+                const commandHandler = config[ans_again.payload.command];
+                const answergot = await commandHandler(Number(datas[0].id))
             } else {
                 await context.send(`⚙ Операция отменена пользователем.`)
             }
@@ -1778,7 +1780,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/🔃👥/, async (context) => {
         await Person_Selector(context)
     })
-    hearManager.hear(/отчет по ролкам/, async (context) => {
+    hearManager.hear(/!отчет по ролкам/, async (context) => {
         if (await Accessed(context) != 2) {
             return
         }
@@ -1797,6 +1799,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 }
             }
         }
+        res.sort(function(a, b){
+            return b.count - a.count;
+        });
         const res_ans = res.map(re => `🌐 ${re.name} - ${re.count}\n`).join('')
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
     })

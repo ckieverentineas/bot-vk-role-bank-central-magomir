@@ -3,7 +3,7 @@ import prisma from "./prisma_client";
 import { Person_Get } from "./person/person";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text_oper } from "../../..";
-import { Confirm_User_Success, Logger } from "../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger } from "../../core/helper";
 
 
 //контроллер управления валютами альянса
@@ -26,6 +26,7 @@ async function Alliance_Coin_Get(cursor: number, alliance: Alliance) {
 export async function Alliance_Coin_Converter_Printer(context: any) {
     const user = await Person_Get(context)
     const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance!}})
+    if (!alliance) { return }
     if (!user) { return }
     let allicoin_tr = false
     let cursor = 0
@@ -64,7 +65,7 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
             allicoin_tr = ans.stop ? ans.stop : false
         }
     }
-    
+    await Keyboard_Index(context, '💡 Конвертируем вашу жизнь в ее лучшую версию!')
 }
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance) {

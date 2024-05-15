@@ -2,7 +2,7 @@ import { Alliance, AllianceCoin } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Logger } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 
 //контроллер управления валютами альянса
@@ -24,7 +24,8 @@ async function Alliance_Coin_Get(cursor: number, alliance: Alliance) {
 
 export async function Alliance_Coin_Printer(context: any) {
     const user = await Person_Get(context)
-    const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance!}})
+    const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } })
+    if (!alliance) { return }
     if (!user) { return }
     let allicoin_tr = false
     let cursor = 0
@@ -49,23 +50,24 @@ export async function Alliance_Coin_Printer(context: any) {
             }
         )
         if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора валюты ${alliance?.name} истекло!`) }
-        if (!allicoin_bt.payload) {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
-        } else {
-            const config: any = {
-                'alliance_coin_edit': Alliance_Coin_Edit,
-                'alliance_coin_create': Alliance_Coin_Create,
-                'alliance_coin_next': Alliance_Coin_Next,
-                'alliance_coin_back': Alliance_Coin_Back,
-                'alliance_coin_return': Alliance_Coin_Return,
-                'alliance_coin_delete': Alliance_Coin_Delete
-            }
-            const ans = await config[allicoin_bt.payload.command](context, allicoin_bt.payload, alliance)
+        const config: any = {
+            'alliance_coin_edit': Alliance_Coin_Edit,
+            'alliance_coin_create': Alliance_Coin_Create,
+            'alliance_coin_next': Alliance_Coin_Next,
+            'alliance_coin_back': Alliance_Coin_Back,
+            'alliance_coin_return': Alliance_Coin_Return,
+            'alliance_coin_delete': Alliance_Coin_Delete
+        }
+        if (allicoin_bt?.payload?.command in config) {
+            const commandHandler = config[allicoin_bt.payload.command];
+            const ans = await commandHandler(context, allicoin_bt.payload, alliance)
             cursor = ans?.cursor || ans?.cursor == 0 ? ans.cursor : cursor
             allicoin_tr = ans.stop ? ans.stop : false
+        } else {
+            await context.send(`💡 Жмите только по кнопкам с иконками!`)
         }
     }
-    
+    await Keyboard_Index(context, '💡 Нужно построить зиккурат!')
 }
 
 async function Alliance_Coin_Delete(context: any, data: any, alliance: Alliance) {

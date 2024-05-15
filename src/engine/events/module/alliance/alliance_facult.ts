@@ -2,7 +2,7 @@ import { Alliance, AllianceCoin, AllianceFacult } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Logger } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import { Facult_Rank_Printer } from "./facult_rank";
 import { Person_Coin_Printer } from "../person/person_coin";
@@ -13,7 +13,7 @@ async function Alliance_Facult_Get(cursor: number, alliance: Alliance) {
     let counter = 0
     let limiter = 0
     let res: AllianceFacult[] = []
-    for (const allifacult of await prisma.allianceFacult.findMany({ where: { id_alliance: alliance.id } })) {
+    for (const allifacult of await prisma.allianceFacult.findMany({ where: { id_alliance: alliance?.id } })) {
         if ((cursor <= counter && batchSize+cursor >= counter) && limiter < batchSize) {
             res.push(allifacult)
             limiter++
@@ -26,7 +26,8 @@ async function Alliance_Facult_Get(cursor: number, alliance: Alliance) {
 
 export async function Alliance_Facult_Printer(context: any) {
     const user = await Person_Get(context)
-    const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance!}})
+    const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } })
+    if (!alliance) { return }
     if (!user) { return }
     let allifacult_tr = false
     let cursor = 0
@@ -42,7 +43,7 @@ export async function Alliance_Facult_Printer(context: any) {
             event_logger += `${alliance_facult.smile} ${alliance_facult.name}: id${alliance_facult.id}\n\n`
         }
         if (cursor >= 5) { keyboard.textButton({ label: `←`, payload: { command: 'alliance_facult_back', cursor: cursor }, color: 'secondary' }) }
-        const alliance_facult_counter = await prisma.allianceFacult.count({ where: { id_alliance: alliance!.id! } })
+        const alliance_facult_counter = await prisma.allianceFacult.count({ where: { id_alliance: alliance?.id } })
         if (5+cursor < alliance_facult_counter) { keyboard.textButton({ label: `→`, payload: { command: 'alliance_facult_next', cursor: cursor }, color: 'secondary' }) }
         keyboard.textButton({ label: `➕`, payload: { command: 'alliance_facult_create', cursor: cursor }, color: 'secondary' }).row()
         .textButton({ label: `🚫`, payload: { command: 'alliance_facult_return', cursor: cursor }, color: 'secondary' }).oneTime()
@@ -53,23 +54,24 @@ export async function Alliance_Facult_Printer(context: any) {
             }
         )
         if (allifacult_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора факультета ролевой ${alliance?.name} истекло!`) }
-        if (!allifacult_bt.payload) {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
-        } else {
-            const config: any = {
-                'alliance_facult_edit': Alliance_Facult_Edit,
-                'alliance_facult_create': Alliance_Facult_Create,
-                'alliance_facult_next': Alliance_Facult_Next,
-                'alliance_facult_back': Alliance_Facult_Back,
-                'alliance_facult_return': Alliance_Facult_Return,
-                'alliance_facult_delete': Alliance_Facult_Delete
-            }
-            const ans = await config[allifacult_bt.payload.command](context, allifacult_bt.payload, alliance)
+        const config: any = {
+            'alliance_facult_edit': Alliance_Facult_Edit,
+            'alliance_facult_create': Alliance_Facult_Create,
+            'alliance_facult_next': Alliance_Facult_Next,
+            'alliance_facult_back': Alliance_Facult_Back,
+            'alliance_facult_return': Alliance_Facult_Return,
+            'alliance_facult_delete': Alliance_Facult_Delete
+        }
+        if (allifacult_bt?.payload?.command in config) {
+            const commandHandler = config[allifacult_bt.payload.command];
+            const ans = await commandHandler(context, allifacult_bt.payload, alliance)
             cursor = ans?.cursor || ans?.cursor == 0 ? ans.cursor : cursor
             allifacult_tr = ans.stop ? ans.stop : false
+        } else {
+            await context.send(`💡 Жмите только по кнопкам с иконками!`)
         }
     }
-    
+    await Keyboard_Index(context, '💡 Мерлинова борода, что у нас здесь?!')
 }
 
 async function Alliance_Facult_Delete(context: any, data: any, alliance: Alliance) {
@@ -110,7 +112,7 @@ async function Alliance_Facult_Edit(context: any, data: any, alliance: Alliance)
     let smile_check = false
     let smile = alliance_facult_check?.smile
 	while (smile_check == false) {
-		const smile_ask: any = await context.question( `🧷 Введите смайлик для обозначения нового факультета ${name_loc}, сейчас стоит ${smile}:`, timer_text)
+		const smile_ask: any = await context.question( `🧷 Введите смайлик для обозначения редактируемого факультета ${name_loc}, сейчас стоит ${smile}:`, timer_text)
 		if (smile_ask.isTimeout) { return await context.send(`⏰ Время ожидания ввода смайлика для корректировки смайлика факультета ${name_loc} истекло!`) }
 		if (smile_ask.text.length <= 10) {
 			smile_check = true

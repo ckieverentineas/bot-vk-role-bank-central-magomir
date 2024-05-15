@@ -198,6 +198,7 @@ export async function Shop_Buy(context: any) {
         if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })
         if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
+            //добавить обработчик ошибок
             const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
             const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: input.id } })
             await Logger(`In a private chat, bought a new item ${input.id} by user ${user.idvk}`)
