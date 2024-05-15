@@ -39,6 +39,18 @@ export async function Image_Random(context: any, dir_name: any) {
     });
     return attachment
 }
+export async function Image_Item_Target(item: string) {
+    //if (check?.id_role == 2) { return }
+    const file_name = `./src/art/template/item/${item}.jpg`
+    const lenna = await Jimp.read(`${file_name}`)
+    const res = lenna.quality(0)
+    const attachment = await vk.upload.messagePhoto({
+        source: {
+            value: await res.getBufferAsync(Jimp.MIME_JPEG)
+        }
+    });
+    return attachment
+}
 export async function Image_Composer() {
     const image0 = await Jimp.read('./src/art/composer/0.jpg')
     const image1 = await Jimp.read('./src/art/composer/1.png');

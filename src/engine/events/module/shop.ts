@@ -1,7 +1,7 @@
 import { Category, Inventory, Item, User } from "@prisma/client"
 import prisma from "./prisma_client"
 import { KeyboardBuilder } from "vk-io"
-import { Image_Interface, Image_Random } from "../../core/imagecpu"
+import { Image_Interface, Image_Item_Target, Image_Random } from "../../core/imagecpu"
 import { chat_id, vk } from "../../.."
 import { Analyzer_Buying_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
@@ -197,6 +197,7 @@ export async function Shop_Buy(context: any) {
         const user: User | null | undefined = await Person_Get(context)
         if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })
+        let text = ``
         if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
             //добавить обработчик ошибок
             const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
@@ -208,33 +209,21 @@ export async function Shop_Buy(context: any) {
                 message: `🛍 @id${user.idvk}(${user.name}) покупает ${input.name}`
             })
             if (context?.eventPayload?.command == "shop_buy") {
-                await vk.api.messages.sendMessageEventAnswer({
-                    event_id: context.eventId,
-                    user_id: context.userId,
-                    peer_id: context.peerId,
-                    event_data: JSON.stringify({
-                        type: "show_snackbar",
-                        text: `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘`
-                    })
-                })
+                text = `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘`
             }
             await Analyzer_Buying_Counter(context)
-            await Shop_Enter(context)
+            
+            //await Shop_Enter(context)
         } else {
             await Logger(`In a private chat, can't bought a new item ${input.id} by user ${user.idvk}`)
             if (context?.eventPayload?.command == "shop_buy") {
-                const ii = !item_inventory || input.type == 'unlimited' ? `💡 У вас  недостаточно средств для покупки ${input.name}!!` : `💡 У вас уже есть ${input.name}!`
-                await vk.api.messages.sendMessageEventAnswer({
-                    event_id: context.eventId,
-                    user_id: context.userId,
-                    peer_id: context.peerId,
-                    event_data: JSON.stringify({
-                        type: "show_snackbar",
-                        text: ii
-                    })
-                })
+                text = !item_inventory || input.type == 'unlimited' ? `💡 У вас  недостаточно средств для покупки ${input.name}!!` : `💡 У вас уже есть ${input.name}!`
             }
         }       
+        const attached = await Image_Item_Target(input.name)
+        let keyboard = new KeyboardBuilder()
+        keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, rendering: true }, color: 'secondary' }).inline()
+        await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
     }
 }
 export async function Shop_Cancel(context: any) {
