@@ -18,7 +18,7 @@ export async function Alliance_Enter(context:any) {
         const keyboard = new KeyboardBuilder()
         //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
         //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        .callbackButton({ label: '🛍 Лютный переулок', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
+        //.callbackButton({ label: '🛍 Лютный переулок', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
             keyboard.textButton({ label: '⚖ Конвертер', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
         }

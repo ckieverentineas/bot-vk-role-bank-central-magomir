@@ -7,7 +7,7 @@ import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, Item, User } from "@prisma/client";
-import { Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
+import { Person_Detector, Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
 import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
@@ -1752,23 +1752,31 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const user_count = await prisma.user.count()
 		const sums: any = await prisma.user.aggregate({ _sum: { medal: true } })
-        const user_check: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+        await Person_Detector(context)
+        const user_check: User | null | undefined = await Person_Get(context)
+        if (!user_check) { return }
 		await Image_Random(context, "bank")
 		if (user_check.id_role != 1) {
-			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.16v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
 		} else {
-			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.16v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
+			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
 		}
 		const user_inf = await User_Info(context)
-		await context.send(`${user_inf.first_name}, чтобы авторизоваться в Центробанк Магомира Онлайн 0.16v, нажмите кнопку под этим сообщением!`, {
-			keyboard: new KeyboardBuilder().callbackButton({
-				label: '✅ Подтвердить авторизацию',
-				payload: {
-					command: 'system_call',
-					item: 'coffee'
-				}
-			}).inline()
+        const keyboard = new KeyboardBuilder().callbackButton({
+            label: '✅ Подтвердить авторизацию',
+            payload: {
+                command: 'system_call',
+                item: 'coffee'
+            }
+        })
+        if (await prisma.user.count({ where: { idvk: user_check.idvk } }) > 1) {
+            keyboard.textButton({ label: '🔃👥', payload: { command: 'Согласиться' }, color: 'secondary' })
+        }
+        keyboard.inline()
+		await context.send(`${user_inf.first_name}, чтобы авторизоваться в Центробанк Магомира Онлайн 0.16v, под ${user_check.name} нажмите кнопку под этим сообщением!`, {
+			keyboard: keyboard
 		})
+        
         await Logger(`In private chat, invite enter in system is viewed by user ${context.senderId}`)
     })
     hearManager.hear(/➕👤/, async (context) => {
