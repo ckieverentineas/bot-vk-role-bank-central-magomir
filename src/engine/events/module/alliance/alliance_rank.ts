@@ -4,7 +4,7 @@ import prisma from "../prisma_client"
 import { Person_Coin_Printer, Person_Coin_Printer_Self } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
-import { Logger } from "../../../core/helper"
+import { Edit_Message, Logger } from "../../../core/helper"
 import { vk } from "../../../.."
 
 export async function Alliance_Rank_Enter(context:any) {
@@ -63,7 +63,7 @@ export async function Alliance_Rank_Enter(context:any) {
         keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+    await Edit_Message(context, text, keyboard)
 }
 
 export async function Alliance_Rank_Coin_Enter(context:any) {
@@ -135,5 +135,5 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
         keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+    await Edit_Message(context, text, keyboard)
 }

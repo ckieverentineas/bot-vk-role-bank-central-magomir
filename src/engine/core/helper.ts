@@ -1,6 +1,6 @@
 
 import { randomInt } from "crypto"
-import { Keyboard, KeyboardBuilder } from "vk-io"
+import { Keyboard, KeyboardBuilder, PhotoAttachment } from "vk-io"
 import { answerTimeLimit, chat_id, group_id, root, starting_date, vk } from "../.."
 import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
@@ -114,9 +114,9 @@ export async function Keyboard_Index(context: any, messa: any) {
         keyboard.textButton({ label: 'Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
     }
     if (user_find?.id_role === 2) {
-        keyboard.textButton({ label: 'права', payload: { command: 'sliz' }, color: 'negative' }).row()
-        keyboard.textButton({ label: 'операции', payload: { command: 'sliz' }, color: 'positive' }).row()
-        keyboard.textButton({ label: 'операция', payload: { command: 'sliz' }, color: 'negative' }).row()
+        keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
+        keyboard.textButton({ label: '!операции', payload: { command: 'sliz' }, color: 'positive' }).row()
+        keyboard.textButton({ label: '!операция', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
     // Отправляем клавиатуру без сообщения
@@ -355,7 +355,36 @@ export async function Send_Message(idvk: number, message: string, keyboard?: Key
         console.log(`Ошибка отправки сообщения: ${e}`)
     }
 }
-
+export async function Edit_Message(context: any, message: string, keyboard?: Keyboard, attached?: PhotoAttachment | null) {
+    message = message ? message : 'invalid message'
+    try {
+        if (keyboard && attached) {
+            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard, attachment: attached.toString()})
+        }
+        if (!keyboard && attached) {
+            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, attachment: attached.toString()})
+        }
+        if (keyboard && !attached) {
+            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard})
+        }
+        if (!keyboard && !attached) {
+            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`})
+        }
+    } catch (e) {
+        const err = `Ошибка редактирования сообщения, попробуйте через 1-15 минут, в зависимости от ошибки: ${e}`
+        console.log(`Ошибка редактирования сообщения, попробуйте через 1-15 минут, в зависимости от ошибки: ${e}`)
+        try {
+            await vk.api.messages.send({
+                peer_id: context.senderId ?? context.peerId,
+                random_id: 0,
+                message: err.slice(0,250)
+            })
+        } catch {
+            console.log(`Ошибка редактирования сообщения в квадрате: ${e}`)
+        }
+        
+    }
+}
 export async function Confirm_User_Success(context: any, text: string) {
     let res = { status: false, text: `` }
     const confirmq = await context.question(`⁉ Вы уверены, что хотите ${text}`,

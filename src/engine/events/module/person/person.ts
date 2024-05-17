@@ -125,8 +125,11 @@ export async function Person_Register(context: any) {
 			{	
 				keyboard: Keyboard.builder()
 				.textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' }).row()
 				.textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
-				.textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' })
+                .textButton({ label: 'Декан', payload: { command: 'professor' }, color: 'secondary' }).row()
+                .textButton({ label: 'Бизнесвумен(мэн)', payload: { command: 'professor' }, color: 'secondary' })
+                .textButton({ label: 'Другое', payload: { command: 'citizen' }, color: 'secondary' })
 				.oneTime().inline(), answerTimeLimit
 			}
 		)
@@ -138,8 +141,9 @@ export async function Person_Register(context: any) {
 			answer_check1 = true
 		}
 	}
+    if (person.class == 'Ученик') { person.spec = `Без специализации` }
 	let spec_check = false
-	while (spec_check == false) {
+	while (spec_check == false && person.class != 'Ученик') {
 		const name = await context.question( `🧷 Укажите вашу специализацию в ${person.alliance}. Если вы профессор/житель, введите должность. Если вы студент, укажите факультет`, timer_text)
 		if (name.isTimeout) { return await context.send(`⏰ Время ожидания выбора специализации истекло!`) }
 		if (name.text.length <= 30) {
@@ -177,6 +181,7 @@ export async function Person_Register(context: any) {
                 if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                     keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                 }
+                keyboard.textButton({ label: 'Нафиг учебу', payload: { command: 'builder_control_multi', target: { id: 0, name: 'Без факультета', smile: '🔥', id_alliance: person.id_alliance } }, color: 'secondary' })
             } else {
                 event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
             }

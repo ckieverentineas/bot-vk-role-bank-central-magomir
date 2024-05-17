@@ -5,7 +5,7 @@ import { Image_Interface, Image_Item_Target, Image_Random } from "../../core/ima
 import { chat_id, vk } from "../../.."
 import { Analyzer_Buying_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
-import { Logger } from "../../core/helper"
+import { Edit_Message, Logger } from "../../core/helper"
 
 async function Searcher(data: any, target: number) {
     let counter = 0
@@ -115,7 +115,7 @@ export async function Shop_Enter(context: any) {
         let attached = null
         if (!user) { return }
         if (user) {
-            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.medal}\n\n`
+            let text = `⌛ Вы оказались в ${input.name}. Ваш баланс: ${user.medal}🔘\n\n`
             const data: Item[] = await prisma.item.findMany({ where: { id_category: Number(input.id) } })
             const inventory: Inventory[] = await prisma.inventory.findMany({ where: { id_user: user.id } })
             if (data.length > 0) {
@@ -152,9 +152,9 @@ export async function Shop_Enter(context: any) {
             .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
             await Logger(`In a private chat, open shop ${input.name} is viewed by user ${context.peerId}`)
             if (context.eventPayload.rendering) {
-                await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+                await Edit_Message(context, text, keyboard, attached)
             } else {
-                await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard })
+                await Edit_Message(context, text, keyboard)
             }
             
             if (context?.eventPayload?.command == "shop_enter") {
@@ -223,7 +223,7 @@ export async function Shop_Buy(context: any) {
         const attached = await Image_Item_Target(input.name)
         let keyboard = new KeyboardBuilder()
         keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, rendering: true }, color: 'secondary' }).inline()
-        await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+        await Edit_Message(context, text, keyboard, attached)
     }
 }
 export async function Shop_Cancel(context: any) {
@@ -251,7 +251,7 @@ export async function Shop_Category_Enter(context: any) {
         keyboard.callbackButton({ label: `🎪 ${category[i].name}`, payload: { command: "shop_enter", item: "id", value: category[i], current: 0, rendering: true }, color: 'primary' }).row()
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+    await Edit_Message(context, text, keyboard, attached)
     await Logger(`In a private chat, enter in shopping is viewed by user ${context.peerId}`)
     if (context?.eventPayload?.command == "shop_category_enter") {
         await vk.api.messages.sendMessageEventAnswer({

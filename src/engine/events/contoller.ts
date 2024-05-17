@@ -4,12 +4,14 @@ import { root, vk } from "../.."
 import { Image_Random } from "../core/imagecpu";
 import { User } from "@prisma/client";
 import { Person_Get } from "./module/person/person";
+import { Edit_Message } from "../core/helper";
 
 export async function Main_Menu_Init(context: any) {
     const attached = await Image_Random(context, "bank")
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`, keyboard: await Main_Menu(context), attachment: attached.toString() })
+    const text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
+    await Edit_Message(context, text, await Main_Menu(context), attached)
     //${user?.gold}💰 ${user?.xp}🧙
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -22,7 +24,8 @@ export async function Main_Menu_Init(context: any) {
     })
 }
 export async function Exit(context: any) {
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `💡 Сессия успешно завершена. Чтобы начать новую, напишите [!банк] без квадратных скобочек`})
+    const text = `💡 Сессия успешно завершена. Чтобы начать новую, напишите [!банк] без квадратных скобочек`
+    await Edit_Message(context, text)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,

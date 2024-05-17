@@ -4,7 +4,7 @@ import prisma from "../prisma_client"
 import { Person_Coin_Printer } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
-import { Logger } from "../../../core/helper"
+import { Edit_Message, Logger } from "../../../core/helper"
 import { vk } from "../../../.."
 
 export async function Alliance_Enter(context:any) {
@@ -29,7 +29,7 @@ export async function Alliance_Enter(context:any) {
         }
         keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
-        await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard/*, attachment: attached?.toString()*/})
+        await Edit_Message(context, text, keyboard)
         if (context?.eventPayload?.command == "card_enter") {
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
@@ -60,10 +60,11 @@ export async function Alliance_Enter_Admin(context:any) {
             keyboard.textButton({ label: '⚙ !настроить факультеты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !настроить валюты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !настроить конвертацию', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            keyboard.textButton({ label: '⚙ !настроить магазины', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
         }
         keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
-        await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard/*, attachment: attached?.toString()*/})
+        await Edit_Message(context, text, keyboard)
         if (context?.eventPayload?.command == "card_enter") {
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,

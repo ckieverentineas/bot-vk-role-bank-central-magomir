@@ -181,7 +181,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `💡 Может еще что-нибудь отредактировать?`)
     })
-    hearManager.hear(/операция/, async (context) => {
+    hearManager.hear(/!операция/, async (context) => {
         if (await Accessed(context) != 2) {
             return
         }
@@ -598,7 +598,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
     })
 
-    hearManager.hear(/операции/, async (context) => {
+    hearManager.hear(/!операции/, async (context) => {
         if (await Accessed(context) != 2) {
             return
         }
@@ -794,9 +794,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 const answer1: any = await context.question(`🧷 Укажите положение в ${alli_sel} для ${user.name}, имеющего текущий статус: ${user.class}. `,
                     {
                         keyboard: Keyboard.builder()
-                        .textButton({ label: 'Ученик', payload: { command: 'grif' }, color: 'secondary' })
-                        .textButton({ label: 'Профессор', payload: { command: 'coga' }, color: 'secondary' })
-                        .textButton({ label: 'Житель', payload: { command: 'sliz' }, color: 'secondary'})
+                        .textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
+                        .textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' }).row()
+				        .textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
+                        .textButton({ label: 'Декан', payload: { command: 'professor' }, color: 'secondary' }).row()
+                        .textButton({ label: 'Бизнесвумен(мэн)', payload: { command: 'professor' }, color: 'secondary' })
+                        .textButton({ label: 'Другое', payload: { command: 'citizen' }, color: 'secondary' })
                         .oneTime().inline(),
                         answerTimeLimit
                     }
@@ -1000,6 +1003,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                             keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                         }
+                        keyboard.textButton({ label: 'Нафиг учебу', payload: { command: 'builder_control_multi', target: { id: 0, name: 'Без факультета', smile: '🔥', id_alliance: user.id_alliance } }, color: 'secondary' })
                     } else {
                         event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
                     }
@@ -1107,7 +1111,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение пинка для ${user_get.name} истекло!`) }
             if (confirmq.payload.command === 'confirm' && user_get) {
                 if (user_get) {
-                    const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0 } })
+                    const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0, id_role: 1 } })
                     await context.send(`❗ Выпнут пользователь ${user_del.name}`)
                     try {
                         await vk.api.messages.send({
@@ -1656,7 +1660,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
-    hearManager.hear(/права/, async (context: any) => {
+    hearManager.hear(/!права/, async (context: any) => {
         const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
         if (user_find?.id_role == 2) {
@@ -1665,9 +1669,11 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 			if (uid.text) {
                 const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
                 if (get_user) {
-                    const artefact_counter = await prisma.artefact.count({ where: { id_user: Number(uid.text) } })
+                    
                     const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
-                    await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳UID: ${get_user.id} \n 🔮Количество артефактов: ${artefact_counter}\n \n Права пользователя: ${role.name} `)
+                    const info_coin: { text: string, smile: string } | undefined = await Person_Coin_Printer_Self(context, get_user.id)
+                    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
+                    await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}\n \n Права пользователя: ${role.name} `)
                     const answer1 = await context.question(`⌛ Что будем делать?`,
                         {
                             keyboard: Keyboard.builder()

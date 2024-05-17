@@ -6,7 +6,7 @@ import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "..
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
-import { Logger } from "../../core/helper"
+import { Edit_Message, Logger } from "../../core/helper"
 import { Person_Coin_Printer } from "./person/person_coin"
 import { Facult_Rank_Printer } from "./alliance/facult_rank"
 
@@ -31,7 +31,7 @@ export async function Card_Enter(context:any) {
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
         let ii = `В общем вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
-        await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+        await Edit_Message(context, text, keyboard, attached)
         if (context?.eventPayload?.command == "card_enter") {
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
@@ -103,7 +103,7 @@ export async function Inventory_Enter(context: any) {
     const text = final.length > 0 ? `✉ Вы приобрели следующее: \n ${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
     await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})
+    await Edit_Message(context, text, keyboard, attached)
     let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -127,7 +127,7 @@ export async function Admin_Enter(context: any) {
         puller += `\n🚫 Доступ запрещен\n`
     }
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${puller}`, keyboard: keyboard, attachment: attached?.toString()})
+    await Edit_Message(context, puller, keyboard, attached)
     await Logger(`In a private chat, the list administrators is viewed by admin ${user.idvk}`)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -240,5 +240,5 @@ export async function Rank_Enter(context: any) {
     text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
     await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+    await Edit_Message(context, text, keyboard)
 }
