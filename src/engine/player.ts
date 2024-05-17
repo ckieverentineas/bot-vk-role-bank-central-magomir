@@ -14,6 +14,7 @@ import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facul
 import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
 import { Facult_Coin_Printer_Self } from "./events/module/alliance/facult_rank";
 import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
+import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1407,6 +1408,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult! } })
             let incomer = 0
             let facult_income = ``
+            let passer = true
             switch (person.operation) {
                 case '+':
                     const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { increment: person.amount } } })
@@ -1436,9 +1438,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     break;
             
                 default:
+                    passer = false
                     break;
             }
-            
+            if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
             try {
                 await vk.api.messages.send({
                     user_id: user.idvk,
@@ -1824,6 +1827,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             return
         }
         await Alliance_Coin_Printer(context)
+    })
+    hearManager.hear(/⚙ !настроить конвертацию/, async (context) => {
+        if (await Accessed(context) != 2) {
+            return
+        }
+        await Alliance_Coin_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
         if (await Accessed(context) != 2) {

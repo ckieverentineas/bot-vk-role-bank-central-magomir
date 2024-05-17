@@ -59,6 +59,7 @@ export async function Alliance_Enter_Admin(context:any) {
         if (get_user.id_role == 2) {
             keyboard.textButton({ label: '⚙ !настроить факультеты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !настроить валюты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            keyboard.textButton({ label: '⚙ !настроить конвертацию', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
         }
         keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)

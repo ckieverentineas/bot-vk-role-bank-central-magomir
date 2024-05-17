@@ -83,7 +83,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
     let calc = 0
     while (money_check == false) {
         calc = Math.floor(coi/alliance_coin_check?.course_medal!*alliance_coin_check?.course_coin!)
-        const gold: any = await context.question(`🧷 Вы можете cконвертировать ${user?.medal}🔘:\n⚖ Конвертация: \n ${coi}🔘-->${calc}${alliance_coin_check?.smile}\n`,
+        const gold: any = await context.question(`🧷 Вы можете cконвертировать ${user?.medal}🔘:\n⚖ Будет сконвертированно: \n ${coi}🔘-->${calc}${alliance_coin_check?.smile}\n⚠ Введите желаемое количество жетонов для конвертации:`,
             {	
                 keyboard: Keyboard.builder()
                 .textButton({ label: '!подтвердить', payload: { command: 'student' }, color: 'secondary' })
@@ -98,8 +98,21 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
             if (gold.text == '!отмена') {
                 return res
             }
-            if (typeof Number(gold.text) == "number") {
-                coi = Number(gold.text)
+            if (typeof Number(gold.text) === "number") {
+                const input = Number(gold.text)
+                if (input < 0) {
+                    await context.send(`⚠ Введите положительное количество жетонов!`);
+                    continue
+                }
+                if (input > user!.medal) {
+                    await context.send(`⚠ У вас нет столько жетонов на балансе, вы можете ввести до ${user!.medal}🔘 включительно!`);
+                    continue
+                }
+                if (Number.isNaN(input)) {
+                    await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`);
+                    continue
+                }
+                coi = Math.floor(input)
             } 
         }
     }
