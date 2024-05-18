@@ -26,7 +26,7 @@ export async function Facult_Rank_Printer(context: any) {
     if (!user) { return }
     let res = ``
     for (const facult of await prisma.allianceFacult.findMany({ where: { id_alliance: user.id_alliance! } })) {
-        res += `${facult.smile} ${facult.name} -->\n`
+        res += `${facult.smile} ${facult.name} <-->\n`
         for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance! } })) {
             if (coin.point) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})

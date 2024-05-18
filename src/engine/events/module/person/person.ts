@@ -81,31 +81,28 @@ export async function Person_Register(context: any) {
                 let counter = 0
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
-                    keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
-                    //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                    event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
-                    /*
-                    const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                    keyboard.textButton({ label: `🌐 №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                    event_logger += `\n\n🔒 Ролевой проект №${i} <--\n📜 AUID: ${builder.id}\n🌐 Название: ${builder.name}\n🧷 Ссылка: https://vk.com/club${builder.idvk}`
                     counter++
                 }
                 event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
-                //предыдущий офис
+                //предыдущие ролевые
                 if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
                     keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
                 }
-                //следующий офис
+                //следующие ролевые
                 if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                     keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                 }
             } else {
-                event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+                event_logger = `💬 Ролевых пока что нет...`
             }
             const answer1: any = await context.question(`${event_logger}`,
 		    	{	
 		    		keyboard: keyboard.inline(), answerTimeLimit
 		    	}
 		    )
-            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора ролевого проекта истекло!`) }
 		    if (!answer1.payload) {
 		    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		    } else {
@@ -165,9 +162,9 @@ export async function Person_Register(context: any) {
                 let counter = 0
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
-                    keyboard.textButton({ label: `${builder.smile} ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                    keyboard.textButton({ label: `${builder.smile} №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                    event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.smile} ${builder.name}\n`
+                    event_logger += `\n\n🔮 Ролевой факультет №${i} <--\n📜 FUID: ${builder.id}\n${builder.smile} Название: ${builder.name}`
                     /*
                     const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                     counter++

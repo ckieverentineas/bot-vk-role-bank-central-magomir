@@ -838,7 +838,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
             const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
 		    while (spec_check == false) {
-                const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+                const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
                 if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
                 if (spec.text.length <= 32) {
                     spec_check = true
@@ -868,11 +868,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
         async function Edit_Alliance(id: number){
-            const user: any = await prisma.user.findFirst({ where: { id: id } })
+            const user: User | null = await prisma.user.findFirst({ where: { id: id } })
+            if (!user) { return await context.send(`⚠ Ролевик под UID${id} не был обнаружен в системе!`)}
             const person: { id_alliance: null | number, alliance: null | string,  } = { id_alliance: null, alliance: null }
             let answer_check = false
             while (answer_check == false) {
-                const answer_selector = await context.question(`🧷 Укажите ваш статус в Министерстве Магии`,
+                const answer_selector = await context.question(`🧷 Укажите статус в Министерстве Магии для ${user.name}-${user.id}:`,
                     {	
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Союзник', payload: { command: 'student' }, color: 'secondary' })
@@ -896,7 +897,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 while (!alliance_check) {
                     const keyboard = new KeyboardBuilder()
                     id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
-                    let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежите:\n\n`
+                    let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежит ${user.name}-${user.id}:\n\n`
                     const builder_list: Alliance[] = await prisma.alliance.findMany({})
         
                     if (builder_list.length > 0) {
@@ -904,11 +905,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         let counter = 0
                         for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                             const builder = builder_list[i]
-                            keyboard.textButton({ label: `👀 ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
-                            //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                            event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.name}\n 🧷 Ссылка: https://vk.com/club${builder.idvk}`
-                            /*
-                            const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                            keyboard.textButton({ label: `🌐 №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                            event_logger += `\n\n🔒 Ролевой проект №${i} <--\n📜 AUID: ${builder.id}\n🌐 Название: ${builder.name}\n🧷 Ссылка: https://vk.com/club${builder.idvk}`
                             counter++
                         }
                         event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
@@ -921,14 +919,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                         }
                     } else {
-                        event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+                        event_logger = `💬 Ролевых проектов не обнаружено!`
                     }
                     const answer1: any = await context.question(`${event_logger}`,
                         {	
                             keyboard: keyboard.inline(), answerTimeLimit
                         }
                     )
-                    if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+                    if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора ролевого проекта истекло!`) }
                     if (!answer1.payload) {
                         await context.send(`💡 Жмите только по кнопкам с иконками!`)
                     } else {
@@ -987,9 +985,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         let counter = 0
                         for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                             const builder = builder_list[i]
-                            keyboard.textButton({ label: `${builder.smile} ${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                            keyboard.textButton({ label: `${builder.smile} №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                             //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                            event_logger += `\n\n💬 ${i} -> ${builder.id} - ${builder.smile} ${builder.name}\n`
+                            event_logger += `\n\n🔮 Ролевой факультет №${i} <--\n📜 FUID: ${builder.id}\n${builder.smile} Название: ${builder.name}`
                             /*
                             const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                             counter++

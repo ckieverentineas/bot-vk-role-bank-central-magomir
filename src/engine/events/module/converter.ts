@@ -33,16 +33,15 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
     while (!allicoin_tr) {
         const keyboard = new KeyboardBuilder()
         let event_logger = ``
+        let counter = 0
         for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance!)) {
-            keyboard.textButton({ label: `🧬 ${alliance_coin.id}-${alliance_coin.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
-            //.textButton({ label: `⛔`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
-            //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-            event_logger += `${alliance_coin.smile} ${alliance_coin.name}: id${alliance_coin.id}\nРейтинговая валюта: ${alliance_coin?.point == true ? "✅" : "⛔"}\n Курс конвертации: ${alliance_coin.course_medal}🔘 --> ${alliance_coin.course_coin}${alliance_coin.smile}\n\n`
+            keyboard.textButton({ label: `${alliance_coin.smile} №${counter}-${alliance_coin.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
+            event_logger += `🧬 Ролевая валюта №${counter} <--\n📜 CUID: ${alliance_coin.id}\n${alliance_coin.smile} Название: ${alliance_coin.name}\n📊 Рейтинговая валюта: ${alliance_coin?.point == true ? "✅" : "⛔"}\n⚖ Курс конвертации: ${alliance_coin.course_medal}🔘 --> ${alliance_coin.course_coin}${alliance_coin.smile}\n\n`
+            counter++
         }
         if (cursor >= 5) { keyboard.textButton({ label: `←`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
         if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `→`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
-        //keyboard.textButton({ label: `➕`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
         keyboard.textButton({ label: `🚫`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
         const allicoin_bt = await context.question(`🧷 Выберите валюту ${alliance?.name}:\n\n ${event_logger}`,
