@@ -88,7 +88,7 @@ async function Alliance_Coin_Delete(context: any, data: any, alliance: Alliance)
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`Вы отменили меню управления валютами ролевого проекта ${alliance.id}-${alliance.name}`)
+    await context.send(`Вы отменили меню управления валютами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
     return res
 }
 

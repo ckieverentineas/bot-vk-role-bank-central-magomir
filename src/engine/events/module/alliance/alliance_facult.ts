@@ -92,7 +92,7 @@ async function Alliance_Facult_Delete(context: any, data: any, alliance: Allianc
 
 async function Alliance_Facult_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`Вы отменили меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`)
+    await context.send(`Вы отменили меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
     return res
 }
 

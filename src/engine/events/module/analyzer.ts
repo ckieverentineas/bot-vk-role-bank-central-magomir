@@ -381,7 +381,7 @@ export async function Analyzer_Buying_Counter(context: any) {
                             await vk.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
+                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
                             })
                         }
                     }
