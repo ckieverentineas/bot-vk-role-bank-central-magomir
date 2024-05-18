@@ -133,6 +133,8 @@ model AllianceCoin {
   name String
   smile String
   point Boolean @default(false)
+  converted Boolean @default(true)
+  converted_point Boolean @default(false)
   course_medal Int @default(1)
   course_coin Int @default(1)
   alliance         Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)

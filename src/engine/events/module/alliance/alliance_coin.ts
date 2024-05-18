@@ -143,7 +143,7 @@ async function Alliance_Coin_Create(context: any, data: any, alliance: Alliance)
     let spec_check = false
     let name_loc = null
 	while (spec_check == false) {
-		const name = await context.question( `🧷 Введите название добавляемого новой валюты:`, timer_text)
+		const name = await context.question( `🧷 Введите название добавляемой новой валюты:`, timer_text)
 		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода имени добавляемой новой валюты истекло!`) }
 		if (name.text.length <= 300) {
 			spec_check = true

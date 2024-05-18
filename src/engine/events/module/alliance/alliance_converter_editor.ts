@@ -1,8 +1,8 @@
 import { Alliance, AllianceCoin } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
-import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger } from "../../../core/helper";
+import { answerTimeLimit, chat_id, timer_text } from "../../../..";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 
 //контроллер управления валютами альянса
@@ -33,8 +33,8 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
         const keyboard = new KeyboardBuilder()
         let event_logger = ``
         for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance!)) {
-            keyboard.textButton({ label: `✏ ${alliance_coin.id}-${alliance_coin.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
-            //.textButton({ label: `⛔`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
+            keyboard.textButton({ label: `✏ ${alliance_coin.id}-${alliance_coin.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' })
+            .textButton({ label: `⚙`, payload: { command: 'alliance_coin_config', cursor: cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row()
             //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
             event_logger += `${alliance_coin.smile} ${alliance_coin.name}: id${alliance_coin.id}\nРейтинговая валюта: ${alliance_coin?.point == true ? "✅" : "⛔"}\n⚖ Курс конвертации: ${alliance_coin.course_medal}🔘 --> ${alliance_coin.course_coin}${alliance_coin.smile}\n\n`
         }
@@ -52,6 +52,7 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
         if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора валюты ${alliance?.name} истекло!`) }
         const config: any = {
             'alliance_coin_edit': Alliance_Coin_Edit,
+            'alliance_coin_config': Alliance_Coin_Config,
             'alliance_coin_next': Alliance_Coin_Next,
             'alliance_coin_back': Alliance_Coin_Back,
             'alliance_coin_return': Alliance_Coin_Return,
@@ -77,7 +78,6 @@ async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance)
 async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor }
     let spec_check = false
-    let name_loc = null
     const alliance_coin_check = await prisma.allianceCoin.findFirst({ where: { id: data.id_alliance_coin } })
     const course_change = { course_medal: 1, course_coin: 1 }
 	while (spec_check == false) {
@@ -130,6 +130,32 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
         if (quest_up) {
             await Logger(`In database, updated course alliance coin: ${quest_up.id}-${quest_up.name} by admin ${context.senderId}`)
             await context.send(`⚙ Вы скорректировали курс валюты:\n Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name}\n⛔ ${alliance_coin_check?.course_medal}🔘 --> ${alliance_coin_check?.course_coin}${alliance_coin_check?.smile}\n✅ ${quest_up?.course_medal}🔘 --> ${quest_up?.course_coin}${quest_up?.smile}`)
+            await Send_Message(chat_id, `🌐 @id${context.senderId}(${alliance.name}) скорректировали курс валюты:\n${alliance_coin_check?.smile} Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name}\n⛔ ${alliance_coin_check?.course_medal}🔘 --> ${alliance_coin_check?.course_coin}${alliance_coin_check?.smile}\n✅ ${quest_up?.course_medal}🔘 --> ${quest_up?.course_coin}${quest_up?.smile}`)
+        }
+    }
+    return res
+}
+
+async function Alliance_Coin_Config(context: any, data: any, alliance: Alliance) {
+    const res = { cursor: data.cursor }
+    const alliance_coin_check = await prisma.allianceCoin.findFirst({ where: { id: data.id_alliance_coin } })
+    const converted_change = { converted: alliance_coin_check?.converted, converted_point: alliance_coin_check?.converted_point }
+	const converted_check: { status: boolean, text: String } = await Confirm_User_Success(context, `разрешить конвертацию валюты [${alliance_coin_check?.smile} ${alliance_coin_check?.name}]?`)
+	converted_change.converted = converted_check.status
+    await context.send(`${converted_check.text}`)
+    if (alliance_coin_check?.point) {
+        const converted_point_check: { status: boolean, text: String } = await Confirm_User_Success(context, `разрешить конвертацию валюты [${alliance_coin_check?.smile} ${alliance_coin_check?.name}] в рейтинги факультетов?`)
+        converted_change.converted_point = converted_point_check.status
+        await context.send(`${converted_point_check.text}`)
+    }
+    const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `принять изменения?`)
+    await context.send(`${rank_check.text}`)
+    if (rank_check.status) {
+        const quest_up = await prisma.allianceCoin.update({ where: { id: alliance_coin_check?.id }, data: { converted: converted_change.converted, converted_point: converted_change.converted_point } })
+        if (quest_up) {
+            await Logger(`In database, updated config alliance coin: ${quest_up.id}-${quest_up.name} by admin ${context.senderId}`)
+            await context.send(`⚙ Вы скорректировали конфигурацию валюты:\n${alliance_coin_check?.smile} Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name}\n${quest_up.converted ? `✅` : `⛔`} Конвертация валюты\n${quest_up.converted_point ? `✅` : `⛔`} Конвертация валюты в рейтинги факультетов\n`)
+            await Send_Message(chat_id, `🌐 @id${context.senderId}(${alliance.name}) скорректировали конфигурацию валюты:\n${alliance_coin_check?.smile} Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name}\n${quest_up.converted ? `✅` : `⛔`} Конвертация валюты\n${quest_up.converted_point ? `✅` : `⛔`} Конвертация валюты в рейтинги факультетов\n`)
         }
     }
     return res

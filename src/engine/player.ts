@@ -625,7 +625,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     name_check = true
 				    datas.push({id: `${uid.text}`})
                     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
+                    const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
+                    await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n ${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`} \n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
                     const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
                     let cart = ''
                     const underwear = await prisma.trigger.count({ where: {    id_user: get_user.id, name:   'underwear', value:  false } })
@@ -941,7 +942,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 }
             }
             const alli_get_was: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
-            const update_alliance = await prisma.user.update({ where: { id: user.id }, data: { id_alliance: person.id_alliance } })
+            const update_alliance = await prisma.user.update({ where: { id: user.id }, data: { id_alliance: person.id_alliance, id_facult: 0 } })
             const alli_get_be: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(update_alliance.id_alliance) } })
             if (update_alliance) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
@@ -1033,7 +1034,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await vk.api.messages.send({
                         user_id: user.idvk,
                         random_id: 0,
-                        message: `⚙ Ваша принадлежность ролевой сменилась с ${facult_sel} на ${person.facult}.`
+                        message: `⚙ Ваш факультет ролевой сменилась с ${facult_sel} на ${person.facult}.`
                     })
                     await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
                 } catch (error) {
