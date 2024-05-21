@@ -4,7 +4,7 @@ import { root, vk } from "../.."
 import { Image_Random } from "../core/imagecpu";
 import { User } from "@prisma/client";
 import { Person_Get } from "./module/person/person";
-import { Edit_Message } from "../core/helper";
+import { Accessed, Edit_Message } from "../core/helper";
 
 export async function Main_Menu_Init(context: any) {
     const attached = await Image_Random(context, "bank")
@@ -51,9 +51,11 @@ export async function Main_Menu(context: any) {
     if (role_pr) {
         keyboard.callbackButton({ label: `🌐 ${role_pr.name.slice(0,30)}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).row()
     }
-    if (user_check.id_role === 2) {
+    if (await Accessed(context) != 1) {
         keyboard.callbackButton({ label: '⚙ Админы', payload: { command: 'admin_enter' }, color: 'secondary' })
-        .callbackButton({ label: '⚙ Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
+    }
+    if (await Accessed(context) == 3) {
+        keyboard.callbackButton({ label: '⚙ Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
     }
     keyboard.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` })
     keyboard.callbackButton({ label: '🚫', payload: { command: 'exit' }, color: 'secondary' }).oneTime().inline()

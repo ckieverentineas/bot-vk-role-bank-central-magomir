@@ -182,9 +182,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Может еще что-нибудь отредактировать?`)
     })
     hearManager.hear(/!операция/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (context.peerType == 'chat') { return }
+        if (await Accessed(context) != 3) { return }
         let name_check = false
         let uids = null
         while (name_check == false) {
@@ -599,9 +598,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
 
     hearManager.hear(/!операции/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (context.peerType == 'chat') { return }
+        const user_adm: User | null | undefined = await Person_Get(context)
+        if (await Accessed(context) == 1) { return }
         let name_check = false
 		let datas: any = []
         let info_coin: { text: string, smile: string } | undefined = { text: ``, smile: `` }
@@ -618,7 +617,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 			if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
                 const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
                 
-                if (get_user) {
+                if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
                     info_coin = await Person_Coin_Printer_Self(context, get_user.id)
                     const info_facult_rank = await Facult_Coin_Printer_Self(context, get_user.id)
                     await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
@@ -657,7 +656,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         await context.send(`✉ Были совершены следующие покупки:: \n ${final.toString().replace(/,/g, '')}`)
                     }
                     //await context.send(`Рейтинги факультетов:\n\n ${info_facult_rank?.text}`)
-                } else { await context.send(`💡 Нет такого банковского счета!`) }
+                } else { 
+                    if (user_adm?.id_alliance != get_user?.id_alliance) {
+                        await context.send(`💡 Игрок ${get_user?.name} ${get_user?.id} в ролевой AUID: ${get_user?.id_alliance}, в то время, как вы состоите в AUID: ${user_adm?.id_alliance}`)
+                    } else {
+                        await context.send(`💡 Нет такого банковского счета!`) 
+                    }
+                }
 			} else {
                 if (uid.text == "🚫Отмена") { 
                     await context.send(`💡 Операции прерваны пользователем!`) 
@@ -666,24 +671,16 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 				await context.send(`💡 Необходимо ввести корректный UID!`)
 			}
 		}
-
-        const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`,
-            {   
-                keyboard: Keyboard.builder()
-                .textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
-                .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
-                .textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()/*
-                .textButton({ label: '—💰', payload: { command: 'gold_down' }, color: 'secondary' }).row()
-                .textButton({ label: '+🧙', payload: { command: 'xp_up' }, color: 'secondary' })
-                .textButton({ label: '—🧙', payload: { command: 'xp_down' }, color: 'secondary' }).row()
-                .textButton({ label: '+💰🧙', payload: { command: 'multi_up' }, color: 'secondary' })
-                .textButton({ label: '—💰🧙', payload: { command: 'multi_down' }, color: 'secondary' }).row()*/
-                .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' })
-                .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
-                .oneTime().inline(),
-                answerTimeLimit                                                                       
-            }
-        )
+        const keyboard = new KeyboardBuilder()
+        if (await Accessed(context) == 3) {
+            keyboard.textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
+            .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
+        }
+        keyboard.textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
+        .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' })
+        .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
+        .oneTime().inline()
+        const ans: any = await context.question(`✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard, answerTimeLimit })
         if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
         const config: any = {
             //'gold_up': Gold_Up,
@@ -708,21 +705,18 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 
         //Модуль редактирования персонажей
         async function Editor(id: number) {
+            const user: User | null = await prisma.user.findFirst({ where: { id: id } })
+            if (!user) { return }
             let answer_check = false
             while (answer_check == false) {
-                const answer1: any = await context.question(`⌛ Переходим в режим редактирования данных, выберите сие злодейство: `,
-                    {
-                        keyboard: Keyboard.builder()
-                        .textButton({ label: '✏Положение', payload: { command: 'edit_class' }, color: 'secondary' }).row()
-                        .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
-                        .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
-                        .textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row()
-                        .textButton({ label: '✏Факультет', payload: { command: 'edit_facult' }, color: 'secondary' }).row()
-                        .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' })
-                        .oneTime().inline(),
-                        answerTimeLimit
-                    }
-                )
+                const keyboard = new KeyboardBuilder()
+                keyboard.textButton({ label: '✏Положение', payload: { command: 'edit_class' }, color: 'secondary' }).row()
+                .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
+                .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
+                .textButton({ label: '✏Факультет', payload: { command: 'edit_facult' }, color: 'secondary' }).row()
+                if (await Accessed(context) == 3 || user.id_alliance == 0 || user.id_alliance == -1 ) { keyboard.textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row() }
+                keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
+                const answer1: any = await context.question(`⌛ Переходим в режим редактирования данных, выберите сие злодейство: `, { keyboard: keyboard, answerTimeLimit })
                 if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания на корректировку данных юзера истекло!`) }
                 if (!answer1.payload) {
                     await context.send(`💡 Жмите только по кнопкам с иконками!`)
@@ -745,11 +739,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
         async function Edit_Name(id: number){
-            const user: any = await prisma.user.findFirst({
-                where: {
-                    id: id
-                }
-            })
+            const user: any = await prisma.user.findFirst({ where: { id: id } })
             let name_check = false
             const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
             const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
@@ -1362,7 +1352,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                     }
                 } else {
-                    event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
+                    event_logger = `💬 Админы ролевой еще не создали ролевые валюты`
+                    return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
                 }
                 const answer1: any = await context.question(`${event_logger}`,
                     {	
@@ -1546,19 +1537,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         //Модуль доп клавиатуры
         async function Sub_Menu(id: number) {
-            const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`,
-                {   
-                    keyboard: Keyboard.builder()
-                    //.textButton({ label: '➕🔮', payload: { command: 'artefact_add' }, color: 'secondary' })
-                    .textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
-                    .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
-                    .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
-                    .textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' })
-                    .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
-                    .oneTime().inline(),
-                    answerTimeLimit                                                                       
-                }
-            )
+            const keyboard = new KeyboardBuilder()
+            keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
+            .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
+            .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
+            .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
+            if (await Accessed(context) == 3) { keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) }
+            const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard.oneTime().inline(), answerTimeLimit })
             await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
             if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
             const config: any = {
@@ -1644,7 +1629,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/админка/, async (context: any) => {
         if (context.senderId == root) {
             const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
-            const lvlup = await prisma.user.update({ where: { id: user.id }, data: { id_role: 2 } })
+            const adma = await prisma.role.findFirst({ where: { name: `root` } })
+            const lvlup = await prisma.user.update({ where: { id: user.id }, data: { id_role: adma?.id } })
             if (lvlup) {
                 await context.send(`⚙ Рут права получены`)
             } else {
@@ -1659,115 +1645,173 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
-    hearManager.hear(/!права/, async (context: any) => {
-        const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
-        if (user_find?.id_role == 2) {
-            const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
-            if (uid.isTimeout) { return await context.send(`⏰ Время ожидания ввода банковского счета истекло!`) }
-			if (uid.text) {
-                const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
-                if (get_user) {
-                    
-                    const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
-                    const info_coin: { text: string, smile: string } | undefined = await Person_Coin_Printer_Self(context, get_user.id)
-                    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-                    await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}\n \n Права пользователя: ${role.name} `)
-                    const answer1 = await context.question(`⌛ Что будем делать?`,
-                        {
-                            keyboard: Keyboard.builder()
-                            .textButton({ label: 'Дать админку', payload: { command: 'access' }, color: 'secondary' })
-                            .textButton({ label: 'Снять админку', payload: { command: 'denied' }, color: 'secondary' }).row()
-                            .textButton({ label: 'Ничего не делать', payload: { command: 'cancel' }, color: 'secondary' })
-                            .oneTime().inline(),
-                            answerTimeLimit
-                        }
-                    )
-                    if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания изменения прав истекло!`) }
-                    if (!answer1.payload) {
-                        await context.send(`💡 Жмите только по кнопкам с иконками!`)
-                    } else {
-                        if (answer1.payload.command === 'access') {
-                            const lvlup = await prisma.user.update({ where: { id: get_user.id }, data: { id_role: 2 } })
-                            if (lvlup) {
-                                await context.send(`⚙ Администратором становится ${get_user.name}`)
-                                try {
-                                    await vk.api.messages.send({
-                                        user_id: get_user.idvk,
-                                        random_id: 0,
-                                        message: `⚙ Вас назначили администратором`
-                                    })
-                                    await context.send(`⚙ Операция назначения администратора завершена успешно.`)
-                                } catch (error) {
-                                    console.log(`User ${get_user.idvk} blocked chating with bank`)
-                                }
-                                await vk.api.messages.send({
-                                    peer_id: chat_id,
-                                    random_id: 0,
-                                    message: `⚙ @id${context.senderId}(Root) > делает администратором @id${get_user.idvk}(${get_user.name})`
-                                })
-                                await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
-                            } else {
-                                await context.send(`💡 Ошибка`)
-                            }
-                        }
-                        if (answer1.payload.command === 'denied') {
-                            const lvlup = await prisma.user.update({ where: { id: get_user.id }, data: { id_role: 1 } })
-                            if (lvlup) {
-                                await context.send(`⚙ Обычным пользователем становится ${get_user.name}`)
-                                try {
-                                    await vk.api.messages.send({
-                                        user_id: get_user.idvk,
-                                        random_id: 0,
-                                        message: `⚙ Вас понизили до обычного пользователя`
-                                    })
-                                    await context.send(`⚙ Операция назначения пользователем завершена успешно.`)
-                                } catch (error) {
-                                    console.log(`User ${get_user.idvk} blocked chating with bank`)
-                                }
-                                await vk.api.messages.send({
-                                    peer_id: chat_id,
-                                    random_id: 0,
-                                    message: `⚙ @id${context.senderId}(Root) > делает обычным пользователем @id${get_user.idvk}(${get_user.name})`
-                                })
-                                await Logger(`In private chat, left status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
-                            } else {
-                                await context.send(`💡 Ошибка`)
-                            }
-                        }
-                        if (answer1.payload.command === 'cancel') {
-                            await context.send(`💡 Тоже вариант`)
-                        }
-                    }
+    hearManager.hear(/!новая роль/, async (context: any) => {
+        if (context.senderId == root) {
+            const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+            const role_check = await prisma.role.findFirst({ where: { name: `root`}})
+            if (!role_check) {
+                const adm = await prisma.role.create({ data: { name: `root` } })
+                if (adm) {
+                    await context.send(`⚙ Добавлена новая супер роль ${adm.name}-${adm.id}`)
+                } else {
+                    await context.send(`⚙ Ошибка`)
                 }
-			} else {
-				await context.send(`💡 Нет такого банковского счета!`)
-			}
-        }
-        await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
-    })
-    hearManager.hear(/енотик/, async (context: any) => {
-        if (await Accessed(context) == 2) {
-            await context.sendDocuments({ value: `./prisma/dev.db`, filename: `dev.db` }, { message: '💡 Открывать на сайте: https://sqliteonline.com/' } );
+            } else {
+                const lvlup = await prisma.role.update({ where: { id: role_check.id }, data: { name: `root` } })
+                if (lvlup) {
+                    await context.send(`⚙ Изменена новая супер роль c ${role_check.name}-${role_check.id} на ${lvlup.name}-${lvlup.id}`)
+                } else {
+                    await context.send(`⚙ Ошибка`)
+                }
+            }
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
+                message: `⚙ @id${context.senderId}(Root) становится администратором!)`
             })
-            await Logger(`In private chat, did backup database by admin ${context.senderId}`)
+            await Logger(`Super user ${context.senderId} got root`)
         }
+        await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
+    })
+    hearManager.hear(/!права/, async (context: any) => {
+        const user_adm: User | null | undefined = await Person_Get(context)
+        if (await Accessed(context) == 1) { return }
+        const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
+        if (uid.isTimeout) { return await context.send(`⏰ Время ожидания ввода банковского счета истекло!`) }
+		if (uid.text) {
+            const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
+            if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
+                const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
+                const info_coin: { text: string, smile: string } | undefined = await Person_Coin_Printer_Self(context, get_user.id)
+                const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
+                await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}\n \n Права пользователя: ${role.name} `)
+                const keyboard = new KeyboardBuilder()
+                keyboard.textButton({ label: 'Дать админку', payload: { command: 'access' }, color: 'secondary' }).row()
+                .textButton({ label: 'Снять админку (в том числе супер)', payload: { command: 'denied' }, color: 'secondary' }).row()
+                
+                if (await Accessed(context) == 3) {
+                    keyboard.textButton({ label: 'Дать Супер админку', payload: { command: 'access_pro' }, color: 'secondary' }).row()
+                }
+                keyboard.textButton({ label: 'Ничего не делать', payload: { command: 'cancel' }, color: 'secondary' }).row()
+                keyboard.oneTime().inline()
+                const answer1 = await context.question(`⌛ Что будем делать?`, { keyboard: keyboard, answerTimeLimit })
+                if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания изменения прав истекло!`) }
+                if (!answer1.payload) {
+                    await context.send(`💡 Жмите только по кнопкам с иконками!`)
+                } else {
+                    if (answer1.payload.command === 'access') {
+                        const adma = await prisma.role.findFirst({ where: { name: `admin` } })
+                        const lvlup = await prisma.user.update({ where: { id: get_user.id }, data: { id_role: adma?.id } })
+                        if (lvlup) {
+                            await context.send(`⚙ Администратором становится ${get_user.name}`)
+                            try {
+                                await vk.api.messages.send({
+                                    user_id: get_user.idvk,
+                                    random_id: 0,
+                                    message: `⚙ Вас назначили администратором`
+                                })
+                                await context.send(`⚙ Операция назначения администратора завершена успешно.`)
+                            } catch (error) {
+                                console.log(`User ${get_user.idvk} blocked chating with bank`)
+                            }
+                            await vk.api.messages.send({
+                                peer_id: chat_id,
+                                random_id: 0,
+                                message: `⚙ @id${context.senderId}(Root) > делает администратором @id${get_user.idvk}(${get_user.name})`
+                            })
+                            await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
+                        } else {
+                            await context.send(`💡 Ошибка`)
+                        }
+                    }
+                    if (answer1.payload.command === 'access_pro') {
+                        const adma = await prisma.role.findFirst({ where: { name: `root` } })
+                        const lvlup = await prisma.user.update({ where: { id: get_user.id }, data: { id_role: adma?.id } })
+                        if (lvlup) {
+                            await context.send(`⚙ Супер Администратором становится ${get_user.name}`)
+                            try {
+                                await vk.api.messages.send({
+                                    user_id: get_user.idvk,
+                                    random_id: 0,
+                                    message: `⚙ Вас назначили Супер администратором`
+                                })
+                                await context.send(`⚙ Операция назначения Супер администратора завершена успешно.`)
+                            } catch (error) {
+                                console.log(`User ${get_user.idvk} blocked chating with bank`)
+                            }
+                            await vk.api.messages.send({
+                                peer_id: chat_id,
+                                random_id: 0,
+                                message: `⚙ @id${context.senderId}(Root) > делает Супер администратором @id${get_user.idvk}(${get_user.name})`
+                            })
+                            await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
+                        } else {
+                            await context.send(`💡 Ошибка`)
+                        }
+                    }
+                    if (answer1.payload.command === 'denied') {
+                        const adma = await prisma.role.findFirst({ where: { name: `user` } })
+                        const lvlup = await prisma.user.update({ where: { id: get_user.id }, data: { id_role: adma?.id } })
+                        if (lvlup) {
+                            await context.send(`⚙ Обычным пользователем становится ${get_user.name}`)
+                            try {
+                                await vk.api.messages.send({
+                                    user_id: get_user.idvk,
+                                    random_id: 0,
+                                    message: `⚙ Вас понизили до обычного пользователя`
+                                })
+                                await context.send(`⚙ Операция назначения пользователем завершена успешно.`)
+                            } catch (error) {
+                                console.log(`User ${get_user.idvk} blocked chating with bank`)
+                            }
+                            await vk.api.messages.send({
+                                peer_id: chat_id,
+                                random_id: 0,
+                                message: `⚙ @id${context.senderId}(Root) > делает обычным пользователем @id${get_user.idvk}(${get_user.name})`
+                            })
+                            await Logger(`In private chat, left status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
+                        } else {
+                            await context.send(`💡 Ошибка`)
+                        }
+                    }
+                    if (answer1.payload.command === 'cancel') {
+                        await context.send(`💡 Тоже вариант`)
+                    }
+                }
+            } else {
+                if (user_adm?.id_alliance != get_user?.id_alliance) {
+                    await context.send(`💡 Игрок ${get_user?.name} ${get_user?.id} в ролевой AUID: ${get_user?.id_alliance}, в то время, как вы состоите в AUID: ${user_adm?.id_alliance}`)
+                } else {
+                    await context.send(`💡 Нет такого банковского счета!`) 
+                }
+            }
+		} else {
+			await context.send(`💡 Нет такого банковского счета!`)
+		}
+        await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
+    })
+    hearManager.hear(/енотик/, async (context: any) => {
+        if (await Accessed(context) == 1) { return }
+        await context.sendDocuments({ value: `./prisma/dev.db`, filename: `dev.db` }, { message: '💡 Открывать на сайте: https://sqliteonline.com/' } );
+        await vk.api.messages.send({
+            peer_id: chat_id,
+            random_id: 0,
+            message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
+        })
+        await Logger(`In private chat, did backup database by admin ${context.senderId}`)
     })
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
-        const user_count = await prisma.user.count()
-		const sums: any = await prisma.user.aggregate({ _sum: { medal: true } })
+        if (context.peerType == 'chat') { return }
         await Person_Detector(context)
         const user_check: User | null | undefined = await Person_Get(context)
         if (!user_check) { return }
 		await Image_Random(context, "bank")
-		if (user_check.id_role != 1) {
-			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
+		if (await Accessed(context) == 1) {
+            await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
 		} else {
-			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
+            const user_count = await prisma.user.count()
+		    const sums: any = await prisma.user.aggregate({ _sum: { medal: true } })
+			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
 		}
 		const user_inf = await User_Info(context)
         const keyboard = new KeyboardBuilder().callbackButton({
@@ -1797,9 +1841,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Person_Selector(context)
     })
     hearManager.hear(/!отчет по ролкам/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (await Accessed(context) == 1) { return }
         const res: Array<{ name: String, count: number }> = []
         for (const alli of await prisma.alliance.findMany({})) {
             res.push({ name: alli.name, count: 0 })
@@ -1822,27 +1864,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
     })
     hearManager.hear(/!обновить ролки/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (await Accessed(context) == 1) { return }
         await Alliance_Updater(context)
     })
     hearManager.hear(/⚙ !настроить валюты/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Printer(context)
     })
     hearManager.hear(/⚙ !настроить конвертацию/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
-        if (await Accessed(context) != 2) {
-            return
-        }
+        if (await Accessed(context) == 1) { return }
         await Alliance_Facult_Printer(context)
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {

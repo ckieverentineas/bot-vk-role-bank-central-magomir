@@ -93,7 +93,10 @@ export async function Gen_Inline_Button(context: any, weapon_type: any) {
 export async function Accessed(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
-    return user.id_role
+    const adm = await prisma.role.findFirst({ where: { id: user.id_role } })
+    const role = adm?.name ?? `user`
+    let ans = role == `root` ? 3 : role == `admin` ? 2 : 1
+    return ans
 }
 
 export async function Book_Random_String(filename: string) {
@@ -107,15 +110,17 @@ export async function Book_Random_String(filename: string) {
     }
 }
 export async function Keyboard_Index(context: any, messa: any) {
-    const user_check: any = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+    const user_check: User | null | undefined = await Person_Get(context)
+    if (!user_check) { return }
     const keyboard = new KeyboardBuilder()
-    const user_find = await prisma.user.findFirst({ where: { id: user_check.select_user } })
     if (user_check.idvk == root) {
         keyboard.textButton({ label: 'Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
     }
-    if (user_find?.id_role === 2) {
+    if (await Accessed(context) != 1) {
         keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
         keyboard.textButton({ label: '!операции', payload: { command: 'sliz' }, color: 'positive' }).row()
+    } 
+    if (await Accessed(context) == 3) {
         keyboard.textButton({ label: '!операция', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()

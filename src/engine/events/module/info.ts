@@ -6,7 +6,7 @@ import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "..
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
-import { Edit_Message, Logger } from "../../core/helper"
+import { Accessed, Edit_Message, Logger } from "../../core/helper"
 import { Person_Coin_Printer } from "./person/person_coin"
 import { Facult_Rank_Printer } from "./alliance/facult_rank"
 
@@ -119,8 +119,12 @@ export async function Admin_Enter(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     let puller = '🏦 Полный спектр рабов... \n'
-    if (user?.id_role == 2) {
-        const users = await prisma.user.findMany({ where: { id_role: 2 } })
+    if (await Accessed(context) != 1) {
+        const admar = await prisma.role.findFirst({ where: { name: `root` } })
+        const usersr = await prisma.user.findMany({ where: { id_role: admar?.id } })
+        for (const i in usersr) { puller += `\n😎 ${usersr[i].id} - @id${usersr[i].idvk}(${usersr[i].name})` }
+        const adma = await prisma.role.findFirst({ where: { name: `admin` } })
+        const users = await prisma.user.findMany({ where: { id_role: adma?.id } })
         for (const i in users) { puller += `\n👤 ${users[i].id} - @id${users[i].idvk}(${users[i].name})` }
     } else {
         puller += `\n🚫 Доступ запрещен\n`

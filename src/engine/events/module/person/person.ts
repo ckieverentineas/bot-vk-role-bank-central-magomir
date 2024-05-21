@@ -202,9 +202,8 @@ export async function Person_Register(context: any) {
         }
     }
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-    const role = await prisma.role.findFirst({})
-    if (!role) { await prisma.role.create({ data: { name: "user" } }) }
-    const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk!, id_facult: person.id_facult } })
+    const role = await prisma.role.findFirst({ where: { name: "user" } }) ? await prisma.role.findFirst({ where: { name: "user" } }) : await prisma.role.create({ data: { name: "user" } })
+    const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk!, id_facult: person.id_facult, id_role: role!.id } })
     await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
     await Logger(`In database, created new person GUID ${account?.id} UID ${save.id} by user ${context.senderId}`)
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
