@@ -44,7 +44,7 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
         //keyboard.textButton({ label: `➕`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
         keyboard.textButton({ label: `🚫`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
-        const allicoin_bt = await context.question(`🧷 Выберите валюту ${alliance?.name} для изменения курса:\n\n ${event_logger}`,
+        const allicoin_bt: any = await context.question(`🧷 Выберите валюту ${alliance?.name} для изменения курса:\n\n ${event_logger}`,
             {	
                 keyboard: keyboard, answerTimeLimit
             }

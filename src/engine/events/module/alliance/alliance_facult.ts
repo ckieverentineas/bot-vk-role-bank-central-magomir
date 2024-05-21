@@ -48,7 +48,7 @@ export async function Alliance_Facult_Printer(context: any) {
         keyboard.textButton({ label: `➕`, payload: { command: 'alliance_facult_create', cursor: cursor }, color: 'secondary' }).row()
         .textButton({ label: `🚫`, payload: { command: 'alliance_facult_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_facult_counter}`
-        const allifacult_bt = await context.question(`🧷 Выберите факультет ролевой ${alliance?.name}:\n\n ${event_logger}`,
+        const allifacult_bt: any = await context.question(`🧷 Выберите факультет ролевой ${alliance?.name}:\n\n ${event_logger}`,
             {	
                 keyboard: keyboard, answerTimeLimit
             }
