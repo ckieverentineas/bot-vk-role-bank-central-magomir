@@ -12,7 +12,7 @@ import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
-import { Service_Beer_Open, Service_Beer_Premium_Open, Service_Cancel, Service_Convert_Galleon, Service_Convert_Galleon_Change, Service_Convert_Magic_Experience, Service_Convert_Magic_Experience_Change, Service_Enter, Service_Level_Up, /*Service_Level_Up_Change,*/ Service_Quest_Open, Service_Underwear_Open } from './engine/events/module/service';
+import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
 import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
@@ -133,12 +133,6 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 		"admin_enter": Admin_Enter,
 		"service_enter": Service_Enter,
 		"service_cancel": Service_Cancel,
-		"service_convert_galleon": Service_Convert_Galleon,
-		"service_convert_galleon_change": Service_Convert_Galleon_Change,
-		"service_convert_magic_experience": Service_Convert_Magic_Experience,
-		"service_convert_magic_experience_change": Service_Convert_Magic_Experience_Change,
-		"service_level_up": Service_Level_Up,
-		//"service_level_up_change": Service_Level_Up_Change,
 		"shop_category_enter": Shop_Category_Enter,
 		"shop_enter": Shop_Enter,
 		"shop_cancel": Shop_Cancel,
@@ -146,10 +140,7 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 		"shop_buy": Shop_Buy,
 		"operation_enter": Operation_Enter, // заглушки
 		"right_enter": Right_Enter, // заглушки
-		"service_beer_open": Service_Beer_Open,
-		"service_beer_premium_open": Service_Beer_Premium_Open,
-		"service_quest_open": Service_Quest_Open,
-		"service_underwear_open": Service_Underwear_Open,
+		"service_kvass_open": Service_Kvass_Open,
 		"statistics_enter": Statistics_Enter,
 		"rank_enter": Rank_Enter,
 		"alliance_control_multi": Alliance_Control_Multi,

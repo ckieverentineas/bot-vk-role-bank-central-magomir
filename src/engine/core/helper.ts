@@ -319,7 +319,7 @@ export async function Worker_Checker() {
     await vk.api.messages.send({
         peer_id: chat_id,
         random_id: 0,
-        message: `✅ Все ок! ${await Up_Time()}`,
+        message: `✅ Все ок! ${await Up_Time()}\n🗿 Поставьте здесь свою реакцию о том, как прошел ваш день!`,
     })
 }
 
