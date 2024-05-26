@@ -18,6 +18,7 @@ import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
 import { Alliance_Enter, Alliance_Enter_Admin } from './engine/events/module/alliance/alliance_menu';
 import { Alliance_Rank_Coin_Enter, Alliance_Rank_Enter } from './engine/events/module/alliance/alliance_rank';
+import { Counter_PK_Module } from './engine/events/module/counter_pk';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -54,10 +55,12 @@ vk.updates.on('message_new', hearManager.middleware);
 //регистрация роутов из других классов
 InitGameRoutes(hearManager)
 registerUserRoutes(hearManager)
-
+export const users_pk: Array<{ idvk: number, text: string, mode: boolean }> = []
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
-	
+	const pk_counter_st = await Counter_PK_Module(context)
+	//console.log(users_pk)
+	if (pk_counter_st) { return }
 	if (context.peerType == 'chat') { 
 		try { 
 			await vk.api.messages.delete({'peer_id': context.peerId, 'delete_for_all': 1, 'cmids': context.conversationMessageId, 'group_id': group_id})
