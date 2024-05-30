@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, timer_text_oper, vk } from '../index';
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger } from "./core/helper";
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "./core/helper";
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
@@ -957,7 +957,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         async function Edit_Facult(id: number){
             const user: User | null = await prisma.user.findFirst({ where: { id: id } })
             if (!user) { return }
-            const person: { id_facult: null | number, facult: null | string,  } = { id_facult: null, facult: null }
+            const person: { id_facult: null | number, facult: null | string, rank_action: string | null } = { id_facult: null, facult: null, rank_action: null }
             const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
             const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
             const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(user.id_facult) } })
@@ -1017,6 +1017,27 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             } else {
                 return await context.send(`⛔ В ролевом проекте еще не инициализированы факультеты`)
             }
+            // модуль принятия решения с баллами
+            let answer_check = false
+	        while (answer_check == false) {
+	        	const answer_selector = await context.question(`🧷 Укажите что будем делать с баллами ученика инвестированными в факультет за текущий учебный год:`,
+	        		{	
+	        			keyboard: Keyboard.builder()
+	        			.textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
+	        			.textButton({ label: 'Обнулить', payload: { command: 'professor' }, color: 'secondary' }).row()
+	        			.textButton({ label: 'Перенести', payload: { command: 'citizen' }, color: 'secondary' }).row()
+	        			.oneTime().inline(), answerTimeLimit
+	        		}
+	        	)
+	        	if (answer_selector.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+	        	if (!answer_selector.payload) {
+	        		await context.send(`💡 Жмите только по кнопкам с иконками!`)
+	        	} else {
+	        		person.rank_action = answer_selector.text
+	        		answer_check = true
+	        	}
+	        }
+            // обновление факультета
             const update_facult = await prisma.user.update({ where: { id: user.id }, data: { id_facult: person.id_facult } })
             if (update_facult) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена факультета с ${facult_sel} на ${person.facult}.`)
@@ -1036,6 +1057,38 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     message: `⚙ @id${context.senderId}(Admin) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
                 })
                 await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)
+            }
+            // Движок модуля принятия решений с баллами
+            const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult! } })
+            const alli_fac_tar = await prisma.allianceFacult.findFirst({ where: { id: update_facult.id_facult! } })
+            switch (person.rank_action) {
+                case 'Ничего не делать':
+                    break;
+                case 'Обнулить':
+                    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: update_facult.id_alliance! } })) {
+                        if (coin.point == false) { continue }
+                        const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user.id_facult! }})
+                        const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: update_facult.id }})
+                        if ( !bal_fac || !bal_usr) { continue }
+                        const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
+                        const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
+                        await Send_Message(chat_id,`🌐 "${person.rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name})`)
+                    }
+                    break;
+                case 'Перенести':
+                    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: update_facult.id_alliance! } })) {
+                        if (coin.point == false) { continue }
+                        const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user.id_facult! }})
+                        const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: update_facult.id }})
+                        const bal_fac_tar = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: update_facult.id_facult! }})
+                        if ( !bal_fac || !bal_fac_tar) { continue }
+                        const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr!.amount } } })
+                        const bal_fac_tar_ch = await prisma.balanceFacult.update({ where: { id: bal_fac_tar.id }, data: { amount: { increment: bal_usr!.amount } } })
+                        await Send_Message(chat_id,`🌐 "${person.rank_action}${coin.smile}" >\n ${bal_fac.amount} - ${bal_usr!.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}],\n ${bal_fac_tar.amount} + ${bal_usr!.amount} = ${bal_fac_tar_ch.amount} для Факультета [${alli_fac_tar!.smile} ${alli_fac_tar!.name}] \nиз-за крысы такой @id${user.idvk}(${user.name})`)
+                    }
+                    break;
+                default:
+                    break;
             }
         }
 
