@@ -15,6 +15,7 @@ import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
 import { Facult_Coin_Printer_Self } from "./events/module/alliance/facult_rank";
 import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
 import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
+import { Alliance_Year_End_Printer } from "./events/module/alliance/alliance_year_end";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1153,6 +1154,26 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение пинка для ${user_get.name} истекло!`) }
             if (confirmq.payload.command === 'confirm' && user_get) {
                 if (user_get) {
+                    // модуль принятия решения с баллами
+                    let answer_check = false
+                    let rank_action = null
+	                while (answer_check == false) {
+	                	const answer_selector = await context.question(`🧷 Укажите что будем делать с баллами ученика инвестированными в факультет за текущий учебный год:`,
+	                		{	
+	                			keyboard: Keyboard.builder()
+	                			.textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
+	                			.textButton({ label: 'Обнулить', payload: { command: 'professor' }, color: 'secondary' }).row()
+	                			.oneTime().inline(), answerTimeLimit
+	                		}
+	                	)
+	                	if (answer_selector.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+	                	if (!answer_selector.payload) {
+	                		await context.send(`💡 Жмите только по кнопкам с иконками!`)
+	                	} else {
+	                		rank_action = answer_selector.text
+	                		answer_check = true
+	                	}
+	                }
                     const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0, id_role: 1 } })
                     await context.send(`❗ Выпнут пользователь ${user_del.name}`)
                     try {
@@ -1172,7 +1193,25 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         
                     })
                     await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
-                    
+                    // Движок модуля принятия решений с баллами
+                    const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user_get.id_facult! } })
+                    switch (rank_action) {
+                        case 'Ничего не делать':
+                            break;
+                        case 'Обнулить':
+                            for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user_get.id_alliance! } })) {
+                                if (coin.point == false) { continue }
+                                const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user_get.id_facult! }})
+                                const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user_get.id }})
+                                if ( !bal_fac || !bal_usr) { continue }
+                                const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
+                                const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
+                                await Send_Message(chat_id,`🌐 "${rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} из-за крота @id${user_get.idvk}(${user_get.name})`)
+                            }
+                            break;
+                        default:
+                            break;
+                    }
                 } 
             } else {
                 await context.send(`⚙ Пинок ролевика ${user_get.name} отменено.`)
@@ -1931,6 +1970,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
         if (await Accessed(context) == 1) { return }
         await Alliance_Facult_Printer(context)
+    })
+    hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
+        if (await Accessed(context) == 1) { return }
+        await Alliance_Year_End_Printer(context)
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         await Alliance_Coin_Converter_Printer(context)
