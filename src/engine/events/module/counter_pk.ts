@@ -14,7 +14,7 @@ export async function Counter_PK_Module(context: any) {
 		//const lines = users.text.split(/...|..|.|!|\\?|!\\?|\\?!|;/).length; // количество предложений вообще не считается как надо, как надо?
 		const sentences = users_pk[id].text.match(/[^.!?]+[.!?]+/g);
 		const lines = sentences ? sentences.length : 0;
-		await context.send(`🔎 Результаты анализа для [${sentences ? sentences[0] : ''} <--...--> ${sentences && sentences.length > 1 ? sentences[sentences.length-1] : ''}]:\n📕 Cимволов: ${users_pk[id].text.length}\n📙 Cимволов без пробелов: ${await countWords(users_pk[id].text)}\n📘 Cлов: ${await countWords2(users_pk[id].text)}\n📗 ПК: ${(users_pk[id].text.length/102).toFixed(2)}\n📓 МБ: ${(users_pk[id].text.length/35).toFixed(2)}\n✏ Предложений: ${lines}\n`,
+		await context.send(`🔎 Результаты анализа для [${sentences ? sentences[0] : ''} <--...--> ${sentences && sentences.length > 1 ? sentences[sentences.length-1] : ''}]:\n📕 Cимволов: ${users_pk[id].text.length}\n📙 Cимволов без пробелов: ${await countWords(users_pk[id].text)}\n📗 Cлов: ${await countWords2(users_pk[id].text)}\n💻 ПК: ${(users_pk[id].text.length/102).toFixed(2)}\n📱 МБ: ${(users_pk[id].text.length/35).toFixed(2)}\n✏ Предложений: ${lines}\n`,
         {	
             keyboard: Keyboard.builder()
             .textButton({ label: '!обнулить', payload: { command: 'Согласиться' }, color: 'positive' }).row().oneTime().inline(),
