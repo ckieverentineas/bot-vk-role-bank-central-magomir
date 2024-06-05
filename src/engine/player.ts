@@ -1214,7 +1214,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     }
                 } 
             } else {
-                await context.send(`⚙ Пинок ролевика ${user_get.name} отменено.`)
+                await context.send(`⚙ Пинок ролевика ${user_get.name} отменен.`)
                 
             }
         }
@@ -1491,7 +1491,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             person.amount = await Ipnut_Gold() 
             const messa: string = await Ipnut_Message()
             const findas: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: user.id }})
-            const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult! } })
+            const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
             let incomer = 0
             let facult_income = ``
             let passer = true

@@ -21,7 +21,7 @@ export async function Alliance_Rank_Enter(context:any) {
     for (const userok of facult_tr ? await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
         stat.push({
             rank: counter,
-            text: `- UID-${userok.id} [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${userok.medal}🔘\n`,
+            text: `- UID-${userok.id} @id${userok.idvk}(${userok.name.slice(0, 20)}) --> ${userok.medal}🔘\n`,
             score: userok.medal,
             me: userok.idvk == user.idvk ? true : false
         })
@@ -86,7 +86,7 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
         if (user_balance) {
             stat.push({
                 rank: counter,
-                text: `- UID-${userok.id} [https://vk.com/id${userok.idvk}|${userok.name.slice(0, 20)}] --> ${user_balance.amount}${coin?.smile}\n`,
+                text: `- UID-${userok.id} @id${userok.idvk}(${userok.name.slice(0, 20)}) --> ${user_balance.amount}${coin?.smile}\n`,
                 score: user_balance.amount,
                 me: userok.idvk == user.idvk ? true : false
             })
