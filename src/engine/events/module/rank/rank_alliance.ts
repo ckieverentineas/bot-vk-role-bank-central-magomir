@@ -84,10 +84,10 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
         text += `\n\n☠ В статистике участвует ${counter_go-1} персонажей`
         const keyboard = new KeyboardBuilder()
         if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
-            keyboard.textButton({ label: '<', payload: { command: 'alliance_coin_enter', counter_init: -10+counter_init }, color: 'secondary' })
+            keyboard.textButton({ label: '<', payload: { command: 'alliance_coin_back', counter_init: counter_init }, color: 'secondary' })
         }
         if (10+counter_init < stat.length) {
-            keyboard.textButton({ label: '>', payload: { command: 'alliance_coin_enter', counter_init: 10+counter_init }, color: 'secondary', })
+            keyboard.textButton({ label: '>', payload: { command: 'alliance_coin_next', counter_init: counter_init }, color: 'secondary', })
         }
         keyboard.textButton({ label: '🚫', payload: { command: 'alliance_coin_return' }, color: 'secondary' }).inline().oneTime()
         
@@ -121,12 +121,12 @@ async function Alliance_Coin_Rank_Admin_Return(context: any, data: any, alliance
 }
 
 async function Alliance_Coin_Rank_Admin_Next(context: any, data: any, alliance: Alliance) {
-    const res = { cursor: data.cursor+10 }
+    const res = { cursor: data.counter_init+10 }
     return res
 }
 
 async function Alliance_Coin_Rank_Admin_Back(context: any, data: any, alliance: Alliance) {
-    const res = { cursor: data.cursor-10 }
+    const res = { cursor: data.counter_init-10 }
     return res
 }
 
