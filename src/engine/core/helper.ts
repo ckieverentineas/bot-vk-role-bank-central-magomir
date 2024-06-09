@@ -410,3 +410,52 @@ export async function Confirm_User_Success(context: any, text: string) {
     }
     return res
 }
+
+export async function Carusel_Selector(context: any, data: { message_title: string, menu: Array<any>, smile: string, name: string, title: string }) {
+    const ans = { id: null, status: false }
+    let carusel_work = true
+    let id_builder_sent = 0
+    while (carusel_work) {
+        const keyboard = new KeyboardBuilder()
+        id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
+        let event_logger = `❄ ${data.message_title}:\n\n`
+        const builder_list: Array<any> = data.menu
+        if (builder_list.length > 0) {
+            const limiter = 5
+            let counter = 0
+            for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                const builder = builder_list[i]
+                keyboard.textButton({ label: `${builder[data.smile]} №${i}-${builder[data.name].slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder.id }, color: 'secondary' }).row()
+                event_logger += `\n\n🔒 ${data.title} №${i} <--\n📜 ID: ${builder.id}\n${builder[data.smile]} Название: ${builder[data.name]}`
+                counter++
+            }
+            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+            //предыдущие ролевые
+            if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
+                keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+            }
+            //следующие ролевые
+            if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
+                keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
+            }
+        } else {
+            event_logger = `⚠ [${data.title}] пока что нет...`
+            carusel_work = false
+            continue
+        }
+        const answer1: any = await context.question(`${event_logger}`, { keyboard: keyboard.inline(), answerTimeLimit })
+        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора [${data.title}] истекло!`) }
+		if (!answer1.payload) {
+			await context.send(`💡 Жмите только по кнопкам с иконками!`)
+		} else {
+            if (answer1.text == '→' || answer1.text =='←') {
+                id_builder_sent = answer1.payload.id_builder_sent
+            } else {
+                ans.id = answer1.payload.target
+                ans.status = true
+                carusel_work = false
+            }
+		}
+    }
+    return ans
+}

@@ -24,6 +24,7 @@ export async function Alliance_Enter(context:any) {
         }
         
         keyboard.callbackButton({ label: '📊 Рейтинги', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
+        keyboard.textButton({ label: '📊 Отчатор', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
         if (await Accessed(context) != 1) {
             keyboard.callbackButton({ label: '⚙ Админам', payload: { command: 'alliance_enter_admin' }, color: 'secondary' }).row()
         }

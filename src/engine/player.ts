@@ -16,6 +16,7 @@ import { Facult_Coin_Printer_Self } from "./events/module/alliance/facult_rank";
 import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
 import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
 import { Alliance_Year_End_Printer } from "./events/module/alliance/alliance_year_end";
+import { Alliance_Coin_Rank_Admin_Printer } from "./events/module/rank/rank_alliance";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1977,6 +1978,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         await Alliance_Coin_Converter_Printer(context)
+    })
+    hearManager.hear(/📊 Отчатор/, async (context) => {
+        await Alliance_Coin_Rank_Admin_Printer(context)
     })
 }
 
