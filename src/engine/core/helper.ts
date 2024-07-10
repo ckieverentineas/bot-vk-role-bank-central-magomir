@@ -1,6 +1,6 @@
 
 import { randomInt } from "crypto"
-import { Keyboard, KeyboardBuilder, PhotoAttachment } from "vk-io"
+import { Keyboard, KeyboardBuilder, PhotoAttachment, VK } from "vk-io"
 import { answerTimeLimit, chat_id, group_id, root, starting_date, vk } from "../.."
 import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
@@ -458,4 +458,11 @@ export async function Carusel_Selector(context: any, data: { message_title: stri
 		}
     }
     return ans
+}
+
+export async function Group_Id_Get(token: string) {
+	const vk = new VK({ token: token, apiLimit: 1 });
+	const [group] = await vk.api.groups.getById(vk);
+	const groupId = group.id;
+	return groupId
 }

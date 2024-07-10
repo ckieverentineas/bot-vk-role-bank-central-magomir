@@ -1,15 +1,11 @@
 import { Context, VK } from "vk-io";
 import prisma from "./engine/events/module/prisma_client";
-import { Send_Message } from "./engine/core/helper";
+import { Group_Id_Get, Send_Message } from "./engine/core/helper";
+import { Limiter } from "@prisma/client";
+import { Date_Compare_Resetor } from "./engine/events/module/alliance/limiter";
 
 export const vks: VK[] = [];
 
-async function Group_Id_Get(token: string) {
-	const vk = new VK({ token: token, apiLimit: 1 });
-	const [group] = await vk.api.groups.getById(vk);
-	const groupId = group.id;
-	return groupId
-}
 export async function Monitoring() {
     for (const monitor of await prisma.monitor.findMany({})) {
         try {
@@ -45,6 +41,14 @@ export async function Monitoring() {
                 if (!account) { return await next(); }
                 const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
                 if (!user) { return await next(); }
+                //модуль лимитов
+                let limiter = await prisma.limiter.findFirst({ where: { id_monitor: monitor.id, id_user: user.id } })
+                if (!limiter) { limiter = await prisma.limiter.create({ data: { id_monitor: monitor.id, id_user: user.id } }) }
+                limiter = await Date_Compare_Resetor(limiter)
+                if (limiter.likes >= monitor.lim_like) { return await next(); }
+                const limiter_up = await prisma.limiter.update({ where: { id: limiter.id }, data: { likes: { increment: 1 } } })
+                if (!limiter_up) { return await next(); }
+                //модуль вознаграждения
                 const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_user: user.id }})
                 if (!balance) { return await next(); }
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_like } } })
@@ -75,6 +79,14 @@ export async function Monitoring() {
                 if (!account) { return await next(); }
                 const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
                 if (!user) { return await next(); }
+                //модуль лимитов
+                let limiter = await prisma.limiter.findFirst({ where: { id_monitor: monitor.id, id_user: user.id } })
+                if (!limiter) { limiter = await prisma.limiter.create({ data: { id_monitor: monitor.id, id_user: user.id } }) }
+                limiter = await Date_Compare_Resetor(limiter)
+                if (limiter.comment >= monitor.lim_comment) { return await next(); }
+                const limiter_up = await prisma.limiter.update({ where: { id: limiter.id }, data: { comment: { increment: 1 } } })
+                if (!limiter_up) { return await next(); }
+                //модуль вознаграждения
                 const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_user: user.id }})
                 if (!balance) { return await next(); }
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_comment } } })

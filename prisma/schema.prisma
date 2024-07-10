@@ -38,6 +38,7 @@ model Limiter {
   user       User    @relation(fields: [id_user], references: [id], onDelete: Cascade)
   likes      Int     @default(0)
   comment    Int     @default(0)
+  update     DateTime @default(now())
 }
 
 model User {

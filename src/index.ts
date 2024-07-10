@@ -6,7 +6,7 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Keyboard_Index, Logger, Worker_Checker } from './engine/core/helper';
+import { Group_Id_Get, Keyboard_Index, Logger, Sleep, Worker_Checker } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
@@ -25,19 +25,18 @@ dotenv.config()
 export const token: string = String(process.env.token)
 export const root: number = Number(process.env.root) //root user
 export const chat_id: number = Number(process.env.chat_id) //chat for logs
-export const group_id: number = Number(process.env.group_id)//clear chat group
+
+export let group_id: number = 0//clear chat group
+Group_Id_Get(token).then(async (res) => { 
+	await Sleep(1000); 
+	group_id = res ?? 0; 
+})
 export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
 export const timer_text_oper = { answerTimeLimit: 60_000 } // ожидать пять минут
 export const answerTimeLimit = 300_000 // ожидать пять минут
 export const starting_date = new Date(); // время работы бота
 //авторизация
-async function Group_Id_Get() {
-	const vk = new VK({ token: token, apiLimit: 1 });
-	const [group] = await vk.api.groups.getById(vk);
-	const groupId = group.id;
-	return groupId
-}
-export const vk = new VK({ token: token, pollingGroupId: Number(Group_Id_Get()), apiLimit: 20, apiMode: 'parallel_selected' });
+export const vk = new VK({ token: token, pollingGroupId: group_id, apiLimit: 20, apiMode: 'parallel_selected' });
 //инициализация
 const questionManager = new QuestionManager();
 const hearManager = new HearManager<IQuestionMessageContext>();
@@ -163,8 +162,14 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 	return await next();
 })
 
-vk.updates.start().then(() => {
-	Logger('running succes')
+vk.updates.start().then(async () => {
+	await Logger('running succes');
+	try {
+		await Sleep(1000)
+		await vk.api.groups.enableOnline({ group_id: group_id }) 
+	} catch(e) {
+		Logger(`${e}`)
+	}
 }).catch(console.error);
 setInterval(Worker_Checker, 86400000);
 process.on('warning', e => console.warn(e.stack))
