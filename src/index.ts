@@ -19,6 +19,7 @@ import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from '.
 import { Alliance_Enter, Alliance_Enter_Admin } from './engine/events/module/alliance/alliance_menu';
 import { Alliance_Rank_Coin_Enter, Alliance_Rank_Enter } from './engine/events/module/alliance/alliance_rank';
 import { Counter_PK_Module } from './engine/events/module/counter_pk';
+import { Monitoring } from './monitring';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -167,3 +168,5 @@ vk.updates.start().then(() => {
 }).catch(console.error);
 setInterval(Worker_Checker, 86400000);
 process.on('warning', e => console.warn(e.stack))
+
+Monitoring()

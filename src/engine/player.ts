@@ -17,6 +17,7 @@ import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
 import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
 import { Alliance_Year_End_Printer } from "./events/module/alliance/alliance_year_end";
 import { Alliance_Coin_Rank_Admin_Printer } from "./events/module/rank/rank_alliance";
+import { Alliance_Monitor_Printer } from "./events/module/alliance/monitor";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -1975,6 +1976,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
         if (await Accessed(context) == 1) { return }
         await Alliance_Year_End_Printer(context)
+    })
+    hearManager.hear(/⚙ !подключить группу/, async (context) => {
+        if (await Accessed(context) == 1) { return }
+        await Alliance_Monitor_Printer(context)
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         await Alliance_Coin_Converter_Printer(context)
