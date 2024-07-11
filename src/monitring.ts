@@ -3,18 +3,30 @@ import prisma from "./engine/events/module/prisma_client";
 import { Group_Id_Get, Logger, Send_Message, Sleep } from "./engine/core/helper";
 import { Limiter } from "@prisma/client";
 import { Date_Compare_Resetor } from "./engine/events/module/alliance/limiter";
+import { chat_id, SECRET_KEY } from ".";
+import * as CryptoJS from 'crypto-js';
 
-export const vks: VK[] = [];
+// Функция для расшифровки данных
+function Decrypt_Data(encryptedData: string): string {
+    try {
+        const bytes = CryptoJS.AES.decrypt(encryptedData, SECRET_KEY);
+        const decryptedData = bytes.toString(CryptoJS.enc.Utf8);
+        return decryptedData;
+    } catch(e) {
+        Logger(`Невозможно расшифровать ${e}`)
+        return `zero`
+    }
+    
+}
 
 export async function Monitoring() {
-    for (const monitor of await prisma.monitor.findMany({})) {
+    for (const monitor of await prisma.monitor.findMany({ where: { starting: true } })) {
         try {
-            //let idvk = entity.type === 'group' ? Number((await Group_Id_Get(entity.token))) : Number(await User_Id_Get(entity.token))
-            const idvk = await Group_Id_Get(monitor.token).then((data: any) => { return data })
+            const idvk = await Group_Id_Get(Decrypt_Data(monitor.token)).then((data: any) => { return data })
             //console.log(idvk);
             // Авторизация
             const vks = new VK({
-              token: monitor.token,
+              token: Decrypt_Data(monitor.token),
               apiLimit: 1,
               pollingGroupId: idvk,
             });
@@ -122,6 +134,7 @@ export async function Monitoring() {
                 await Logger(`(system) ~ running monitor ${monitor.name}-${monitor.idvk} succes by <system> №0`);
                 try {
                     await Sleep(5000)
+                    await Send_Message(chat_id, `🎥 Мама я заработаль, монитор №${monitor.id} по адресу: https://vk.com/club${monitor.idvk}`)
                     await vks.api.groups.enableOnline({ group_id: monitor.idvk }) 
                 } catch(e) {
                     await Logger(`${e}`)

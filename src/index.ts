@@ -6,7 +6,7 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Group_Id_Get, Keyboard_Index, Logger, Sleep, Worker_Checker } from './engine/core/helper';
+import { Group_Id_Get, Keyboard_Index, Logger, Send_Message, Sleep, Worker_Checker } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
@@ -25,7 +25,7 @@ dotenv.config()
 export const token: string = String(process.env.token)
 export const root: number = Number(process.env.root) //root user
 export const chat_id: number = Number(process.env.chat_id) //chat for logs
-
+export const SECRET_KEY = process.env.SECRET_KEY || '';
 export let group_id: number = 0//clear chat group
 Group_Id_Get(token).then(async (res) => { 
 	await Sleep(1000); 

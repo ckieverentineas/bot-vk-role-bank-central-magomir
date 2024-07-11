@@ -1,9 +1,10 @@
 import { Alliance, AllianceCoin, Monitor } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
-import { answerTimeLimit, chat_id, timer_text, vk } from "../../../..";
+import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
 import { Confirm_User_Success, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
+import * as CryptoJS from 'crypto-js';
 
 //контроллер управления валютами альянса
 async function Alliance_Monitor_Get(cursor: number, alliance: Alliance) {
@@ -279,7 +280,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
 		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода токена истекло!`) }
 		if (name.text.length <= 300) {
 			spec_check = true
-			monik.token = `${name.text}`
+			monik.token = `${Encrypt_Data(name.text)}`
 		} else { await context.send(`💡 Ввведите до 300 символов включительно!`) }
 	}
     await context.send(`⚠ Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
@@ -336,13 +337,19 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
             }
         }
     }
-	const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота для группы ${monik.alliance}?`)
-    await context.send(`${rank_check.text}`)
-    const monitor_cr = await prisma.monitor.create({ data: { token: monik.token, id_alliance: monik.id_alliance, id_coin: monik.id_coin, name: monik.name, idvk: monik.idvk_group } })
+	const starting_check: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота для группы ${monik.alliance}?`)
+    await context.send(`${starting_check.text}`)
+    const monitor_cr = await prisma.monitor.create({ data: { token: monik.token, id_alliance: monik.id_alliance, id_coin: monik.id_coin, name: monik.name, idvk: monik.idvk_group, starting: starting_check.status } })
     if (monitor_cr) {
         await Logger(`In database, created monitor for group ${monik.alliance} by admin ${context.senderId}`)
         await context.send(`⚙ Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}`)
         await Send_Message(chat_id, `🎥 Добавлен новый монитор ${monitor_cr.name}-${monitor_cr.id} для ролевой ${monik.alliance}-${monik.id_alliance}`)
     }
     return res
+}
+
+// Функция для шифрования данных
+function Encrypt_Data(data: string): string {
+    const encryptedData = CryptoJS.AES.encrypt(data, SECRET_KEY).toString();
+    return encryptedData;
 }
