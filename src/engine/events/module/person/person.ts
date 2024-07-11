@@ -31,7 +31,7 @@ export async function Person_Register(context: any) {
 				.textButton({ label: 'Нет', payload: { command: 'professor' }, color: 'secondary' })
 				.oneTime().inline(), answerTimeLimit
 			})
-		    if (confirma.isTimeout) { return await context.send(`⏰ Время ожидания ввода имени истекло!`) }
+		    if (confirma.isTimeout) { return await context.send(`⏰ Время ожидания подтверждения ввода имени истекло!`) }
             if (confirma.text == "Да") {
                 person.name = `${name.text}`
                 name_check = true
@@ -188,7 +188,7 @@ export async function Person_Register(context: any) {
 		    		keyboard: keyboard.inline(), answerTimeLimit
 		    	}
 		    )
-            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора факультета истекло!`) }
 		    if (!answer1.payload) {
 		    	await context.send(`💡 Жмите только по кнопкам с иконками!`)
 		    } else {
@@ -244,9 +244,10 @@ export async function Person_Selector(context: any) {
                 let counter = 0
                 for (let i=id_builder_sent; i < person.length && counter < limiter; i++) {
                     const builder = person[i]
+                    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(builder.id_alliance) } })
                     keyboard.textButton({ label: `👀 ${builder.id}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, id_person: builder.id }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                    event_logger += `\n\n💬 ${builder.id}-${builder.name}`
+                    event_logger += `\n\n💬 ${builder.id}-${builder.name}\n🌐 Ролевая: ${builder.id_alliance == 0 ? `Соло` : builder.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
                     /*
                     const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                     counter++
@@ -268,7 +269,7 @@ export async function Person_Selector(context: any) {
                     keyboard: keyboard.inline(), answerTimeLimit
                 }
             )
-            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора персонажа истекло!`) }
             if (!answer1.payload) {
                 await context.send(`💡 Жмите только по кнопкам с иконками!`)
             } else {

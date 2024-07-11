@@ -50,7 +50,7 @@ export async function Alliance_Monitor_Printer(context: any) {
                 keyboard: keyboard, answerTimeLimit
             }
         )
-        if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора валюты ${alliance?.name} истекло!`) }
+        if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора подключенной группы для проекта ${alliance?.name} истекло!`) }
         const config: any = {
             'alliance_coin_edit': Alliance_Monitor_Edit,
             'alliance_coin_create': Alliance_Monitor_Create,
@@ -282,7 +282,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
 			monik.token = `${name.text}`
 		} else { await context.send(`💡 Ввведите до 300 символов включительно!`) }
 	}
-    await context.send(`⚠ Токен принят, удалите отправку своего токена из чата в целях безопасности!`)
+    await context.send(`⚠ Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
     
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
