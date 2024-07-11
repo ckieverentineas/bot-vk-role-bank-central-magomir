@@ -168,10 +168,10 @@ vk.updates.start().then(async () => {
 		await Sleep(1000)
 		await vk.api.groups.enableOnline({ group_id: group_id }) 
 	} catch(e) {
-		Logger(`${e}`)
+		await Logger(`${e}`)
 	}
 }).catch(console.error);
 setInterval(Worker_Checker, 86400000);
-process.on('warning', e => console.warn(e.stack))
+//process.on('warning', e => console.warn(e.stack))
 
 Monitoring()
