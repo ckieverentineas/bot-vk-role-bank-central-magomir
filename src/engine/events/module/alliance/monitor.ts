@@ -37,7 +37,7 @@ export async function Alliance_Monitor_Printer(context: any) {
             keyboard.textButton({ label: `✏ ${monitor.id}-${monitor.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' })
             .textButton({ label: `⛔`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' }).row()
             //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-            event_logger += `🎥 ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}👍 ${monitor.lim_comment}💬 ♾📰\n💰 Стоимость: ${monitor.cost_like}👍 ${monitor.cost_comment}💬 ${monitor.cost_comment}📰\n\n`
+            event_logger += `🎥 ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}👍 ${monitor.lim_comment}💬 ♾📰\n💰 Стоимость: ${monitor.cost_like}👍 ${monitor.cost_comment}💬 ${monitor.cost_comment}📰\n⚙ Статус: ${monitor.like_on}👍 ${monitor.comment_on}💬 ${monitor.wall_on}📰\n\n`
         }
         if (cursor >= 5) { keyboard.textButton({ label: `←`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
@@ -52,7 +52,7 @@ export async function Alliance_Monitor_Printer(context: any) {
         )
         if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора валюты ${alliance?.name} истекло!`) }
         const config: any = {
-            'alliance_coin_edit': Alliance_Coin_Edit,
+            'alliance_coin_edit': Alliance_Monitor_Edit,
             'alliance_coin_create': Alliance_Monitor_Create,
             'alliance_coin_next': Alliance_Monitor_Next,
             'alliance_coin_back': Alliance_Monitor_Back,
@@ -94,39 +94,142 @@ async function Alliance_Monitor_Return(context: any, data: any, alliance: Allian
     return res
 }
 
-async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor }
-    let spec_check = false
-    let name_loc = null
-    const alliance_coin_check = await prisma.allianceCoin.findFirst({ where: { id: data.id_alliance_coin } })
-	while (spec_check == false) {
-		const name = await context.question( `🧷 Вы редактируете название валюты: ${alliance_coin_check?.name}. Введите скорректированное название для него:`, timer_text)
-		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода для корректировки валюты ${alliance_coin_check?.name} истекло!`) }
-		if (name.text.length <= 300) {
-			spec_check = true
-			name_loc = `${name.text}`
-		} else { await context.send(`💡 Ввведите до 300 символов включительно!`) }
-	}
-    let smile_check = false
-    let smile = alliance_coin_check?.smile
-	while (smile_check == false) {
-		const smile_ask: any = await context.question( `🧷 Введите смайлик для обозначения новой валюты ${name_loc}, сейчас стоит ${smile}:`, timer_text)
-		if (smile_ask.isTimeout) { return await context.send(`⏰ Время ожидания ввода смайлика для корректировки смайлика валюты ${name_loc} истекло!`) }
-		if (smile_ask.text.length <= 10) {
-			smile_check = true
-			smile = `${smile_ask.text}`
-		} else { await context.send(`💡 Ввведите до 10 символов включительно!`) }
-	}
-    alliance_coin_check?.point == true ? await context.send(`Валюта ${name_loc} является рейтинговой`) : await context.send(`Валюта ${name_loc} является рейтинговой`)
-	const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `сделать валюту ${name_loc} рейтинговой?`)
-    await context.send(`${rank_check.text}`)
-    if (name_loc) {
-        const quest_up = await prisma.allianceCoin.update({ where: { id: alliance_coin_check?.id }, data: { name: name_loc, smile: smile!, point: rank_check.status } })
-        if (quest_up) {
-            await Logger(`In database, updated alliance coin: ${quest_up.id}-${quest_up.name} by admin ${context.senderId}`)
-            await context.send(`⚙ Вы скорректировали валюту:\n Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name} --> ${quest_up.id}-${quest_up.name}\n Смайлик: ${alliance_coin_check?.smile} --> ${quest_up.smile}\n Рейтинговая валюта: ${alliance_coin_check?.point == true ? "✅" : "⛔"} --> ${quest_up.point == true ? "✅" : "⛔"}`)
+    const monitora = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin } })
+    if (!monitora) { return }
+    const monik = { alliance: alliance.name, coin: '', id_coin: monitora.id_coin, cost_like: monitora.cost_like, cost_comment: monitora.cost_comment, cost_post: monitora.cost_post, lim_like: monitora.lim_like, lim_comment: monitora.lim_comment, starting: monitora.starting, wall_on: monitora.wall_on, like_on: monitora.like_on, comment_on: monitora.comment_on }
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
+    if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
+    let coin_check = false
+    let id_builder_sent1 = 0
+    while (!coin_check) {
+        const keyboard = new KeyboardBuilder()
+        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
+        let event_logger = `❄ Выберите валюту с которой будем делать отчисления:\n\n`
+        const builder_list: AllianceCoin[] = coin_pass
+        if (builder_list.length > 0) {
+            const limiter = 5
+            let counter = 0
+            for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
+                const builder = builder_list[i]
+                keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
+                //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
+                event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
+                /*
+                const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                counter++
+            }
+            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
+            //предыдущий офис
+            if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
+                keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
+            }
+            //следующий офис
+            if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
+                keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
+            }
+        } else {
+            event_logger = `💬 Админы ролевой еще не создали ролевые валюты`
+            return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
+        }
+        const answer1: any = await context.question(`${event_logger}`,
+            {	
+                keyboard: keyboard.inline(), answerTimeLimit
+            }
+        )
+        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+        if (!answer1.payload) {
+            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+        } else {
+            if (answer1.text == '→' || answer1.text =='←') {
+                id_builder_sent1 = answer1.payload.id_builder_sent1
+            } else {
+                monik.coin = answer1.payload.coin
+                monik.id_coin = answer1.payload.id_coin
+                coin_check = true
+            }
         }
     }
+
+    let lim_like_tr = false;
+	while (lim_like_tr == false) {
+		const name = await context.question( `🧷 Вы редактируете лимит лайков в день, cейчас, ${monik.lim_like}👍! Введите новое значение:`, timer_text)
+		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для количества лайков в сутки истекло!`); return res }
+		if (typeof Number(name.text) === "number") {
+            const input = Math.floor(Number(name.text))
+            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
+			lim_like_tr = true
+			monik.lim_like = Number(name.text)
+		} else { await context.send(`💡 Ввведите число!`) }
+	}
+    let cost_like_tr = false;
+	while (cost_like_tr == false) {
+		const name = await context.question( `🧷 Вы редактируете стоимость лайка, cейчас, ${monik.cost_like}👍! Введите новое значение:`, timer_text)
+		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости лайка истекло!`); return res }
+		if (typeof Number(name.text) === "number") {
+            const input = Math.floor(Number(name.text))
+            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
+			cost_like_tr = true
+			monik.cost_like = Number(name.text)
+		} else { await context.send(`💡 Ввведите число!`) }
+	}
+
+    let lim_comment_tr = false;
+	while (lim_comment_tr == false) {
+		const name = await context.question( `🧷 Вы редактируете лимит комментариев в день, cейчас, ${monik.lim_comment}💬 ! Введите новое значение:`, timer_text)
+		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для количества комментариев в сутки истекло!`); return res }
+		if (typeof Number(name.text) === "number") {
+            const input = Math.floor(Number(name.text))
+            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
+			lim_comment_tr = true
+			monik.lim_comment = Number(name.text)
+		} else { await context.send(`💡 Ввведите число!`) }
+	}
+    let cost_comment_tr = false;
+	while (cost_comment_tr == false) {
+		const name = await context.question( `🧷 Вы редактируете стоимость комментария, cейчас, ${monik.cost_comment}💬 ! Введите новое значение:`, timer_text)
+		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости комментария истекло!`); return res }
+		if (typeof Number(name.text) === "number") {
+            const input = Math.floor(Number(name.text))
+            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
+			cost_comment_tr = true
+			monik.cost_comment = Number(name.text)
+		} else { await context.send(`💡 Ввведите число!`) }
+	}
+
+    let cost_post_tr = false;
+	while (cost_post_tr == false) {
+		const name = await context.question( `🧷 Вы редактируете стоимость поста, cейчас, ${monik.cost_post}📰 ! Введите новое значение:`, timer_text)
+		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости поста истекло!`); return res }
+		if (typeof Number(name.text) === "number") {
+            const input = Math.floor(Number(name.text))
+            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
+			cost_post_tr = true
+			monik.cost_post = Number(name.text)
+		} else { await context.send(`💡 Ввведите число!`) }
+	}
+
+    const starting_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота в качестве монитора для группы ${monik.alliance}?`)
+    monik.starting = starting_tr.status
+    await context.send(`${starting_tr.text}`)
+
+    const like_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с лайками?`)
+    monik.like_on = like_on_tr.status
+    await context.send(`${like_on_tr.text}`)
+
+    const comment_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с комментариями?`)
+    monik.comment_on = comment_on_tr.status
+    await context.send(`${comment_on_tr.text}`)
+
+    const wall_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с постами?`)
+    monik.wall_on = wall_on_tr.status
+    await context.send(`${wall_on_tr.text}`)
+
+    const monitor_up = await prisma.monitor.update({ where: { id: monitora.id }, data: { id_coin: monik.id_coin, cost_like: monik.cost_like, cost_comment: monik.cost_comment, cost_post: monik.cost_post, lim_like: monik.lim_like, lim_comment: monik.lim_comment, starting: monik.starting, wall_on: monik.wall_on, like_on: monik.like_on, comment_on: monik.comment_on } })
+    if (!monitor_up) { return res }
+    await Logger(`In database, updated monitor: ${monitor_up.id}-${monitor_up.name} by admin ${context.senderId}`)
+    await context.send(`⚙ Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, наберите +7 777 777 77 77 для перезагрузки сервера.`)
     return res
 }
 

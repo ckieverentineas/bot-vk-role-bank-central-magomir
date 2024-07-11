@@ -20,6 +20,7 @@ export async function Monitoring() {
             });
             
             vks.updates.on('wall_post_new', async (context: Context, next: any) => { 
+                if (!monitor.wall_on) { return await next(); }
                 if (Math.abs(context.wall.authorId) == idvk) {
                     const account = await prisma.account.findFirst({ where: { idvk: context.wall.signerId ?? context.wall.createdUserId } })
                     if (!account) { return await next(); }
@@ -35,6 +36,7 @@ export async function Monitoring() {
                 return await next();
             })
             vks.updates.on('like_add', async (context: Context, next: any) => {
+                if (!monitor.like_on) { return await next(); }
                 //проверяем есть ли пользователь в базах данных
                 const whitelist = ['post'/*, 'comment' */]
                 if ( !whitelist.includes(context.objectType) ) { return await next() }
@@ -59,6 +61,7 @@ export async function Monitoring() {
                 return await next();
             })
             vks.updates.on('like_remove', async (context: Context, next: any) => {
+                if (!monitor.like_on) { return await next(); }
                 //проверяем есть ли пользователь в базах данных
                 const whitelist = ['post'/*, 'comment' */]
                 if ( !whitelist.includes(context.objectType) ) { return await next() }
@@ -75,6 +78,7 @@ export async function Monitoring() {
                 return await next();
             })
             vks.updates.on('wall_reply_new', async (context: Context, next: any) => {
+                if (!monitor.comment_on) { return await next(); }
                 //проверяем есть ли пользователь в базах данных
                 //console.log(context)
                 if (context.text.length < 20 || context.fromId < 0) { return await next(); }
@@ -99,6 +103,7 @@ export async function Monitoring() {
                 return await next();
             })
             vks.updates.on('wall_reply_delete', async (context: Context, next: any) => {
+                if (!monitor.comment_on) { return await next(); }
                 //проверяем есть ли пользователь в базах данных
                 //console.log(context)
                 const account = await prisma.account.findFirst({ where: { idvk: context.deleterUserId } })
@@ -110,7 +115,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: monitor.cost_comment } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `💬 С вас снято за удаленый коментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
+                await Send_Message(account.idvk, `💬 С вас снято за удаленный коментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
                 return await next();
             })
             vks.updates.start().then(async () => {

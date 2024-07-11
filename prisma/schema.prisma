@@ -29,6 +29,9 @@ model Monitor {
   lim_like     Int       @default(3)
   lim_comment  Int       @default(3)
   starting     Boolean   @default(false)
+  wall_on      Boolean   @default(true)
+  like_on      Boolean   @default(true)
+  comment_on   Boolean   @default(true)
   Limiter      Limiter[]
 }
 
