@@ -133,6 +133,15 @@ export async function Alliance_Add(context: Context) {
 async function Alliance_Destroy(context: Context, target: number) {
     const keyboard = new KeyboardBuilder()
     const alliance: Alliance | null = await prisma.alliance.findFirst({ where: { id: target }})
+    const users_check = await prisma.user.count({ where: { id_alliance: alliance!.id! } })
+    if (users_check > 0) { 
+        await vk.api.messages.send({
+            peer_id: context.peerId,
+            random_id: 0,
+            message: `⚠ Вы не можете разорвать союз, т.к. в ролевом проекте состоит ${users_check} персонажей:\n\n💬 ${alliance?.id} - ${alliance?.name}\n 🧷 Ссылка: https://vk.com/club${alliance?.idvk}`
+        })
+        return
+    }
     let event_logger = `В данный момент нельзя снести здания...`
     let id_planet = context.eventPayload.id_planet ?? 0
     let id_builder_sent = context.eventPayload.id_builder_sent ?? 0
