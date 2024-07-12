@@ -38,7 +38,7 @@ export async function Alliance_Monitor_Printer(context: any) {
             keyboard.textButton({ label: `✏ ${monitor.id}-${monitor.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' })
             .textButton({ label: `⛔`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' }).row()
             //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-            event_logger += `🎥 ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}👍 ${monitor.lim_comment}💬 ♾📰\n💰 Стоимость: ${monitor.cost_like}👍 ${monitor.cost_comment}💬 ${monitor.cost_comment}📰\n⚙ Статус: ${monitor.like_on}👍 ${monitor.comment_on}💬 ${monitor.wall_on}📰\n\n`
+            event_logger += `🎥 ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}👍 ${monitor.lim_comment}💬 ♾📰\n💰 Стоимость: ${monitor.cost_like}👍 ${monitor.cost_comment}💬 ${monitor.cost_post}📰\n⚙ Статус: ${monitor.like_on}👍 ${monitor.comment_on}💬 ${monitor.wall_on}📰\n\n`
         }
         if (cursor >= 5) { keyboard.textButton({ label: `←`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
