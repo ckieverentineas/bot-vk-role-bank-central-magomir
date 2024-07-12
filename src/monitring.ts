@@ -111,7 +111,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_comment } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `💬 Вам начислено за коментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
+                await Send_Message(account.idvk, `💬 Вам начислено за комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
                 return await next();
             })
             vks.updates.on('wall_reply_delete', async (context: Context, next: any) => {
@@ -127,7 +127,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: monitor.cost_comment } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `💬 С вас снято за удаленный коментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
+                await Send_Message(account.idvk, `💬 С вас снято за удаленный комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
                 return await next();
             })
             vks.updates.start().then(async () => {
