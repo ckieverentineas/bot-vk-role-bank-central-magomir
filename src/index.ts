@@ -58,6 +58,7 @@ registerUserRoutes(hearManager)
 export const users_pk: Array<{ idvk: number, text: string, mode: boolean }> = []
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
+	//await vk.api.messages.send({ peer_id: 463031671, random_id: 0, message: `тест2`, attachment: `photo200840769_457273112` } )
 	const pk_counter_st = await Counter_PK_Module(context)
 	//console.log(users_pk)
 	if (pk_counter_st) { return }

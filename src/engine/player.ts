@@ -6,7 +6,7 @@ import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } 
 import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
-import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, Item, User } from "@prisma/client";
+import { Account, Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, Item, User } from "@prisma/client";
 import { Person_Detector, Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
@@ -1473,12 +1473,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 	        			keyboard: Keyboard.builder()
 	        			.textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
 	        			.textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
-	        			.textButton({ label: '/', payload: { command: 'citizen' }, color: 'secondary' })
-                        .textButton({ label: '*', payload: { command: 'citizen' }, color: 'secondary' }).row()
-                        .textButton({ label: '!', payload: { command: 'citizen' }, color: 'secondary' })
-                        .textButton({ label: '√', payload: { command: 'citizen' }, color: 'secondary' })
-                        .textButton({ label: 'log', payload: { command: 'citizen' }, color: 'secondary' })
-                        .textButton({ label: 'log10', payload: { command: 'citizen' }, color: 'secondary' })
+	        			//.textButton({ label: '/', payload: { command: 'citizen' }, color: 'secondary' })
+                        //.textButton({ label: '*', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                        //.textButton({ label: '!', payload: { command: 'citizen' }, color: 'secondary' })
+                        //.textButton({ label: '√', payload: { command: 'citizen' }, color: 'secondary' })
+                        //.textButton({ label: 'log', payload: { command: 'citizen' }, color: 'secondary' })
+                        //.textButton({ label: 'log10', payload: { command: 'citizen' }, color: 'secondary' })
 	        			.oneTime().inline(), answerTimeLimit
 	        		}
 	        	)
@@ -1987,6 +1987,46 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/📊 Отчатор/, async (context) => {
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
+    hearManager.hear(/🔔 Уведомления|!уведомления/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        const censored_change = await prisma.user.update({ where: { id: user_check.id }, data: { notification: user_check.notification ? false : true } })
+        if (censored_change) { 
+			await Send_Message(user_check.idvk, `🔔 Уведомления монитора ${censored_change.notification ? 'активированы' : 'отключены'}`)
+			await Logger(`(private chat) ~ changed status activity notification self by <user> №${context.senderId}`)
+		}
+		await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
+    })
+    /*hearManager.hear(/фото/, async (context: any) => {
+        if (context.hasAttachments('photo')) {
+            // Получаем информацию о вложенной фотографии
+            const attachment = context.message.attachments[0];
+            const photoId = attachment.photo.id;
+            const ownerId = attachment.photo.owner_id;
+    
+            // Формат для вложения
+            const attachmentStr = `photo${ownerId}_${photoId}`;
+            const photoUrl = attachment.photo.sizes[attachment.photo.sizes.length - 1].url
+    
+            // Сохраняем фото для пользователя
+            const userId = context.senderId;
+            console.log(attachmentStr)
+            await context.send('Фото сохранено!');
+            try {
+                await context.send({ attachment: attachmentStr });
+            } catch (e) {
+                await context.send(`Произошла ошибка: ${e}`);
+            }
+            
+            //await vk.api.messages.send({ peer_id: 463031671, random_id: 0, message: `тест`, attachment: attachmentStr } )
+            
+        } else  {
+            await context.send('Пожалуйста, отправьте фотографию или введите "мои фото", чтобы увидеть сохраненные фотографии.');
+        }
+    })*/
 }
 
     

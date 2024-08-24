@@ -26,7 +26,8 @@ export async function Card_Enter(context:any) {
         if (await prisma.user.count({ where: { idvk: get_user.idvk } }) > 1) {
             keyboard.textButton({ label: '🔃👥', payload: { command: 'Согласиться' }, color: 'secondary' })
         }
-        keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
+        keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' }).row()
+        .textButton({ label: '🔔 Уведомления', payload: { command: 'notification_controller' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
         let ii = `В общем вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`

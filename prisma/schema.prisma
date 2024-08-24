@@ -56,6 +56,7 @@ model User {
   medal       Int           @default(5)
   id_facult   Int?
   private     Boolean       @default(false)
+  notification Boolean      @default(true)
   crdate      DateTime      @default(now())
   id_role     Int           @default(1)
   role        Role          @relation(fields: [id_role], references: [id], onDelete: Cascade)

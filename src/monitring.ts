@@ -43,7 +43,7 @@ export async function Monitoring() {
                     const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_post } } })
                     if (!balance_up) { return await next(); }
                     const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                    await Send_Message(account.idvk, `📰 Вам начислено за написание поста ${monitor.cost_post} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.wall.authorId)}?w=wall${context.wall.authorId}_${context.wall.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_post}=${balance_up.amount}${coin?.smile}`)
+                    user.notification ? await Send_Message(account.idvk, `📰 Вам начислено за написание поста ${monitor.cost_post} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.wall.authorId)}?w=wall${context.wall.authorId}_${context.wall.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_post}=${balance_up.amount}${coin?.smile}`) : await Logger(`(monitor) ~ user ${user.idvk} create post and got ${monitor.cost_post} ${coin?.name}, link https://vk.com/club${Math.abs(context.wall.authorId)}?w=wall${context.wall.authorId}_${context.wall.id}, balance ${balance.amount}+${monitor.cost_post}=${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`)
                 }
                 return await next();
             })
@@ -69,7 +69,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_like } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `👍 Вам начислено за лайк поста ${monitor.cost_like} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_like}=${balance_up.amount}${coin?.smile}`)
+                user.notification ? await Send_Message(account.idvk, `👍 Вам начислено за лайк поста ${monitor.cost_like} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_like}=${balance_up.amount}${coin?.smile}`) : await Logger(`(monitor) ~ user ${user.idvk} like post and got ${monitor.cost_like} ${coin?.name}, link https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}, balance ${balance.amount}+${monitor.cost_like}=${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`)
                 return await next();
             })
             vks.updates.on('like_remove', async (context: Context, next: any) => {
@@ -86,7 +86,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: monitor.cost_like } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `👎 С вас снято за снятие лайка с поста ${monitor.cost_like} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_like}=${balance_up.amount}${coin?.smile}`)
+                user.notification ? await Send_Message(account.idvk, `👎 С вас снято за снятие лайка с поста ${monitor.cost_like} ${coin?.name}\n🧷 Ссылка: https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_like}=${balance_up.amount}${coin?.smile}`) : await Logger(`(monitor) ~ user ${user.idvk} dislike post and lost ${monitor.cost_like} ${coin?.name}, link https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}, balance ${balance.amount}-${monitor.cost_like}=${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`)
                 return await next();
             })
             vks.updates.on('wall_reply_new', async (context: Context, next: any) => {
@@ -111,7 +111,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: monitor.cost_comment } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `💬 Вам начислено за комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
+                user.notification ? await Send_Message(account.idvk, `💬 Вам начислено за комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}+${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`) : await Logger(`(monitor) ~ user ${user.idvk} send comment and got ${monitor.cost_comment} ${coin?.name}, link https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}, balance ${balance.amount}+${monitor.cost_comment}=${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`)
                 return await next();
             })
             vks.updates.on('wall_reply_delete', async (context: Context, next: any) => {
@@ -127,7 +127,7 @@ export async function Monitoring() {
                 const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: monitor.cost_comment } } })
                 if (!balance_up) { return await next(); }
                 const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
-                await Send_Message(account.idvk, `💬 С вас снято за удаленный комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`)
+                user.notification ? await Send_Message(account.idvk, `💬 С вас снято за удаленный комментарий ${monitor.cost_comment} ${coin?.name}\n🧷 Ссылка: https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}\n💳 Ваш баланс: ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile}`) : await Logger(`(monitor) ~ user ${user.idvk} delete comment and lost ${monitor.cost_comment} ${coin?.name}, link https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}, balance ${balance.amount}-${monitor.cost_comment}=${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`)
                 return await next();
             })
             vks.updates.start().then(async () => {
