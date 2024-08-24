@@ -183,7 +183,7 @@ model BalanceCoin {
   id_coin Int
   user    User         @relation(fields: [id_user], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_user Int
-  amount  Int          @default(0)
+  amount  Float        @default(0)
 }
 
 model AllianceFacult {
@@ -201,5 +201,5 @@ model BalanceFacult {
   id_coin   Int
   facult    AllianceFacult @relation(fields: [id_facult], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_facult Int
-  amount    Int            @default(0)
+  amount    Float          @default(0)
 }
