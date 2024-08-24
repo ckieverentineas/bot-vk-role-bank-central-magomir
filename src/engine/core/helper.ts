@@ -119,8 +119,6 @@ export async function Keyboard_Index(context: any, messa: any) {
     if (await Accessed(context) != 1) {
         keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
         keyboard.textButton({ label: '!операции', payload: { command: 'sliz' }, color: 'positive' }).row()
-    } 
-    if (await Accessed(context) == 3) {
         keyboard.textButton({ label: '!операция', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
