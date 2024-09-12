@@ -1,4 +1,4 @@
-import { Alliance, AllianceCoin, Monitor } from "@prisma/client";
+import { Alliance, AllianceCoin, BalanceFacult, Monitor } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
@@ -352,4 +352,66 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
 function Encrypt_Data(data: string): string {
     const encryptedData = CryptoJS.AES.encrypt(data, SECRET_KEY).toString();
     return encryptedData;
+}
+
+// Функция для проверки пользователя
+export async function User_Bonus_Check(idvk: number, monitor: Monitor) {
+    const account = await prisma.account.findFirst({ where: { idvk: idvk } })
+    if (!account) { return false; }
+    const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
+    if (!user) { return false; }
+    return user
+}
+
+// функция для начисления вознаграждения за активность
+export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', reward: number, target: string, link: string, monitor: Monitor) {
+    const answer = { status: false, message: '', console: '', logging: '' } // ответ
+    // префаб персонажа
+    const account = await prisma.account.findFirst({ where: { idvk: idvk } })
+    if (!account) { return answer; }
+    const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
+    if (!user) { return answer; }
+    const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_user: user.id }})
+    if (!balance) { return answer; }
+    // префаб факультета
+    const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
+    const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
+    const alliance = await prisma.alliance.findFirst({ where: { id: monitor.id_alliance } })
+    const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
+    switch (operation) {
+        case '+':
+            const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: reward } } })
+            if (!balance_up) { return answer; }
+            answer.message += `📰 Вам начислено за добавленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile}\n`
+            answer.console += `(monitor) ~ user ${user.idvk} ${target} and got ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`
+            answer.status = true
+            if (coin?.point == true && balance_facult_check) {
+                const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { increment: reward } } })
+                if (balance_facult_plus) {
+                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                }
+            }
+            break;
+        case '-':
+            const balance_down = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: reward } } })
+            if (!balance_down) { return answer; }
+            answer.message += `📰 С вас снято за удаленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile}\n`
+            answer.console += `(monitor) ~ user ${user.idvk} ${target} and lost ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile} by <monitor> №${monitor.id}`
+            answer.status = true
+            if (coin?.point == true && balance_facult_check) {
+                const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: reward } } })
+                if (balance_facult_plus) {
+                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                }
+            }
+            break;
+        default:
+            break;
+    }
+    if (!answer.status) { return }
+    if (user.notification) { await Send_Message(account.idvk, answer.message) } 
+    await Logger(answer.console)
+    if (answer.logging) { await Send_Message(chat_id, answer.logging) }
 }

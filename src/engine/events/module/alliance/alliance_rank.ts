@@ -56,11 +56,14 @@ export async function Alliance_Rank_Enter(context:any) {
     if (facult && !facult_tr) {
         keyboard.callbackButton({ label: `🔮 ${facult.name.slice(0,30)}🔘`, payload: { command: 'alliance_rank_enter', facult: true }, color: 'secondary' }).row()
     }
+    if (facult && facult_tr) {
+        keyboard.callbackButton({ label: `🌐 ${stats?.name.slice(0,30)}`, payload: { command: 'alliance_rank_enter', facult: false }, color: 'secondary' })
+    }
     if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: '<', payload: { command: 'alliance_rank_enter', counter_init: -10+counter_init }, color: 'secondary' })
+        keyboard.callbackButton({ label: '<', payload: { command: 'alliance_rank_enter', counter_init: -10+counter_init, facult: facult_tr }, color: 'secondary' })
     }
     if (10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init }, color: 'secondary', })
+        keyboard.callbackButton({ label: '>', payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init, facult: facult_tr }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
     await Edit_Message(context, text, keyboard)
