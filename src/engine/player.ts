@@ -221,7 +221,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         for (const ui of uids_prefab) {
             const user_gt = await prisma.user.findFirst({ where: { id: Number(ui) } })
             if (!user_gt) { await Send_Message(context.senderId, `⚠ Персонаж с UID ${ui} не найден`); continue }
-            if (user_gt.id_alliance != person_adm.id_alliance) { await Send_Message(context.senderId, `⚠ Персонаж с UID ${ui} не состоит в вашей ролевой`); continue }
+            if (user_gt.id_alliance != person_adm.id_alliance) {
+                await Send_Message(context.senderId, `⚠ Персонаж с UID ${ui} не состоит в вашей ролевой`); 
+                if (await Accessed(context) != 3) { continue }
+            }
             uids.push(Number(ui))
         }
         const keyboard = new KeyboardBuilder()
@@ -1877,7 +1880,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 
     hearManager.hear(/админка/, async (context: any) => {
         if (context.senderId == root) {
-            const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+            const user: User | null = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+            if (!user) { return }
             const adma = await prisma.role.findFirst({ where: { name: `root` } })
             const lvlup = await prisma.user.update({ where: { id: user.id }, data: { id_role: adma?.id } })
             if (lvlup) {
@@ -1888,7 +1892,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(Root) становится администратором!)`
+                message: `⚙ @id${context.senderId}(${user.name}) становится администратором!)`
             })
             await Logger(`Super user ${context.senderId} got root`)
         }
