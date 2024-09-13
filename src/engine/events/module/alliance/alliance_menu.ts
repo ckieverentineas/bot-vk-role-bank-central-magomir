@@ -62,7 +62,7 @@ export async function Alliance_Enter_Admin(context:any) {
             keyboard.textButton({ label: '⚙ !настроить валюты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !настроить конвертацию', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
             keyboard.textButton({ label: '⚙ !закончить учебный год', payload: { command: 'Согласиться' }, color: 'negative' }).row()
-            keyboard.textButton({ label: '⚙ !подключить группу', payload: { command: 'Согласиться' }, color: 'negative' }).row()
+            keyboard.textButton({ label: '⚙ !мониторы нафиг', payload: { command: 'Согласиться' }, color: 'positive' }).row()
             //keyboard.textButton({ label: '⚙ !настроить магазины', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
         }
         keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()

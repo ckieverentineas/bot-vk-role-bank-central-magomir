@@ -18,6 +18,7 @@ import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance
 import { Alliance_Year_End_Printer } from "./events/module/alliance/alliance_year_end";
 import { Alliance_Coin_Rank_Admin_Printer } from "./events/module/rank/rank_alliance";
 import { Alliance_Monitor_Printer } from "./events/module/alliance/monitor";
+import { restartMonitor, stopMonitor } from "../monitring";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -2140,6 +2141,28 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Monitor_Printer(context)
     })
+    hearManager.hear(/🚫 !моники_off/, async (context) => {
+        if (await Accessed(context) == 1) { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user_check.id_alliance) } })) {
+            await stopMonitor(monitor.id)
+        }
+        await Send_Message( user_check.idvk, `🔧 Запрос на выключение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
+    })
+    hearManager.hear(/🚀 !моники_on/, async (context) => {
+        if (await Accessed(context) == 1) { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user_check.id_alliance) } })) {
+            await restartMonitor(monitor.id)
+        }
+        await Send_Message( user_check.idvk, `🔧 Запрос на включение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
+    })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         await Alliance_Coin_Converter_Printer(context)
     })
@@ -2172,6 +2195,20 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const alli_log_up = await prisma.alliance.update({ where: { id: alli_get.id }, data: { id_chat: context.peerId }})
         if (!alli_log_up) { return }
         await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой гнусный чат к уведомлениям для альянса [${alli_get.name}]\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
+    })
+    hearManager.hear(/⚙ !мониторы нафиг/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        const keyboard = new KeyboardBuilder()
+        keyboard.textButton({ label: '⚙ !подключить группу', payload: { command: 'Согласиться' }, color: 'negative' }).row()
+        keyboard.textButton({ label: '🚀 !моники_on', payload: { command: 'Согласиться' }, color: 'negative' })
+        keyboard.textButton({ label: '🚫 !моники_off', payload: { command: 'Согласиться' }, color: 'negative' }).row().inline().oneTime()
+        await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Асалам Алейкум брат или сестра в панель управления мониторами:`, keyboard)
     })
     /*hearManager.hear(/фото/, async (context: any) => {
         if (context.hasAttachments('photo')) {
