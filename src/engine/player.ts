@@ -22,6 +22,7 @@ import { restartMonitor, stopMonitor } from "../monitring";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             console.log(`Admin ${context.senderId} enter in shopping`)
             const category:any = await prisma.category.findMany({})
@@ -135,6 +136,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 А может быть в косом переулке есть подполье?`)
     })
     hearManager.hear(/✏Тип/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction item type user is viewed by admin ${context.senderId}`)
             return
@@ -164,6 +166,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Вот бы всегда безлимит, и редактировать бы ничего не пришлось?`)
     })
     hearManager.hear(/✏Имя/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction name item is viewed by admin ${context.senderId}`)
             return
@@ -1818,6 +1821,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     //Обработчики удаления инвентаря и артефактов
     hearManager.hear(/Удалить👜/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (context.messagePayload == null) {
             return
         }
@@ -1849,6 +1853,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, '💡 Был товар, нееет товара!')
     })
     hearManager.hear(/Удалить🔮/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (context.messagePayload == null) {
             return
         }
@@ -1880,6 +1885,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
 
     hearManager.hear(/админка/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             const user: User | null = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
             if (!user) { return }
@@ -1900,6 +1906,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/!новая роль/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
             const role_check = await prisma.role.findFirst({ where: { name: `root`}})
@@ -1928,6 +1935,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/!права/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
         const user_adm: User | null | undefined = await Person_Get(context)
         if (await Accessed(context) == 1) { return }
         const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
@@ -2045,6 +2053,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
     })
     hearManager.hear(/енотик/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await context.sendDocuments({ value: `./prisma/dev.db`, filename: `dev.db` }, { message: '💡 Открывать на сайте: https://sqliteonline.com/' } );
         await vk.api.messages.send({
@@ -2086,15 +2095,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Logger(`In private chat, invite enter in system is viewed by user ${context.senderId}`)
     })
     hearManager.hear(/➕👤/, async (context) => {
+        if (context.peerType == 'chat') { return }
         await Person_Register(context)
     })
     hearManager.hear(/➕🌐/, async (context) => {
+        if (context.peerType == 'chat') { return }
         await Alliance_Add(context)
     })
     hearManager.hear(/🔃👥/, async (context) => {
+        if (context.peerType == 'chat') { return }
         await Person_Selector(context)
     })
     hearManager.hear(/!отчет по ролкам/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const res: Array<{ name: String, count: number }> = []
         for (const alli of await prisma.alliance.findMany({})) {
@@ -2118,30 +2131,37 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
     })
     hearManager.hear(/!обновить ролки/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Updater(context)
     })
     hearManager.hear(/⚙ !настроить валюты/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Printer(context)
     })
     hearManager.hear(/⚙ !настроить конвертацию/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Facult_Printer(context)
     })
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Year_End_Printer(context)
     })
     hearManager.hear(/⚙ !подключить группу/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Monitor_Printer(context)
     })
     hearManager.hear(/🚫 !моники_off/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -2153,6 +2173,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( user_check.idvk, `🔧 Запрос на выключение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
     hearManager.hear(/🚀 !моники_on/, async (context) => {
+        if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -2164,9 +2185,11 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( user_check.idvk, `🔧 Запрос на включение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
+        if (context.peerType == 'chat') { return }
         await Alliance_Coin_Converter_Printer(context)
     })
     hearManager.hear(/📊 Отчатор/, async (context) => {
+        if (context.peerType == 'chat') { return }
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
     hearManager.hear(/🔔 Уведомления|!уведомления/, async (context: any) => {
