@@ -2159,6 +2159,20 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 		}
 		await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
     })
+    hearManager.hear(/!привязать/, async (context: any) => {
+        if (context.peerType != 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
+        if (!alli_get) { return }
+        const alli_log_up = await prisma.alliance.update({ where: { id: alli_get.id }, data: { id_chat: context.peerId }})
+        if (!alli_log_up) { return }
+        await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой гнусный чат к уведомлениям для альянса [${alli_get.name}]\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
+    })
     /*hearManager.hear(/фото/, async (context: any) => {
         if (context.hasAttachments('photo')) {
             // Получаем информацию о вложенной фотографии

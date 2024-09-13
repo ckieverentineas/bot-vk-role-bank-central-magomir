@@ -413,5 +413,11 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
     if (!answer.status) { return }
     if (user.notification) { await Send_Message(account.idvk, answer.message) } 
     await Logger(answer.console)
-    if (answer.logging) { await Send_Message(chat_id, answer.logging) }
+    if (answer.logging) { 
+        try {
+            alliance ? await Send_Message(alliance.id_chat, answer.logging) : await Send_Message(chat_id, answer.logging)
+        } catch (error) {
+            await Send_Message(chat_id, answer.logging)
+        } 
+    }
 }
