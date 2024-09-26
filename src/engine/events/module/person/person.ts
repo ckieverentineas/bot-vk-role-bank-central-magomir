@@ -1,6 +1,6 @@
 import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../../../.."
-import { Fixed_Number_To_Five, Keyboard_Index, Logger } from "../../../core/helper"
+import { Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "../../../core/helper"
 import prisma from "../prisma_client"
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 
@@ -205,15 +205,13 @@ export async function Person_Register(context: any) {
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     const role = await prisma.role.findFirst({ where: { name: "user" } }) ? await prisma.role.findFirst({ where: { name: "user" } }) : await prisma.role.create({ data: { name: "user" } })
     const save = await prisma.user.create({ data: { name: person.name!, id_alliance: person.id_alliance!, id_account: account?.id, spec: person.spec!, class: person.class!, idvk: account?.idvk!, id_facult: person.id_facult, id_role: role!.id } })
-    await context.send(`⌛ Поздравляем с регистрацией персонажа: ${save.name}-${save.id}`)
+    await context.send(`💾 Поздравляем с регистрацией аккаунта в Центробанке Магомира:\n${save.name}-${save.id}`)
     await Logger(`In database, created new person GUID ${account?.id} UID ${save.id} by user ${context.senderId}`)
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
-	const ans_selector = `⁉ ${save.class} @id${account?.idvk}(${save.name}) ${save.spec} ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту UID: ${save.id}!`
-	await vk.api.messages.send({
-		peer_id: chat_id,
-		random_id: 0,
-		message: ans_selector
-	})
+    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(save.id_alliance) } })
+    const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(save.id_facult) } })
+	const ans_selector = `💾 Сохранение аватара [${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"}] UID-${save.id}:\n👥 ${save.spec} ${save.class} @id${account?.idvk}(${save.name})\n🏠 Ролевая: ${save.id_alliance == 0 ? `Соло` : save.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`}`
+	await Send_Message(chat_id, `${ans_selector}`)
 	await Keyboard_Index(context, `💡 Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ✅Подтвердить авторизацию!`)
 }
 	/*const save = await prisma.user.create({	data: {	idvk: context.senderId, name: datas[0].name, class: datas[1].class, spec: datas[2].spec, id_role: 1, gold: 65 } })

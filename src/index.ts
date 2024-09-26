@@ -6,7 +6,7 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Group_Id_Get, Keyboard_Index, Logger, Send_Message, Sleep, Worker_Checker } from './engine/core/helper';
+import { Group_Id_Get, Keyboard_Index, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
@@ -20,6 +20,7 @@ import { Alliance_Enter, Alliance_Enter_Admin } from './engine/events/module/all
 import { Alliance_Rank_Coin_Enter, Alliance_Rank_Enter } from './engine/events/module/alliance/alliance_rank';
 import { Counter_PK_Module } from './engine/events/module/counter_pk';
 import { Monitoring } from './monitring';
+import { Account_Register } from './engine/events/module/person/account';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -27,10 +28,24 @@ export const root: number = Number(process.env.root) //root user
 export const chat_id: number = Number(process.env.chat_id) //chat for logs
 export const SECRET_KEY = process.env.SECRET_KEY || '';
 export let group_id: number = 0//clear chat group
-Group_Id_Get(token).then(async (res) => { 
-	await Sleep(1000); 
-	group_id = res ?? 0; 
-})
+// Функция для инициализации group_id
+const initializeGroupId = async (token: string) => {
+    await Group_Id_Get(token).then(async (res) => { 
+        await Sleep(1000); 
+        group_id = res ?? 0; // Присваиваем group_id
+    });
+};
+
+// Вызов функции для инициализации group_id
+initializeGroupId(token).then(() => {
+    if (group_id > 0) {
+		setInterval(Worker_Online_Setter.bind(null, group_id), 3600000)
+        Logger(`Successfully retrieved group_id: ${group_id}`);
+        // Здесь можно продолжить логику с использованием group_id
+    } else {
+        console.error("Не удалось получить group_id.");
+    }
+});
 export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
 export const timer_text_oper = { answerTimeLimit: 60_000 } // ожидать пять минут
 export const answerTimeLimit = 300_000 // ожидать пять минут
@@ -63,6 +78,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	//console.log(users_pk)
 	if (pk_counter_st) { return }
 	if (context.peerType == 'chat') { 
+		/*
 		try { 
 			await vk.api.messages.delete({'peer_id': context.peerId, 'delete_for_all': 1, 'cmids': context.conversationMessageId, 'group_id': group_id})
 			await Logger(`In chat received a message from the user ${context.senderId} and was deleted`)
@@ -70,59 +86,10 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		} catch (error) { 
 			await Logger(`In chat received a message from the user ${context.senderId} and wasn't deleted`)
 			//await vk.api.messages.send({ peer_id: chat_id, random_id: 0, message: `⛔🚫 @id${context.senderId} ${context.text}`}) 
-		}  
+		}  */
 		return
 	}
-	//проверяем есть ли пользователь в базах данных
-	const user_check = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-	//если пользователя нет, то начинаем регистрацию
-	if (!user_check) {
-		//согласие на обработку
-		const answer = await context.question(`⌛ Вы входите в Центробанк Министерства Магии 🏦, из ниоткуда перед вами предстали два орка и произнесли: \n — Министр Магии говорил нам о вас. Но прежде чем продолжить, распишитесь здесь о своем согласии на обработку персональных данных. \n В тот же миг в их руках магическим образом появился пергамент. \n 💡 У вас есть 5 минут на принятие решения!`,
-			{	
-				keyboard: Keyboard.builder()
-				.textButton({ label: '✏', payload: { command: 'Согласиться' }, color: 'positive' }).row()
-				.textButton({ label: '👣', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime(),
-				answerTimeLimit
-			}
-		);
-		if (answer.isTimeout) { return await context.send(`⏰ Время ожидания подтверждения согласия истекло!`) }
-		if (!/да|yes|Согласиться|конечно|✏/i.test(answer.text|| '{}')) {
-			await context.send('⌛ Вы отказались дать свое согласие, а живым отсюда никто не уходил, вас упаковали!');
-			return;
-		}
-		//приветствие игрока
-		const visit = await context.question(`⌛ Поставив свою подпись, вы, стараясь не смотреть косо на орков, вошли в личный кабинет Центробанка, и увидели домашнего эльфа, наводящего порядок, ужас и страх.`,
-			{ 	
-				keyboard: Keyboard.builder()
-				.textButton({ label: 'Подойти и поздороваться', payload: { command: 'Согласиться' }, color: 'positive' }).row()
-				.textButton({ label: 'Ждать, пока эльф закончит', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime().inline(),
-				answerTimeLimit
-			}
-		);
-		if (visit.isTimeout) { return await context.send(`⏰ Время ожидания активности истекло!`) }
-		const save = await prisma.account.create({	data: {	idvk: context.senderId } })
-		const info = await User_Info(context)
-		await context.send(`⌛ Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n - Добро пожаловать в мир меча и магии! \n И протянул вам вашу карточку.\n ⚖Вы получили картотеку, ${info.first_name}\n 🕯 GUID: ${save.id}. \n 🎥 idvk: ${save.idvk}\n ⚰ Дата Регистрации: ${save.crdate}\n`)
-		await Logger(`In database created new user with uid [${save.id}] and idvk [${context.senderId}]`)
-		await context.send(`⚠ Настоятельно рекомендуем ознакомиться с инструкцией эксплуатации системы "Центробанк Магомира":`,{ 	
-			keyboard: Keyboard.builder()
-			.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` }).row().inline(),
-			answerTimeLimit
-		})
-		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
-		const ans_selector = `⁉ @id${save.idvk}(${info.first_name}) ${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"} получает банковскую карту GUID: ${save.id}!`
-		await vk.api.messages.send({
-			peer_id: chat_id,
-			random_id: 0,
-			message: ans_selector
-		})
-		await Person_Detector(context)
-		await Keyboard_Index(context, `💡 Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ✅Подтвердить авторизацию!`)
-	} else {
-		await Person_Detector(context)
-		await Keyboard_Index(context, `⌛ Загрузка, пожалуйста подождите...`)
-	}
+	await Account_Register(context)
 	return next();
 })
 vk.updates.on('message_event', async (context: any, next: any) => { 
@@ -165,14 +132,8 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 
 vk.updates.start().then(async () => {
 	await Logger('running succes');
-	try {
-		await Sleep(1000)
-		await vk.api.groups.enableOnline({ group_id: group_id }) 
-	} catch(e) {
-		await Logger(`${e}`)
-	}
 }).catch(console.error);
 setInterval(Worker_Checker, 86400000);
-//process.on('warning', e => console.warn(e.stack))
 
+//process.on('warning', e => console.warn(e.stack))
 Monitoring()

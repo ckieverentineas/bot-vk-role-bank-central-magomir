@@ -320,7 +320,15 @@ export async function Worker_Checker() {
         message: `✅ Все ок! ${await Up_Time()}\n🗿 Поставьте здесь свою реакцию о том, как прошел ваш день!`,
     })
 }
-
+export async function Worker_Online_Setter(group_id: number) {
+    try {
+		await Sleep(1000)
+        console.log(group_id)
+		await vk.api.groups.enableOnline({ group_id: group_id }) 
+	} catch(e) {
+		await Logger(`${e}`)
+	}
+}
 async function Up_Time() {
     const now = new Date();
     const diff = now.getTime() - starting_date.getTime();
