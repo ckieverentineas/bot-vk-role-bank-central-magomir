@@ -1,10 +1,16 @@
-type IconKey = 'save' | 'load' | 'time' | 'delete' | 'success' | 
-               'cancel' | 'reconfig' | 'config' | 'help' | 
-               'card' | 'cardg' | 'medal' | 'person' | 
-               'status' | 'work' | 'facult';
+type IconKey = 'save' | 'load' | 'time' | 'delete' | 'success' | 'attach' | 'question' |
+               'cancel' | 'reconfig' | 'config' | 'help' | 'next' | 'message' |
+               'card' | 'cardg' | 'medal' | 'person' | 'edit' | 'back' | 'warn' |
+               'status' | 'work' | 'facult' | 'statistics' | 'alliance' | 'add';
 
 export const ico_list: { [key in IconKey]: { ico: string } } = {
     'save': { ico: '💾' },
+    'add': { ico: '➕' },
+    'edit': { ico: '✏' },
+    'next': { ico: '→' },
+    'back': { ico: '←' },
+    'attach': { ico: '🧷' },
+    'message': { ico: '💬' },
     'load': { ico: '⌛' },
     'time': { ico: '⏰' },
     'delete': { ico: '⛔' },
@@ -13,6 +19,11 @@ export const ico_list: { [key in IconKey]: { ico: string } } = {
     'reconfig': { ico: '🔧' },
     'config': { ico: '⚙' },
     'help': { ico: '💡' },
+    'warn': { ico: '⚠' },
+    'statistics': { ico: '📊' },
+    'question': { ico: '⁉' },
+
+    'alliance': { ico: '🌐' },
     'card': { ico: '💳' },
     'cardg': { ico: '🕯' },
     'medal': { ico: '🔘' },

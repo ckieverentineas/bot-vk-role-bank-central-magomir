@@ -11,7 +11,7 @@ const prisma = new PrismaClient()
 export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
 	hearManager.hear(/init/, async (context: any) => {
 		if (context.senderId != root) { return }
-		const roles = [ 'user', 'admin' ]
+		const roles = [ 'user', 'admin', 'root']
 		const res = { count_role: 0, count_shop: 0, count_item: 0, count_alliance: 0 }
 		for (const rol of roles) {
 			const rol_check = await prisma.role.findFirst({ where: { name: rol } })

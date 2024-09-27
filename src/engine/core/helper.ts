@@ -1,13 +1,14 @@
 
 import { randomInt } from "crypto"
 import { Keyboard, KeyboardBuilder, PhotoAttachment, VK } from "vk-io"
-import { answerTimeLimit, chat_id, group_id, root, starting_date, vk } from "../.."
+import { answerTimeLimit, chat_id, group_id, root, starting_date, timer_text, vk } from "../.."
 import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
 import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
 import { User } from "@prisma/client"
 import { Person_Get } from "../events/module/person/person"
+import { ico_list } from "../events/module/data_center/icons_lib"
 
 export function Sleep(ms: number) {
     return new Promise((resolve) => {
@@ -471,4 +472,34 @@ export async function Group_Id_Get(token: string) {
 	const [group] = await vk.api.groups.getById(vk);
 	const groupId = group.id;
 	return groupId
+}
+
+export async function Input_Text(context: any, prompt: string, limit?: number) {
+    limit = limit ?? 300
+    let input_tr = false
+    let input = ''
+	while (input_tr == false) {
+		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
+		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
+		if (name.text.length <= limit && name.text.length > 0) {
+            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
+				keyboard: Keyboard.builder()
+				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' })
+				.textButton({ label: `${ico_list['cancel'].ico} Нет`, color: 'negative' }).row()
+                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'primary' })
+				.oneTime().inline(), answerTimeLimit
+			})
+		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }
+            if (confirma.text == `${ico_list['success'].ico} Да`) {
+                input = `${name.text}`
+                input_tr = true
+            } else {
+                if (confirma.text == `${ico_list['cancel'].ico} Назад`) { await context.send(`${ico_list['cancel'].ico} Ввод прерван пользователем`); return false }
+                continue
+            }
+		} else { 
+            await context.send(`${ico_list['warn'].ico} Вы превысили лимит символов: ${name.text.length}/${limit}`)
+        }
+	}
+    return input
 }
