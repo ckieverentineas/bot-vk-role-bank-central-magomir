@@ -1,7 +1,8 @@
 type IconKey = 'save' | 'load' | 'time' | 'delete' | 'success' | 'attach' | 'question' |
                'cancel' | 'reconfig' | 'config' | 'help' | 'next' | 'message' |
                'card' | 'cardg' | 'medal' | 'person' | 'edit' | 'back' | 'warn' |
-               'status' | 'work' | 'facult' | 'statistics' | 'alliance' | 'add';
+               'status' | 'work' | 'facult' | 'statistics' | 'alliance' | 'add' |
+               'converter' | 'run' | 'persons';
 
 export const ico_list: { [key in IconKey]: { ico: string } } = {
     'save': { ico: '💾' },
@@ -22,12 +23,15 @@ export const ico_list: { [key in IconKey]: { ico: string } } = {
     'warn': { ico: '⚠' },
     'statistics': { ico: '📊' },
     'question': { ico: '⁉' },
+    'converter': { ico: '⚖' },
+    'run': { ico: '🚀' },
 
     'alliance': { ico: '🌐' },
     'card': { ico: '💳' },
     'cardg': { ico: '🕯' },
     'medal': { ico: '🔘' },
     'person': { ico: '👤' },
+    'persons': { ico: '👥' },
     'status': { ico: '👑' },
     'work': { ico: '🔨' },
     'facult': { ico: '🔮' }

@@ -6,43 +6,27 @@ import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
 import { Accessed, Edit_Message, Logger } from "../../../core/helper"
 import { vk } from "../../../.."
+import { ico_list } from "../data_center/icons_lib"
 
 export async function Alliance_Enter(context:any) {
     const get_user: User | null | undefined = await Person_Get(context)
-    if (get_user) {
-        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-        const coin = await Person_Coin_Printer(context)
-        const facult_rank = await Facult_Rank_Printer(context)
-        const text = `✉ Добро пожаловать в ${alli_get?.name} <-- \n${facult_rank}`
-        //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
-        const keyboard = new KeyboardBuilder()
-        //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
-        //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        //.callbackButton({ label: '🛍 Лютный переулок', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
-        if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
-            keyboard.textButton({ label: '⚖ Конвертер', payload: { command: 'operation_enter' }, color: 'secondary' }).row()
-        }
-        
-        keyboard.callbackButton({ label: '📊 Рейтинги', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
-        keyboard.textButton({ label: '📊 Отчатор', payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
-        if (await Accessed(context) != 1) {
-            keyboard.callbackButton({ label: '⚙ Админам', payload: { command: 'alliance_enter_admin' }, color: 'secondary' }).row()
-        }
-        keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-        await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
-        await Edit_Message(context, text, keyboard)
-        if (context?.eventPayload?.command == "card_enter") {
-            await vk.api.messages.sendMessageEventAnswer({
-                event_id: context.eventId,
-                user_id: context.userId,
-                peer_id: context.peerId,
-                event_data: JSON.stringify({
-                    type: "show_snackbar",
-                    text: `🔔 Вы дома: ${alli_get?.name.slice(0,40)}`
-                })
-            })
-        }
+    if (!get_user) { return }
+    const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
+    const coin = await Person_Coin_Printer(context)
+    const facult_rank = await Facult_Rank_Printer(context)
+    const text = `${ico_list['alliance'].ico} Добро пожаловать в [${alli_get?.name}] <-- \n${facult_rank}`
+    const keyboard = new KeyboardBuilder()
+    if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
+        keyboard.textButton({ label: `${ico_list[`converter`].ico} Конвертер`, payload: { command: 'operation_enter' }, color: 'secondary' }).row()
     }
+    keyboard.callbackButton({ label: `${ico_list['statistics'].ico} Рейтинги`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
+    keyboard.textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
+    if (await Accessed(context) != 1) {
+        keyboard.callbackButton({ label: `${ico_list['config'].ico} Админам`, payload: { command: 'alliance_enter_admin' }, color: 'secondary' }).row()
+    }
+    keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
+    await Edit_Message(context, text, keyboard)
 }
 
 export async function Alliance_Enter_Admin(context:any) {
@@ -51,33 +35,17 @@ export async function Alliance_Enter_Admin(context:any) {
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const coin = await Person_Coin_Printer(context)
         const facult_rank = await Facult_Rank_Printer(context)
-        const text = `✉ Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name}] --> \n`
-        //🗄 \n 💰Галлеоны: ${get_user.gold} \n 🧙Магический опыт: ${get_user.xp} \n 📈Уровень: ${get_user.lvl} \n 🌟Достижения: ${achievement_counter} \n 🔮Артефакты: ${artefact_counter} \n ⚙${get_user.private ? "Вы отказываетесь ролить" : "Вы разрешили приглашения на отролы"}
+        const text = `${ico_list['alliance'].ico} Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name}] --> \n`
         const keyboard = new KeyboardBuilder()
-        //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
-        //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        
         if (await Accessed(context) != 1) {
-            keyboard.textButton({ label: '⚙ !настроить факультеты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
-            keyboard.textButton({ label: '⚙ !настроить валюты', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
-            keyboard.textButton({ label: '⚙ !настроить конвертацию', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
-            keyboard.textButton({ label: '⚙ !закончить учебный год', payload: { command: 'Согласиться' }, color: 'negative' }).row()
-            keyboard.textButton({ label: '⚙ !мониторы нафиг', payload: { command: 'Согласиться' }, color: 'positive' }).row()
-            //keyboard.textButton({ label: '⚙ !настроить магазины', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить факультеты`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить валюты`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить конвертацию`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы нафиг`, color: 'positive' }).row()
         }
-        keyboard.callbackButton({ label: '🚫', payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
+        keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
         await Edit_Message(context, text, keyboard)
-        if (context?.eventPayload?.command == "card_enter") {
-            await vk.api.messages.sendMessageEventAnswer({
-                event_id: context.eventId,
-                user_id: context.userId,
-                peer_id: context.peerId,
-                event_data: JSON.stringify({
-                    type: "show_snackbar",
-                    text: `🔔 Вы дома: ${alli_get?.name.slice(0,40)}`
-                })
-            })
-        }
     }
 }
