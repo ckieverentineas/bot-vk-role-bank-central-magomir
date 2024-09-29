@@ -1,10 +1,11 @@
-import { Alliance, AllianceCoin, BalanceFacult, Monitor } from "@prisma/client";
+import { Alliance, AllianceCoin, BalanceFacult, Monitor, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import * as CryptoJS from 'crypto-js';
+import { ico_list } from "../data_center/icons_lib";
 
 //контроллер управления валютами альянса
 async function Alliance_Monitor_Get(cursor: number, alliance: Alliance) {
@@ -35,23 +36,22 @@ export async function Alliance_Monitor_Printer(context: any) {
         let event_logger = ``
         for await (const monitor of await Alliance_Monitor_Get(cursor, alliance!)) {
             const coins = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0 } })
-            keyboard.textButton({ label: `✏ ${monitor.id}-${monitor.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' })
-            .textButton({ label: `⛔`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' }).row()
-            //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-            event_logger += `🎥 ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}👍 ${monitor.lim_comment}💬 ♾📰\n💰 Стоимость: ${monitor.cost_like}👍 ${monitor.cost_comment}💬 ${monitor.cost_post}📰\n⚙ Статус: ${monitor.like_on}👍 ${monitor.comment_on}💬 ${monitor.wall_on}📰\n\n`
+            keyboard.textButton({ label: `${ico_list['edit'].ico} ${monitor.id}-${monitor.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' })
+            .textButton({ label: `${ico_list['delete'].ico}`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' }).row()
+            event_logger += `${ico_list['monitor'].ico} ${monitor.name}: id${monitor.id}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n${ico_list['limit'].ico} Лимиты: ${monitor.lim_like}${ico_list['like'].ico} ${monitor.lim_comment}${ico_list['message'].ico} ♾${ico_list['post'].ico}\n${ico_list['money'].ico} Стоимость: ${monitor.cost_like}${ico_list['like'].ico} ${monitor.cost_comment}${ico_list['message'].ico} ${monitor.cost_post}${ico_list['post'].ico}\n${ico_list['config'].ico} Статус: ${monitor.like_on}${ico_list['like'].ico} ${monitor.comment_on}${ico_list['message'].ico} ${monitor.wall_on}${ico_list['post'].ico}\n\n`
         }
-        if (cursor >= 5) { keyboard.textButton({ label: `←`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
+        if (cursor >= 5) { keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
-        if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `→`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
-        keyboard.textButton({ label: `➕`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
-        .textButton({ label: `🚫`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
+        if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
+        keyboard.textButton({ label: `${ico_list['add'].ico}`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
+        .textButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
-        const allicoin_bt: any = await context.question(`🧷 Выберите подключенную группу к ${alliance?.name}:\n\n ${event_logger}`,
+        const allicoin_bt: any = await context.question(`${ico_list['monitor'].ico} Выберите подключенную группу к ${alliance?.name}:\n\n ${event_logger}`,
             {	
                 keyboard: keyboard, answerTimeLimit
             }
         )
-        if (allicoin_bt.isTimeout) { return await context.send(`⏰ Время ожидания выбора подключенной группы для проекта ${alliance?.name} истекло!`) }
+        if (allicoin_bt.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора подключенной группы для проекта ${alliance?.name} истекло!`) }
         const config: any = {
             'alliance_coin_edit': Alliance_Monitor_Edit,
             'alliance_coin_create': Alliance_Monitor_Create,
@@ -62,17 +62,17 @@ export async function Alliance_Monitor_Printer(context: any) {
         }
         if (allicoin_bt?.payload?.command in config) {
             const commandHandler = config[allicoin_bt.payload.command];
-            const ans = await commandHandler(context, allicoin_bt.payload, alliance)
+            const ans = await commandHandler(context, allicoin_bt.payload, alliance, user)
             cursor = ans?.cursor || ans?.cursor == 0 ? ans.cursor : cursor
             allicoin_tr = ans.stop ? ans.stop : false
         } else {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
         }
     }
-    await Keyboard_Index(context, '💡 Нужно построить зиккурат!')
+    await Keyboard_Index(context, `${ico_list['help'].ico} Нужно построить зиккурат!`)
 }
 
-async function Alliance_Monitor_Delete(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Delete(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
     const alliance_coin_check = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin } })
     const confirm: { status: boolean, text: String } = await Confirm_User_Success(context, `удалить монитор ${alliance_coin_check?.id}?`)
@@ -82,32 +82,33 @@ async function Alliance_Monitor_Delete(context: any, data: any, alliance: Allian
         const alliance_coin_del = await prisma.monitor.delete({ where: { id: alliance_coin_check.id } })
         if (alliance_coin_del) {
             await Logger(`In database, deleted alliance monitor: ${alliance_coin_del.id} by admin ${context.senderId}`)
-            await context.send(`Вы удалили монитор: ${alliance_coin_del.id} для ролевой ${alliance.name}!`)
+            await context.send(`${ico_list['delete'].ico} Вы удалили монитор: ${alliance_coin_del.id} для ролевой ${alliance.name}!`)
             await Send_Message(chat_id, `🎥 Удален монитор ${alliance_coin_del.name}-${alliance_coin_del.id} для ролевой ${alliance.name}-${alliance.id}`)
+            Send_Message(chat_id, `${ico_list['delete'].ico} Удален монитор \n${ico_list['message'].ico} Сообщение: ${alliance_coin_del.name}-${alliance_coin_del.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
         }
     }
     return res
 }
 
-async function Alliance_Monitor_Return(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`Вы отменили меню управления мониторами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
+    await context.send(`${ico_list['cancel'].ico} Вы отменили меню управления мониторами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
     return res
 }
 
-async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
     const monitora = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin } })
     if (!monitora) { return }
     const monik = { alliance: alliance.name, coin: '', id_coin: monitora.id_coin, cost_like: monitora.cost_like, cost_comment: monitora.cost_comment, cost_post: monitora.cost_post, lim_like: monitora.lim_like, lim_comment: monitora.lim_comment, starting: monitora.starting, wall_on: monitora.wall_on, like_on: monitora.like_on, comment_on: monitora.comment_on }
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
-    if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
+    if (!coin_pass) { return context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent1 = 0
     while (!coin_check) {
         const keyboard = new KeyboardBuilder()
         id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `❄ Выберите валюту с которой будем делать отчисления:\n\n`
+        let event_logger = `${ico_list['money'].ico} Выберите валюту с которой будем делать отчисления:\n\n`
         const builder_list: AllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
@@ -115,35 +116,28 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
             for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
                 const builder = builder_list[i]
                 keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
-                //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                /*
-                const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                event_logger += `\n\n${ico_list['money'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}\n`
                 counter++
             }
             event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
             //предыдущий офис
             if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
-                keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
+                keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
             }
             //следующий офис
             if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
-                keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
+                keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
             }
         } else {
-            event_logger = `💬 Админы ролевой еще не создали ролевые валюты`
-            return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
+            event_logger = `${ico_list['warn'].ico} Админы ролевой еще не создали ролевые валюты`
+            await context.send(`${event_logger}`); return res
         }
-        const answer1: any = await context.question(`${event_logger}`,
-            {	
-                keyboard: keyboard.inline(), answerTimeLimit
-            }
-        )
-        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+        const answer1: any = await context.question(`${event_logger}`, { keyboard: keyboard.inline(), answerTimeLimit })
+        if (answer1.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора статуса истекло!`) }
         if (!answer1.payload) {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
         } else {
-            if (answer1.text == '→' || answer1.text =='←') {
+            if (answer1.text == `${ico_list['next'].ico}` || answer1.text == `${ico_list['back'].ico}`) {
                 id_builder_sent1 = answer1.payload.id_builder_sent1
             } else {
                 monik.coin = answer1.payload.coin
@@ -153,63 +147,28 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
         }
     }
 
-    let lim_like_tr = false;
-	while (lim_like_tr == false) {
-		const name = await context.question( `🧷 Вы редактируете лимит лайков в день, cейчас, ${monik.lim_like}👍! Введите новое значение:`, timer_text)
-		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для количества лайков в сутки истекло!`); return res }
-		if (typeof Number(name.text) === "number") {
-            const input = Math.floor(Number(name.text))
-            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
-			lim_like_tr = true
-			monik.lim_like = Number(name.text)
-		} else { await context.send(`💡 Ввведите число!`) }
-	}
-    let cost_like_tr = false;
-	while (cost_like_tr == false) {
-		const name = await context.question( `🧷 Вы редактируете стоимость лайка, cейчас, ${monik.cost_like}👍! Введите новое значение:`, timer_text)
-		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости лайка истекло!`); return res }
-		if (typeof Number(name.text) === "number") {
-            const input = Math.floor(Number(name.text))
-            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
-			cost_like_tr = true
-			monik.cost_like = Number(name.text)
-		} else { await context.send(`💡 Ввведите число!`) }
-	}
+    // меняем лимит лайков
+    const like_lim = await Input_Number(context, `Вы редактируете лимит лайков в день, cейчас, ${monik.lim_like}${ico_list['like'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
+    if (!like_lim) { return res }
+    monik.lim_like = like_lim
+    // меняем вознаграждение лайков
+    const like_cost = await Input_Number(context, `Вы редактируете стоимость лайка, cейчас, ${monik.cost_like}${ico_list['like'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
+    if (!like_cost) { return res }
+    monik.cost_like = like_cost
 
-    let lim_comment_tr = false;
-	while (lim_comment_tr == false) {
-		const name = await context.question( `🧷 Вы редактируете лимит комментариев в день, cейчас, ${monik.lim_comment}💬 ! Введите новое значение:`, timer_text)
-		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для количества комментариев в сутки истекло!`); return res }
-		if (typeof Number(name.text) === "number") {
-            const input = Math.floor(Number(name.text))
-            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
-			lim_comment_tr = true
-			monik.lim_comment = Number(name.text)
-		} else { await context.send(`💡 Ввведите число!`) }
-	}
-    let cost_comment_tr = false;
-	while (cost_comment_tr == false) {
-		const name = await context.question( `🧷 Вы редактируете стоимость комментария, cейчас, ${monik.cost_comment}💬 ! Введите новое значение:`, timer_text)
-		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости комментария истекло!`); return res }
-		if (typeof Number(name.text) === "number") {
-            const input = Math.floor(Number(name.text))
-            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
-			cost_comment_tr = true
-			monik.cost_comment = Number(name.text)
-		} else { await context.send(`💡 Ввведите число!`) }
-	}
+    // меняем лимит комментариев
+    const comment_lim = await Input_Number(context, `Вы редактируете лимит комментариев в день, cейчас, ${monik.lim_comment}${ico_list['message'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
+    if (!comment_lim) { return res }
+    monik.lim_comment = comment_lim
+    // меняем вознаграждение комментариев
+    const comment_cost = await Input_Number(context, `Вы редактируете стоимость комментария, cейчас, ${monik.cost_comment}${ico_list['message'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
+    if (!comment_cost) { return res }
+    monik.cost_comment = comment_cost
 
-    let cost_post_tr = false;
-	while (cost_post_tr == false) {
-		const name = await context.question( `🧷 Вы редактируете стоимость поста, cейчас, ${monik.cost_post}📰 ! Введите новое значение:`, timer_text)
-		if (name.isTimeout) { await context.send(`⏰ Время ожидания ввода для стоимости поста истекло!`); return res }
-		if (typeof Number(name.text) === "number") {
-            const input = Math.floor(Number(name.text))
-            if (Number.isNaN(input)) { await context.send(`⚠ Не ну реально, ты дурак/дура или как? Число напиши нафиг!`); continue }
-			cost_post_tr = true
-			monik.cost_post = Number(name.text)
-		} else { await context.send(`💡 Ввведите число!`) }
-	}
+    // меняем вознаграждение поста
+    const post_cost = await Input_Number(context, `Вы редактируете стоимость поста, cейчас, ${monik.cost_post}${ico_list['post'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
+    if (!post_cost) { return res }
+    monik.cost_post = post_cost
 
     const starting_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота в качестве монитора для группы ${monik.alliance}?`)
     monik.starting = starting_tr.status
@@ -230,34 +189,27 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
     const monitor_up = await prisma.monitor.update({ where: { id: monitora.id }, data: { id_coin: monik.id_coin, cost_like: monik.cost_like, cost_comment: monik.cost_comment, cost_post: monik.cost_post, lim_like: monik.lim_like, lim_comment: monik.lim_comment, starting: monik.starting, wall_on: monik.wall_on, like_on: monik.like_on, comment_on: monik.comment_on } })
     if (!monitor_up) { return res }
     await Logger(`In database, updated monitor: ${monitor_up.id}-${monitor_up.name} by admin ${context.senderId}`)
-    await context.send(`⚙ Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${alliance.name} --> ⚙ Админам --> ⚙ !мониторы нафиг --> 🚫 !моники_off --> 🚀 !моники_on.`)
+    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['cancel'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_up.id}-${monitor_up.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
     return res
 }
 
-async function Alliance_Monitor_Next(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Next(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor+5 }
     return res
 }
 
-async function Alliance_Monitor_Back(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Back(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor-5 }
     return res
 }
 
-async function Alliance_Monitor_Create(context: any, data: any, alliance: Alliance) {
+async function Alliance_Monitor_Create(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
     const monik = { token: ``, id_alliance: alliance.id, alliance: alliance.name, id_coin: 0, coin: ``, name: `zero`, idvk_group: 0 }
-
-    let spec_check1 = false
-    let targeta = null
-	while (spec_check1 == false) {
-		const name = await context.question( `🧷 Введите ссылку на сообщество нового монитора`, timer_text)
-		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода сообщества для нового монитора истекло!`) }
-		if (name.text.length <= 256) {
-			spec_check1 = true
-			targeta = name.text
-		} else { await context.send(`💡 Ввведите до 256 символов включительно!`) }
-	}
+    // воод ссылки на группу
+    const targeta = await Input_Text(context, `Введите ссылку на сообщество нового монитора\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`)
+    if (!targeta) { return res}
     const temp = targeta.replace(/.*[/]/, "");
     try {
         const [group] = await vk.api.groups.getById({ group_id: temp });
@@ -273,26 +225,19 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     } catch (e) {
         return await context.send(`⛔ Такой группы не найдено! Монитор не установлен!`)
     }
-
-    let spec_check = false
-	while (spec_check == false) {
-		const name = await context.question( `🧷 Введите токен группы:`, timer_text)
-		if (name.isTimeout) { return await context.send(`⏰ Время ожидания ввода токена истекло!`) }
-		if (name.text.length <= 300) {
-			spec_check = true
-			monik.token = `${Encrypt_Data(name.text)}`
-		} else { await context.send(`💡 Ввведите до 300 символов включительно!`) }
-	}
-    await context.send(`⚠ Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
-    
+    // воод токен группы
+    const group_token = await Input_Text(context, `Введите токен группы.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 600)
+    if (!group_token) { return res}
+    monik.token = group_token
+    await context.send(`${ico_list['warn'].ico} Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
-    if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
+    if (!coin_pass) { return context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent1 = 0
     while (!coin_check) {
         const keyboard = new KeyboardBuilder()
         id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `❄ Выберите валюту с которой будем делать отчисления:\n\n`
+        let event_logger = `${ico_list['money'].ico} Выберите валюту с которой будем делать отчисления:\n\n`
         const builder_list: AllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
@@ -300,35 +245,32 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
             for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
                 const builder = builder_list[i]
                 keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
-                //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                /*
-                const services_ans = await Builder_Lifer(user, builder, id_planet)*/
+                event_logger += `\n\n${ico_list['message'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}\n`
                 counter++
             }
             event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
             //предыдущий офис
             if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
-                keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
+                keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
             }
             //следующий офис
             if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
-                keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
+                keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
             }
         } else {
-            event_logger = `💬 Админы ролевой еще не создали ролевые валюты`
-            return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
+            event_logger = `${ico_list['warn'].ico} Админы ролевой еще не создали ролевые валюты`
+            return context.send(`${event_logger}`)
         }
         const answer1: any = await context.question(`${event_logger}`,
             {	
                 keyboard: keyboard.inline(), answerTimeLimit
             }
         )
-        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора статуса истекло!`) }
+        if (answer1.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора статуса истекло!`) }
         if (!answer1.payload) {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
         } else {
-            if (answer1.text == '→' || answer1.text =='←') {
+            if (answer1.text == `${ico_list['next'].ico}` || answer1.text == `${ico_list['back'].ico}`) {
                 id_builder_sent1 = answer1.payload.id_builder_sent1
             } else {
                 monik.coin = answer1.payload.coin
@@ -342,8 +284,8 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     const monitor_cr = await prisma.monitor.create({ data: { token: monik.token, id_alliance: monik.id_alliance, id_coin: monik.id_coin, name: monik.name, idvk: monik.idvk_group, starting: starting_check.status } })
     if (monitor_cr) {
         await Logger(`In database, created monitor for group ${monik.alliance} by admin ${context.senderId}`)
-        await context.send(`⚙ Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}\n Чтобы его поднять на пятый этаж, пройдемтесь по пути !банк --> ${alliance.name} --> ⚙ Админам --> ⚙ !мониторы нафиг --> 🚀 !моники_on`)
-        await Send_Message(chat_id, `🎥 Добавлен новый монитор ${monitor_cr.name}-${monitor_cr.id} для ролевой ${monik.alliance}-${monik.id_alliance}`)
+        await context.send(`${ico_list['reconfig'].ico} Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}\n Чтобы его поднять на пятый этаж, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['run'].ico} !моники_on`)
+        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_cr.name}-${monitor_cr.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
     }
     return res
 }

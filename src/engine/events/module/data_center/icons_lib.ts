@@ -1,8 +1,8 @@
 type IconKey = 'save' | 'load' | 'time' | 'delete' | 'success' | 'attach' | 'question' |
-               'cancel' | 'reconfig' | 'config' | 'help' | 'next' | 'message' |
+               'cancel' | 'reconfig' | 'config' | 'help' | 'next' | 'message' | 'money' |
                'card' | 'cardg' | 'medal' | 'person' | 'edit' | 'back' | 'warn' |
                'status' | 'work' | 'facult' | 'statistics' | 'alliance' | 'add' |
-               'converter' | 'run' | 'persons';
+               'converter' | 'run' | 'persons' | 'monitor' | 'limit' | 'like' | 'post';
 
 export const ico_list: { [key in IconKey]: { ico: string } } = {
     'save': { ico: '💾' },
@@ -25,6 +25,12 @@ export const ico_list: { [key in IconKey]: { ico: string } } = {
     'question': { ico: '⁉' },
     'converter': { ico: '⚖' },
     'run': { ico: '🚀' },
+    'monitor': { ico: '🎥' },
+    'limit': { ico: '🚧' },
+    'like': { ico: '👍' },
+    'post': { ico: '📰' },
+    'money': { ico: '💰' },
+    //'': { ico: '' },
 
     'alliance': { ico: '🌐' },
     'card': { ico: '💳' },

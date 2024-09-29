@@ -503,3 +503,47 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
 	}
     return input
 }
+export async function Input_Number(context: any, prompt: string, float: boolean, limit?: number) {
+    limit = limit ?? 300
+    let input_tr = false
+    let input = 0
+	while (input_tr == false) {
+		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
+		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
+		if (name.text.length <= limit && name.text.length > 0) {
+            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
+				keyboard: Keyboard.builder()
+				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' })
+				.textButton({ label: `${ico_list['cancel'].ico} Нет`, color: 'negative' }).row()
+                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'primary' })
+				.oneTime().inline(), answerTimeLimit
+			})
+		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }
+            if (confirma.text == `${ico_list['success'].ico} Да`) {
+                if (typeof Number(name.text) === "number") {
+                    const inputer = float ? Number(name.text) : Math.floor(Number(name.text))
+                    if (inputer < 0) {
+                        await context.send(`${ico_list['warn'].ico} Введите положительное число!`);
+                        continue
+                    }
+                    if (Number.isNaN(inputer)) {
+                        await context.send(`${ico_list['warn'].ico} Не ну реально, ты дурак/дура или как? Число напиши нафиг!`);
+                        continue
+                    }
+                    input = inputer
+                    input_tr = true
+                } else {
+                    await context.send(`${ico_list['warn'].ico} Необходимо ввести число!`);
+                    continue
+                }
+                
+            } else {
+                if (confirma.text == `${ico_list['cancel'].ico} Назад`) { await context.send(`${ico_list['cancel'].ico} Ввод прерван пользователем`); return false }
+                continue
+            }
+		} else { 
+            await context.send(`${ico_list['warn'].ico} Вы превысили лимит символов: ${name.text.length}/${limit}`)
+        }
+	}
+    return input
+}
