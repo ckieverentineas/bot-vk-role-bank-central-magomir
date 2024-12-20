@@ -104,6 +104,7 @@ model Item {
   id          Int         @id @default(autoincrement())
   name        String
   description String?
+  image       String?
   price       Int
   id_category Int
   type        String

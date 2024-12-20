@@ -3,7 +3,6 @@ import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, timer_text_oper, vk } from '../index';
 import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "./core/helper";
-import { Image_Random} from "./core/imagecpu";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, Item, User } from "@prisma/client";
@@ -2380,7 +2379,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Person_Detector(context)
         const user_check: User | null | undefined = await Person_Get(context)
         if (!user_check) { return }
-		await Image_Random(context, "bank")
 		if (await Accessed(context) == 1) {
             await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
 		} else {

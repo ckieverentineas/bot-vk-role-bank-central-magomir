@@ -71,7 +71,7 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`⚠ Вы отменили меню конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
+    await context.send(`⚠ Вы отменили меню конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() })
     return res
 }
 

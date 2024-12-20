@@ -254,7 +254,7 @@ export async function Gen_Inline_Button_Item(category: any, context: any) {
 }
 
 export async function Gen_Inline_Button_Category(context: any, weapon_type: any, mesa: string) {
-    await Image_Random(context, "shop")
+    //await Image_Random(context, "shop")
     let checker = false
     let counter = 0
     let current = 0
@@ -363,6 +363,17 @@ export async function Send_Message(idvk: number, message: string, keyboard?: Key
     message = message ? message : 'invalid message'
     try {
         keyboard ? await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) : await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } )
+    } catch (e) {
+        console.log(`Ошибка отправки сообщения: ${e}`)
+    }
+}
+export async function Send_Message_Universal(idvk: number, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
+    message = message ? message : 'invalid message'
+    try {
+        if (!attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }
+        if (attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment } ) }
+        if (!attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) }
+        if (attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard, attachment: attachment } ) }
     } catch (e) {
         console.log(`Ошибка отправки сообщения: ${e}`)
     }

@@ -13,7 +13,6 @@ import { Exit, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
-import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter } from './engine/events/module/shop';
 import { Person_Detector } from './engine/events/module/person/person';
 import { Alliance_Control, Alliance_Control_Multi, Alliance_Controller } from './engine/events/module/alliance/alliance';
 import { Alliance_Enter, Alliance_Enter_Admin } from './engine/events/module/alliance/alliance_menu';
@@ -21,6 +20,7 @@ import { Alliance_Rank_Coin_Enter, Alliance_Rank_Enter } from './engine/events/m
 import { Counter_PK_Module } from './engine/events/module/counter_pk';
 import { Monitoring } from './monitring';
 import { Account_Register } from './engine/events/module/person/account';
+import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter, Shop_Enter_Multi } from './engine/events/module/shop/engine';
 dotenv.config()
 
 export const token: string = String(process.env.token)
@@ -105,6 +105,7 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 		"service_enter": Service_Enter,
 		"service_cancel": Service_Cancel,
 		"shop_category_enter": Shop_Category_Enter,
+		"shop_enter_multi": Shop_Enter_Multi,
 		"shop_enter": Shop_Enter,
 		"shop_cancel": Shop_Cancel,
 		"shop_bought": Shop_Bought,

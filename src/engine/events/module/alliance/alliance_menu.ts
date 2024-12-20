@@ -4,7 +4,7 @@ import prisma from "../prisma_client"
 import { Person_Coin_Printer } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
-import { Accessed, Edit_Message, Logger } from "../../../core/helper"
+import { Accessed, Edit_Message, Logger, Send_Message_Universal } from "../../../core/helper"
 import { vk } from "../../../.."
 import { ico_list } from "../data_center/icons_lib"
 
@@ -26,7 +26,7 @@ export async function Alliance_Enter(context:any) {
     }
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
-    await Edit_Message(context, text, keyboard)
+    await Send_Message_Universal(context.peerId, text, keyboard)
 }
 
 export async function Alliance_Enter_Admin(context:any) {
@@ -46,6 +46,6 @@ export async function Alliance_Enter_Admin(context:any) {
         }
         keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
-        await Edit_Message(context, text, keyboard)
+        await Send_Message_Universal(context.peerId, text, keyboard)
     }
 }

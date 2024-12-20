@@ -7,11 +7,12 @@ import { Analyzer_Convert_MO_Counter, Analyzer_Kvass_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
 import { User } from "@prisma/client"
 import { Logger } from "../../core/helper"
+import { image_kvass, image_kvass_drop, image_service } from "./data_center/system_image"
 
 const timeouter = 86400000 //время кд квестов
 
 export async function Service_Enter(context: any) {
-    const attached = await Image_Random(context, "service")
+    const attached = image_service//await Image_Random(context, "service")
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const keyboard = new KeyboardBuilder()
@@ -45,7 +46,7 @@ export async function Service_Cancel(context: any) {
     })
 }
 export async function Service_Kvass_Open(context: any) {
-    let attached = await Image_Random(context, "kvass")
+    let attached = image_kvass//await Image_Random(context, "kvass")
     const price = 2
     const price_drop = 1
     const user: User | null | undefined = await Person_Get(context)
@@ -77,7 +78,7 @@ export async function Service_Kvass_Open(context: any) {
             }
         }
     } else {
-        attached = await Image_Random(context, "kvass_drop")
+        attached = image_kvass_drop//await Image_Random(context, "kvass_drop")
         const datenow: any = new Date()
         const dateold: any = new Date(trigger_check.crdate)
         if (datenow-trigger_check.crdate > timeouter && trigger_check.value) {

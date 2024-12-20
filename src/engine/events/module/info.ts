@@ -6,9 +6,10 @@ import { Image_Interface_Inventory, Image_Random, Image_Text_Add_Card } from "..
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
-import { Accessed, Edit_Message, Logger } from "../../core/helper"
+import { Accessed, Edit_Message, Logger, Send_Message_Universal } from "../../core/helper"
 import { Person_Coin_Printer } from "./person/person_coin"
 import { Facult_Rank_Printer } from "./alliance/facult_rank"
+import { image_admin } from "./data_center/system_image"
 
 export async function Card_Enter(context:any) {
     const get_user: User | null | undefined = await Person_Get(context)
@@ -98,12 +99,12 @@ export async function Inventory_Enter(context: any) {
         .indexOf( Object.values(li).reduce((r, c) => r.concat(c), '') ) === idx
     )
     let attached = null
-    if ((fUArr && fUArr[0] != undefined) && fUArr.length <= 20) { attached = await Image_Interface_Inventory(fUArr, context) }
+    //if ((fUArr && fUArr[0] != undefined) && fUArr.length <= 20) { attached = await Image_Interface_Inventory(fUArr, context) }
     let final: any = Array.from(new Set(compile));
     const text = final.length > 0 ? `✉ Вы приобрели следующее: \n ${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
     await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await Edit_Message(context, text, keyboard, attached)
+    await Send_Message_Universal(context.peerId, text, keyboard, attached)
     let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -116,7 +117,7 @@ export async function Inventory_Enter(context: any) {
     })
 }
 export async function Admin_Enter(context: any) {
-    const attached = await Image_Random(context, "admin")
+    const attached = image_admin//await Image_Random(context, "admin")
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     let puller = '🏦 Полный спектр рабов... \n'
@@ -131,7 +132,7 @@ export async function Admin_Enter(context: any) {
         puller += `\n🚫 Доступ запрещен\n`
     }
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await Edit_Message(context, puller, keyboard, attached)
+    await Send_Message_Universal(context.peerId, puller, keyboard, attached)
     await Logger(`In a private chat, the list administrators is viewed by admin ${user.idvk}`)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
@@ -244,5 +245,5 @@ export async function Rank_Enter(context: any) {
     text += `\n\n☠ В статистике участвует ${counter-1} персонажей`
     await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
-    await Edit_Message(context, text, keyboard)
+    await Send_Message_Universal(context.peerId, text, keyboard)
 }

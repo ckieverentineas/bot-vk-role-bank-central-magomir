@@ -41,7 +41,7 @@ export async function Account_Register(context: any) {
 		await Logger(`In database created new user with uid [${save.id}] and idvk [${context.senderId}]`)
 		await context.send(`${ico_list['warn'].ico} Настоятельно рекомендуем ознакомиться с инструкцией эксплуатации системы "Центробанк Магомира":`,{ 	
 			keyboard: Keyboard.builder()
-			.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` }).row().inline(),
+			.urlButton({ label: '⚡ Инструкция', url: `https://vk.com/@bank_mm-instrukciya-po-polzovaniu-botom-centrobanka-magomira` }).row().inline().oneTime(),
 			answerTimeLimit
 		})
 		const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })

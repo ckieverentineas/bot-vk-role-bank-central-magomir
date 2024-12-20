@@ -116,7 +116,7 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
 
 async function Alliance_Coin_Rank_Admin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по факультетам`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline() })
+    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по факультетам`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() })
     return res
 }
 

@@ -4,14 +4,15 @@ import { root, vk } from "../.."
 import { Image_Random } from "../core/imagecpu";
 import { User } from "@prisma/client";
 import { Person_Get } from "./module/person/person";
-import { Accessed, Edit_Message } from "../core/helper";
+import { Accessed, Edit_Message, Send_Message_Universal } from "../core/helper";
+import { image_bank } from "./module/data_center/system_image";
 
 export async function Main_Menu_Init(context: any) {
-    const attached = await Image_Random(context, "bank")
+    const attached = image_bank//await Image_Random(context, "bank")
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
-    await Edit_Message(context, text, await Main_Menu(context), attached)
+    await Send_Message_Universal(context.peerId, text, await Main_Menu(context), attached)
     //${user?.gold}💰 ${user?.xp}🧙
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
