@@ -75,6 +75,7 @@ export async function Shop_Enter(context: any) {
     if (context.eventPayload.item == "id") {
         //console.log(`Shop: ${JSON.stringify(context)}`)
         const input = context.eventPayload.value
+        const id_builder_sent = context.eventPayload.id_builder_sent
         const id_item = context.eventPayload.id_item
         const user: User | null | undefined = await Person_Get(context)
         let keyboard = new KeyboardBuilder()
@@ -87,13 +88,13 @@ export async function Shop_Enter(context: any) {
         let text = `⌛ Вы оказались в [${input.name}] и осматриваете [${item_check.name}]. Ваш баланс: ${user.medal}🔘\n\n`
         if (checker && item_check.type != 'unlimited') {
             const text = `✅${item_check.name}`
-            keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, item_sub: "item", value_sub: item_check.id }, color: 'positive' }).row()
+            keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_bought", item: "id", value: input, item_sub: "item", value_sub: item_check.id, id_builder_sent: id_builder_sent }, color: 'positive' }).row()
         } else {
             const text = `🛒${item_check.price}🔘 - ${item_check.name}`
-            keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, item_sub: "item", value_sub: item_check.id }, color: 'secondary' }).row()
+            keyboard.callbackButton({ label: text.slice(0,40), payload: { command: "shop_buy", item: "id", value: input, item_sub: "item", value_sub: item_check.id, id_builder_sent: id_builder_sent  }, color: 'secondary' }).row()
         }
         text += `🛒 Наименование: ${item_check.name}\n 💬 Описание: ${item_check.description}\n\n`
-        keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_cancel' }, color: 'secondary' })
+        keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_enter_multi', id_builder_sent: id_builder_sent, item: "id", value: input, item_sub: "item", }, color: 'secondary' })
         .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
         const attached = item_check?.image?.includes('photo') ? item_check.image : null
         await Logger(`In a private chat, open shop ${input.name} is viewed by user ${context.peerId}`)
@@ -121,6 +122,7 @@ export async function Shop_Buy(context: any) {
     if (context.eventPayload.command == "shop_buy" && context.eventPayload.item_sub == "item") {
         //console.log(`Byuing: ${JSON.stringify(context)}`)
         const item_id = context.eventPayload.value_sub
+        const id_builder_sent = context.eventPayload.id_builder_sent
         const input = await prisma.item.findFirst({ where: { id: Number(item_id) } })
         if (!input) { return }
         const user: User | null | undefined = await Person_Get(context)
@@ -151,7 +153,7 @@ export async function Shop_Buy(context: any) {
         }       
         const attached = await Image_Item_Target(input.name)
         let keyboard = new KeyboardBuilder()
-        keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter_multi', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, rendering: true }, color: 'secondary' }).inline().oneTime()
+        keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter_multi', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, id_builder_sent: id_builder_sent }, color: 'secondary' }).inline().oneTime()
         await Send_Message_Universal(context.peerId, text, keyboard, attached)
     }
 }
