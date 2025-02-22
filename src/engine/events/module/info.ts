@@ -31,7 +31,7 @@ export async function Card_Enter(context:any) {
         .textButton({ label: '🔔 Уведомления', payload: { command: 'notification_controller' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
-        let ii = `В общем вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
+        let ii = `В общем, вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
         await Edit_Message(context, text, keyboard, attached)
         if (context?.eventPayload?.command == "card_enter") {
             await vk.api.messages.sendMessageEventAnswer({
@@ -61,9 +61,9 @@ export async function Artefact_Enter(context: any) {
     await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${artefact_list}`, keyboard: keyboard, attachment: attached?.toString()})
     let ii = ''
     if (artefact.length > 0) {
-        ii += `${artefact.length > 2 ? 'Вы тоже чувствуете эту силу мощи?' : 'Слабое пронизивание источает силу.'}`
+        ii += `${artefact.length > 2 ? 'Вы тоже чувствуете эту силу мощи?' : 'Слабое пронизывание источает силу.'}`
     } else { 
-        ii += `Вероятно вы магл, раз у вас нет артефакта..`
+        ii += `Вероятно, вы магл, раз у вас нет артефакта...`
     }
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,

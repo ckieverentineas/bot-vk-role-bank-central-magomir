@@ -374,7 +374,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             if (person.coin?.point == true && alli_fac) {
                                 const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
                                 const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } }) : null
-                                facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
+                                facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
                             }
                             await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount}\n Уведомление: ${messa}\n${facult_income}`)
                             await Send_Message(chat_id, `🗿 @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`)
@@ -813,7 +813,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             let money_check = false
             while (money_check == false) {
                 const gold = await context.question(`🧷 Введите уведомление пользователю ${ans.text}:`, timer_text_oper)
-                if (gold.isTimeout) { await context.send(`⏰ Время ожидания на задание уведомления пользователю ${ans.text} истекло!`); return "Уведомление приняло ИСЛАМ!" }
+                if (gold.isTimeout) { await context.send(`⏰ Время ожидания на задание уведомления пользователю ${ans.text} истекло!`); return "Отсутствует." }
                 if (gold.text) {
                     money_check = true
                     golden = gold.text
@@ -1152,7 +1152,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
             const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
 		    while (spec_check == false) {
-                const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}.Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+                const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
                 if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
                 if (spec.text.length <= 32) {
                     spec_check = true
@@ -1633,7 +1633,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             let money_check = false
             while (money_check == false) {
                 const gold = await context.question(`🧷 Введите уведомление пользователю ${ans.text}:`, timer_text_oper)
-                if (gold.isTimeout) { await context.send(`⏰ Время ожидания на задание уведомления пользователю ${ans.text} истекло!`); return "Уведомление приняло ИСЛАМ!" }
+                if (gold.isTimeout) { await context.send(`⏰ Время ожидания на задание уведомления пользователю ${ans.text} истекло!`); return "Отсутствует." }
                 if (gold.text) {
                     money_check = true
                     golden = gold.text
@@ -2527,7 +2527,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_get) { return }
         const alli_log_up = await prisma.alliance.update({ where: { id: alli_get.id }, data: { id_chat: context.peerId }})
         if (!alli_log_up) { return }
-        await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой гнусный чат к уведомлениям для альянса [${alli_get.name}]\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
+        await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}]\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
     })
     hearManager.hear(/⚙ !мониторы нафиг/, async (context: any) => {
         if (context.peerType == 'chat') { return }
@@ -2541,7 +2541,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         keyboard.textButton({ label: '⚙ !подключить группу', payload: { command: 'Согласиться' }, color: 'negative' }).row()
         keyboard.textButton({ label: '🚀 !моники_on', payload: { command: 'Согласиться' }, color: 'negative' })
         keyboard.textButton({ label: '🚫 !моники_off', payload: { command: 'Согласиться' }, color: 'negative' }).row().inline().oneTime()
-        await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Асалам Алейкум брат или сестра в панель управления мониторами:`, keyboard)
+        await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     /*hearManager.hear(/фото/, async (context: any) => {
         if (context.hasAttachments('photo')) {

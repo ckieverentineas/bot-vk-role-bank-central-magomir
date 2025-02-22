@@ -24,7 +24,7 @@ async function Searcher(data: any, target: number) {
 export async function Shop_Category_Enter(context: any) {
     const attached = image_shop//await Image_Random(context, "shop")
     const category: Category[] = await prisma.category.findMany({})
-    let text = '✉ Орк сопроводил вас в Маголавку "Чудо в перьях" или по крайней мере дал карту...'
+    let text = '✉ Орк сопроводил вас в «Маголавку «Чудо в перьях» или, по крайней мере, дал карту...'
     if (category.length == 0) {
         text += `\n ✉ Магазинов еще нет`
     } 
@@ -166,7 +166,7 @@ export async function Shop_Cancel(context: any) {
         peer_id: context.peerId,
         event_data: JSON.stringify({
             type: "show_snackbar",
-            text: `🔔 Возврат в центральный холл Маголавки "Чудо в перьях".`
+            text: `🔔 Возврат в центральный холл Маголавки «Чудо в перьях».`
         })
     })
 }

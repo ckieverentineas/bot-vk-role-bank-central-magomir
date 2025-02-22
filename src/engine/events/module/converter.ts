@@ -137,7 +137,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
             if (rank_put_plus_check && alli_fac) {
                 const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: calc } } })
                 if (rank_put_plus) {
-                    answer += `🌐 "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                    answer += `🌐 "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для факультета [${alli_fac.smile} ${alli_fac.name}]`
                     await context.send(`⚙ Также начислены рейтинги следующим образом "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`)
                 }
             }

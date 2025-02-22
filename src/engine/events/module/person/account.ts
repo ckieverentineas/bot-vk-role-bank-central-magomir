@@ -12,7 +12,7 @@ export async function Account_Register(context: any) {
 	//если пользователя нет, то начинаем регистрацию
 	if (!user_check) {
 		//согласие на обработку
-		const answer = await context.question(`${ico_list['load'].ico} Вы входите в Центробанк Магомира, из ниоткуда перед вами предстали два орка и произнесли: \n— Министр Магии говорил нам о вас. Но прежде чем продолжить, распишитесь здесь о своем согласии на обработку персональных данных. \nВ тот же миг в их руках магическим образом появился пергамент. \n${ico_list['help'].ico} У вас есть 5 минут на принятие решения!`,
+		const answer = await context.question(`${ico_list['load'].ico} Вы входите в Центробанк Магомира, из ниоткуда перед вами предстали два орка и произнесли: \n— Министр Магии говорил нам о вас. Но прежде чем продолжить, распишитесь здесь о своем согласии на обработку персональных данных. \nВ тот же миг в ваших руках магическим образом появился пергамент. \n${ico_list['help'].ico} У вас есть 5 минут на принятие решения!`,
 			{	
 				keyboard: Keyboard.builder()
 				.textButton({ label: '✏', payload: { command: 'Согласиться' }, color: 'positive' }).row()
@@ -37,7 +37,7 @@ export async function Account_Register(context: any) {
 		if (visit.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания активности истекло!`) }
 		const save = await prisma.account.create({	data: {	idvk: context.senderId } })
 		const info = await User_Info(context)
-		await context.send(`${ico_list['load'].ico} Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n- Добро пожаловать в мир меча и магии! \nИ протянул вам вашу карточку.\n${ico_list['save'].ico} Вы получили картотеку, ${info.first_name}\n${ico_list['cardg'].ico} GUID: ${save.id}. \n${ico_list['monitor'].ico} idvk: ${save.idvk}\n${ico_list['date'].ico} Дата Регистрации: ${save.crdate}\n`)
+		await context.send(`${ico_list['load'].ico} Эльф отвлекся от дел, заприметив вас, подошел и сказал.\n— Добро пожаловать в мир меча и магии! \nИ протянул вам вашу карточку.\n${ico_list['save'].ico} Вы получили картотеку, ${info.first_name}\n${ico_list['cardg'].ico} GUID: ${save.id}. \n${ico_list['monitor'].ico} idvk: ${save.idvk}\n${ico_list['date'].ico} Дата регистрации: ${save.crdate}\n`)
 		await Logger(`In database created new user with uid [${save.id}] and idvk [${context.senderId}]`)
 		await context.send(`${ico_list['warn'].ico} Настоятельно рекомендуем ознакомиться с инструкцией эксплуатации системы "Центробанк Магомира":`,{ 	
 			keyboard: Keyboard.builder()
@@ -51,6 +51,6 @@ export async function Account_Register(context: any) {
 		await Keyboard_Index(context, `${ico_list['help'].ico} Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ✅Подтвердить авторизацию!`)
 	} else {
 		await Person_Detector(context)
-		await Keyboard_Index(context, `${ico_list['load'].ico} Загрузка, пожалуйста подождите...`)
+		await Keyboard_Index(context, `${ico_list['load'].ico} Загрузка, пожалуйста, подождите...`)
 	}
 }

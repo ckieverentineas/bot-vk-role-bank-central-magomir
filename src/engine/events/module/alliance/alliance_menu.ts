@@ -14,7 +14,7 @@ export async function Alliance_Enter(context:any) {
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
-    const text = `${ico_list['alliance'].ico} Добро пожаловать в [${alli_get?.name}] <-- \n${facult_rank}`
+    const text = `${ico_list['alliance'].ico} Добро пожаловать в [${alli_get?.name}] \n${facult_rank}`
     const keyboard = new KeyboardBuilder()
     if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
         keyboard.textButton({ label: `${ico_list[`converter`].ico} Конвертер`, payload: { command: 'operation_enter' }, color: 'secondary' }).row()

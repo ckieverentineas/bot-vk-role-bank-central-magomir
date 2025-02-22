@@ -20,7 +20,7 @@ export async function Main_Menu_Init(context: any) {
         peer_id: context.peerId,
         event_data: JSON.stringify({
             type: "show_snackbar",
-            text: "🔔 Новое сообщение: Где деньги, Лебовский?"
+            text: "🔔 Новое сообщение: Где деньги, Лебовски?"
         })
     })
 }

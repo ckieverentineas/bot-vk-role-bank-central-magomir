@@ -108,7 +108,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
     while (!coin_check) {
         const keyboard = new KeyboardBuilder()
         id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `${ico_list['money'].ico} Выберите валюту с которой будем делать отчисления:\n\n`
+        let event_logger = `${ico_list['money'].ico} Выберите валюту, с которой будем делать отчисления:\n\n`
         const builder_list: AllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
@@ -237,7 +237,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     while (!coin_check) {
         const keyboard = new KeyboardBuilder()
         id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `${ico_list['money'].ico} Выберите валюту с которой будем делать отчисления:\n\n`
+        let event_logger = `${ico_list['money'].ico} Выберите валюту, с которой будем делать отчисления:\n\n`
         const builder_list: AllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5

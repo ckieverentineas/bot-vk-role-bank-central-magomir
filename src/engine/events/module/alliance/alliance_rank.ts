@@ -14,7 +14,7 @@ export async function Alliance_Rank_Enter(context:any) {
     const facult = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } })
     let facult_tr = context.eventPayload.facult ?? false
     const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 }})
-    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по жетонам в ролевом проекте [${stats?.name}] ${facult_tr ? `на факультете [${facult?.smile} ${facult?.name}]` : ``}:\n\n`
+    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по жетонам в ролевом проекте [${stats?.name}]${facult_tr ? ` на факультете [${facult?.smile} ${facult?.name}]` : ``}:\n\n`
     const keyboard = new KeyboardBuilder()
     const stat: { rank: number, text: string, score: number, me: boolean }[] = []
     let counter = 1
@@ -78,7 +78,7 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
     let id_coin = context.eventPayload.id_coin ?? id_coin_default?.id ?? 0
     const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 }})
     const coin = await prisma.allianceCoin.findFirst({ where: { id: id_coin }})
-    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по ${coin?.name} в ролевом проекте ${stats?.name} ${facult_tr ? `на факультете ${facult?.smile} ${facult?.name}` : ``}:\n\n`
+    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по ${coin?.name} в ролевом проекте ${stats?.name}${facult_tr ? ` на факультете ${facult?.smile} ${facult?.name}` : ``}:\n\n`
     const keyboard = new KeyboardBuilder()
     const stat: { rank: number, text: string, score: number, me: boolean }[] = []
     let counter = 1

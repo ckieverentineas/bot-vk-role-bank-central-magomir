@@ -10,7 +10,7 @@ export async function Alliance_Control_Multi(context: Context) {
     const keyboard = new KeyboardBuilder()
     let id_builder_sent = await Fixed_Number_To_Five(context.eventPayload.id_builder_sent ?? 0)
     let id_planet = context.eventPayload.id_planet ?? 0
-    let event_logger = `${ico_list['alliance'].ico} Отдел управления Союзами:\n\n`
+    let event_logger = `${ico_list['alliance'].ico} Отдел управления союзами:\n\n`
     const builder_list: Alliance[] = await prisma.alliance.findMany({})
     if (builder_list.length > 0) {
         const limiter = 5
