@@ -155,13 +155,14 @@ model Analyzer {
 }
 
 model Alliance {
-  id             Int              @id @default(autoincrement())
-  name           String
-  idvk           Int
-  id_chat        Int              @default(0)
-  AllianceCoin   AllianceCoin[]
-  AllianceFacult AllianceFacult[]
-  Monitor        Monitor[]
+  id              Int              @id @default(autoincrement())
+  name            String
+  idvk            Int
+  id_chat         Int              @default(0)
+  id_chat_monitor Int              @default(0)
+  AllianceCoin    AllianceCoin[]
+  AllianceFacult  AllianceFacult[]
+  Monitor         Monitor[]
 }
 
 model AllianceCoin {

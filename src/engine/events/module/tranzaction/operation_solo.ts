@@ -1,6 +1,6 @@
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -107,7 +107,7 @@ export async function Operation_Solo(context: any) {
     }
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
-        const answergot = await commandHandler(Number(datas[0].id), context)
+        const answergot = await commandHandler(Number(datas[0].id), context, user_adm)
     } else {
         await context.send(`⚙ Операция отменена пользователем.`)
     }
@@ -115,38 +115,31 @@ export async function Operation_Solo(context: any) {
 }
 
 // модуль Министреских начислений
-async function Medal_Up(id: number, context: any) {
+async function Medal_Up(id: number, context: any, user_adm: User) {
     const count: number = await Ipnut_Gold(context, 'начисления министерских жетонов') 
     const messa: string = await Ipnut_Message(context, 'начисления министерских жетонов')
-    const user_get: any = await prisma.user.findFirst({ where: { id } })
+    const user_get: User | null = await prisma.user.findFirst({ where: { id } })
+    if (!user_get) { return }
     const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
-    try {
-        await Send_Message(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
-        await context.send(`⚙ Операция начисления министерских жетонов завершена успешно`)
-    } catch (error) {
-        await Logger(`User ${user_get.idvk} blocked chating with bank`)
-    }
-    const ans_log = `⚙ @id${context.senderId}(Admin) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+    const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+    !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_get.name} не доставлено`) : await context.send(`⚙ Операция начисления министерских жетонов завершена успешно`)
+    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
     await Send_Message(chat_id, ans_log)
     await Logger(`In private chat, user ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
 }
-async function Medal_Down(id: number, context: any) {
+async function Medal_Down(id: number, context: any, user_adm: User) {
     const count: number = await Ipnut_Gold(context, 'снятия министерских жетонов') 
     const messa: string = await Ipnut_Message(context, 'снятия министерских жетонов')
     const user_get: any = await prisma.user.findFirst({ where: { id } })
     if (user_get.medal-count >= 0) {
         const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-        try {
-            await Send_Message(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
-            await context.send(`⚙ Операция снятия министерских жетонов завершена успешно`)
-        } catch (error) {
-            await Logger(`User ${user_get.idvk} blocked chating with bank`)
-        }
-        const ans_log = `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+        const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_get.name} не доставлено`) : await context.send(`⚙ Операция снятия министерских жетонов завершена успешно`)
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
         await Send_Message(chat_id, ans_log)
         await Logger(`In private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
     } else {
-        const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет этого ${user_get.spec} ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
+        const confirmq = await context.question(`⌛ Вы хотите снять ${count}🔘 жетонов c счета ${user_get.name}, но счет данного пользователя ${user_get.medal}. Уверены, что хотите сделать баланс: ${user_get.medal-count}`,
             {
                 keyboard: Keyboard.builder()
                 .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
@@ -158,13 +151,9 @@ async function Medal_Down(id: number, context: any) {
         if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на снятие галлеонов с ${user_get.name} истекло!`) }
         if (confirmq.payload.command === 'confirm') {
             const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-            try {
-                await Send_Message(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
-                await context.send(`⚙ Операция снятия министерских жетонов завершена успешно`)
-            } catch (error) {
-                await Logger(`User ${user_get.idvk} blocked chating with bank`)
-            }
-            const ans_log = `⚙ @id${context.senderId}(Admin) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+            const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+            !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_get.name} не доставлено`) : await context.send(`⚙ Операция снятия министерских жетонов завершена успешно`)
+            const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
             await Send_Message(chat_id, ans_log)
             await Logger(`In private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
         } else {
@@ -174,7 +163,7 @@ async function Medal_Down(id: number, context: any) {
 }
 
 //Модуль начислений
-async function Coin_Engine(id: number, context: any) {
+async function Coin_Engine(id: number, context: any, user_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     const person: { coin: AllianceCoin | null, operation: String | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
@@ -294,23 +283,16 @@ async function Coin_Engine(id: number, context: any) {
             break;
     }
     if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-    try {
-        await Send_Message(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
-        await context.send(`⚙ Операция завершена успешно`)
-    } catch (error) {
-        await Logger(`User ${user.idvk} blocked chating with bank`)
-    }
-    const ans_log = `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
-    try {
-        alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-    } catch (error) {
-        await Send_Message(chat_id, ans_log)
-    } 
+    const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
+    !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
+    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
+    const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+    if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
     await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
 }
 
 //Модуль начислений бесконечнный
-async function Coin_Engine_Infinity(id: number, context: any) {
+async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     const person: { coin: AllianceCoin | null, operation: String | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
@@ -432,19 +414,11 @@ async function Coin_Engine_Infinity(id: number, context: any) {
                 break;
         }
         if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-
-        try {
-            await Send_Message(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
-            await context.send(`⚙ Операция завершена успешно`)
-        } catch (error) {
-            await Logger(`User ${user.idvk} blocked chating with bank`)
-        }
-        const ans_log = `⚙ @id${context.senderId}(Admin) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
-        try {
-            alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-        } catch (error) {
-            await Send_Message(chat_id, ans_log)
-        } 
+        const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
+        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
+        const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+        if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) } 
         await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
         const answer = await context.question(`${ico_list['load'].ico} Вы уверены, что хотите приступить к процедуре повторного отчисления?`,
             {	

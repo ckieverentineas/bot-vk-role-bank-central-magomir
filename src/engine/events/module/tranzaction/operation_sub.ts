@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper"
 import { answerTimeLimit, chat_id } from "../../../.."
 import prisma from "../prisma_client"
 import { ico_list } from "../data_center/icons_lib"
@@ -69,19 +69,11 @@ async function User_Drop(id: number, context: any) {
             const alli_get = await prisma.alliance.findFirst({ where: { id: Number(id) } })
             const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0, id_role: 1 } })
             await context.send(`❗ Выпнут пользователь ${user_del.name}`)
-            try {
-                await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`)
-                await context.send(`⚙ Операция пинка пользователю завершена успешно.`)
-            } catch (error) {
-                await Logger(`User ${user_del.idvk} blocked chating with bank`)
-            }
+            const notif_ans = await Send_Message_Detected(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`)
+            !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователю завершена успешно.`)
             const ans_log = `⚙ @id${context.senderId}(Admin) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name})`
-            try {
-                if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
-                await Send_Message(chat_id, ans_log)
-            } catch (error) {
-                await Send_Message(chat_id, ans_log)
-            }
+            if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
+            await Send_Message(chat_id, ans_log)
             await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
             // Движок модуля принятия решений с баллами
             const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user_get.id_facult! } })
@@ -96,13 +88,9 @@ async function User_Drop(id: number, context: any) {
                         if ( !bal_fac || !bal_usr) { continue }
                         const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
                         const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
-
                         const ans_log = `🌐 "${rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} из-за крота @id${user_get.idvk}(${user_get.name})`
-                        try {
-                            alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                        } catch (error) {
-                            await Send_Message(chat_id, ans_log)
-                        }
+                        const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                        if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                     }
                     break;
                 default:
@@ -111,7 +99,6 @@ async function User_Drop(id: number, context: any) {
         } 
     } else {
         await context.send(`⚙ Пинок ролевика ${user_get.name} отменен.`)
-        
     }
 }
 
@@ -140,13 +127,8 @@ async function User_delete(id: number, context: any) {
                 } else {
                     await context.send(`⚙ @id${user_del.idvk}(${user_del.name}) депортируется НА РОДИНУ уже не в первый раз.`)
                 }
-
-                try {
-                    await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались Центробанком Магомира Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
-                    await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
-                } catch (error) {
-                    await Logger(`User ${user_del.idvk} blocked chating with bank`)
-                }
+                const notif_ans = await Send_Message_Detected(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались Центробанком Магомира Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
+                !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(Admin) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name})`
                 await Send_Message(chat_id, ans_log)
             }
@@ -158,20 +140,20 @@ async function User_delete(id: number, context: any) {
 }
 
 async function Inventory_Show(id: number, context: any) { 
-        const artefact = await prisma.inventory.findMany({ where: { id_user: id } })
-        if (artefact.length > 0) {
-            for(const element of artefact) {
-                const item: any = await prisma.item.findFirst({ where: { id: element.id_item }, include: { category: true } })
-                await context.send(`💬: ${item.name}-${element.id} \n 🔧: ${item.category.name}-${item.price}${ico_list.medal.ico}`,
-                    {
-                        keyboard: Keyboard.builder()
-                        .textButton({ label: 'Удалить👜', payload: { command: `${element.id}` }, color: 'secondary' })
-                        .oneTime().inline()
-                    }
-                )
-            }
-        } else {
-            await context.send(`✉ Товары отсутствуют =(`)
+    const artefact = await prisma.inventory.findMany({ where: { id_user: id } })
+    if (artefact.length > 0) {
+        for(const element of artefact) {
+            const item: any = await prisma.item.findFirst({ where: { id: element.id_item }, include: { category: true } })
+            await context.send(`💬: ${item.name}-${element.id} \n 🔧: ${item.category.name}-${item.price}${ico_list.medal.ico}`,
+                {
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: 'Удалить👜', payload: { command: `${element.id}` }, color: 'secondary' })
+                    .oneTime().inline()
+                }
+            )
         }
-        await Logger(`In private chat, the inventory user uid ${id} is viewed by admin ${context.senderId}`)
+    } else {
+        await context.send(`✉ Товары отсутствуют =(`)
     }
+    await Logger(`In private chat, the inventory user uid ${id} is viewed by admin ${context.senderId}`)
+}

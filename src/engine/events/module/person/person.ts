@@ -5,6 +5,8 @@ import prisma from "../prisma_client"
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 import { ico_list } from "../data_center/icons_lib"
 import { Simply_Carusel_Selector } from "../../../core/simply_carusel_selector"
+import { Person_Coin_Printer_Self } from "./person_coin"
+import { Facult_Coin_Printer_Self } from "../alliance/facult_rank"
 
 export async function Person_Register(context: any) {
     const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string, facult: null | string, id_facult: null | number } = { name: null, id_alliance: null, alliance: null, class: null, spec: null, facult: null, id_facult: null }
@@ -151,6 +153,8 @@ export async function Person_Register(context: any) {
 	const check_bbox = await prisma.blackBox.findFirst({ where: { idvk: context.senderId } })
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(save.id_alliance) } })
     const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(save.id_facult) } })
+    const info_coin = await Person_Coin_Printer_Self(context, save.id)
+    const info_facult_rank = await Facult_Coin_Printer_Self(context, save.id)
 	const ans_selector = `${ico_list['save'].ico} Сохранение аватара [${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"}] UID-${save.id}:\n👥 ${save.spec} ${save.class} @id${account?.idvk}(${save.name})\n${ico_list['alliance'].ico} Ролевая: ${save.id_alliance == 0 ? `Соло` : save.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`}`
 	await Send_Message(chat_id, `${ans_selector}`)
 	await Keyboard_Index(context, `${ico_list['help'].ico} Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ${ico_list['success'].ico}Подтвердить авторизацию!`)

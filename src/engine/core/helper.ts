@@ -367,6 +367,18 @@ export async function Send_Message(idvk: number, message: string, keyboard?: Key
         console.log(`Ошибка отправки сообщения: ${e}`)
     }
 }
+
+export async function Send_Message_Detected(idvk: number, message: string, keyboard?: Keyboard) {
+    message = message ? message : 'invalid message'
+    try {
+        keyboard ? await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) : await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } )
+        return true
+    } catch (e) {
+        console.log(`Ошибка отправки сообщения: ${e}`)
+        return false
+    }
+}
+
 export async function Send_Message_Universal(idvk: number, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
     message = message ? message : 'invalid message'
     try {

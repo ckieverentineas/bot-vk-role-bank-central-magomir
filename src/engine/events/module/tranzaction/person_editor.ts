@@ -1,7 +1,7 @@
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 import prisma from "../prisma_client"
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 
 //Модуль редактирования персонажей
@@ -54,18 +54,11 @@ async function Edit_Name(id: number, context: any){
             const update_name = await prisma.user.update({ where: { id: user.id }, data: { name: name.text } })
             if (update_name) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена имени с ${user.name} на ${update_name.name}.`)
-                try {
-                    await Send_Message(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
-                    await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
-                } catch (error) {
-                    await Logger(`User ${user.idvk} blocked chating with bank`)
-                }
+                const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
+                !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`
-                try {
-                    alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                } catch (error) {
-                    await Send_Message(chat_id, ans_log)
-                } 
+                const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed name user from ${user.name} on ${update_name.name} for ${update_name.idvk} by admin ${context.senderId}`)
             }
             if (name.text.length > 32) {
@@ -102,18 +95,11 @@ async function Edit_Class(id: number, context: any){
             const update_class = await prisma.user.update({ where: { id: user.id }, data: { class: answer1.text } })
             if (update_class) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
-                try {
-                    await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
-                    await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
-                } catch (error) {
-                    await Logger(`User ${user.idvk} blocked chating with bank`)
-                }
+                const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
+                !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
-                try {
-                    alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                } catch (error) {
-                    await Send_Message(chat_id, ans_log)
-                } 
+                const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
             }
             answer_check = true
@@ -133,18 +119,11 @@ async function Edit_Spec(id: number, context: any){
             const update_spec = await prisma.user.update({ where: { id: user.id }, data: { spec: spec.text } })
             if (update_spec) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена специализации с ${user.spec} на ${update_spec.spec}.`)
-                try {
-                    await Send_Message(user.idvk, `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
-                    await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
-                } catch (error) {
-                    await Logger(`User ${user.idvk} blocked chating with bank`)
-                }
+                const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
+                !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name})`
-                try {
-                    alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                } catch (error) {
-                    await Send_Message(chat_id, ans_log)
-                }
+                const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
                 await Logger(`In a private chat, changed specialization user from ${user.spec} on ${update_spec.spec} for ${update_spec.idvk} by admin ${context.senderId}`)
             }
         } else {
@@ -230,26 +209,17 @@ async function Edit_Alliance(id: number, context: any){
     const alli_get_be: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(update_alliance.id_alliance) } })
     if (update_alliance) {
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
-        
-        try {
-            await Send_Message(user.idvk, `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
-            await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
-        } catch (error) {
-            await Logger(`User ${user.idvk} blocked chating with bank`)
-        }
+        const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
+        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
         const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
-        try {
-            let tr = 0
-            if (alli_get_was) {
-                alli_get_was.id_chat ? await Send_Message(alli_get_was.id_chat, ans_log) : tr++
-            }
-            if (alli_get_be) {
-                alli_get_be.id_chat ? await Send_Message(alli_get_be.id_chat, ans_log) : tr++
-            }
-            if (tr == 2) { await Send_Message(chat_id, ans_log) }
-        } catch (error) {
-            await Send_Message(chat_id, ans_log)
+        let tr = 0
+        if (alli_get_was) {
+            alli_get_was.id_chat ? await Send_Message(alli_get_was.id_chat, ans_log) : tr++
         }
+        if (alli_get_be) {
+            alli_get_be.id_chat ? await Send_Message(alli_get_be.id_chat, ans_log) : tr++
+        }
+        if (tr == 2) { await Send_Message(chat_id, ans_log) }
         await Logger(`In a private chat, changed alliance user from ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} on ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} for ${update_alliance.idvk} by admin ${context.senderId}`)
     }
 }
@@ -339,19 +309,11 @@ async function Edit_Facult(id: number, context: any){
     const update_facult = await prisma.user.update({ where: { id: user.id }, data: { id_facult: person.id_facult } })
     if (update_facult) {
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена факультета с ${facult_sel} на ${person.facult}.`)
-
-        try {
-            await Send_Message(user.idvk, `⚙ Ваш факультет ролевой сменилась с ${facult_sel} на ${person.facult}.`)
-            await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
-        } catch (error) {
-            await Logger(`User ${user.idvk} blocked chating with bank`)
-        }
+        const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваш факультет ролевой сменилась с ${facult_sel} на ${person.facult}.`)
+        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
         const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
-        try {
-            alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-        } catch (error) {
-            await Send_Message(chat_id, ans_log)
-        }
+        const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+        if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
         await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)
     }
     // Движок модуля принятия решений с баллами
@@ -369,11 +331,8 @@ async function Edit_Facult(id: number, context: any){
                 const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
                 const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
                 const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name})`
-                try {
-                    alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                } catch (error) {
-                    await Send_Message(chat_id, ans_log)
-                }
+                const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
             break;
         case 'Перенести':
@@ -386,11 +345,8 @@ async function Edit_Facult(id: number, context: any){
                 const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr!.amount } } })
                 const bal_fac_tar_ch = await prisma.balanceFacult.update({ where: { id: bal_fac_tar.id }, data: { amount: { increment: bal_usr!.amount } } })
                 const ans_log = `🌐 "${person.rank_action}${coin.smile}" >\n ${bal_fac.amount} - ${bal_usr!.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}],\n ${bal_fac_tar.amount} + ${bal_usr!.amount} = ${bal_fac_tar_ch.amount} для Факультета [${alli_fac_tar!.smile} ${alli_fac_tar!.name}] \nиз-за крысы такой @id${user.idvk}(${user.name})`
-                try {
-                    alli_get ? await Send_Message(alli_get.id_chat, ans_log) : await Send_Message(chat_id, ans_log)
-                } catch (error) {
-                    await Send_Message(chat_id, ans_log)
-                }
+                const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
             break;
         default:
