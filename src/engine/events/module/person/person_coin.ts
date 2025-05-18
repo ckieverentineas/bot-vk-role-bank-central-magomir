@@ -1,7 +1,7 @@
 import { AllianceCoin, User } from "@prisma/client";
 import { Person_Get } from "./person";
 import prisma from "../prisma_client";
-import { Logger } from "../../../core/helper";
+import { Format_Number_Correction, Logger } from "../../../core/helper";
 
 async function Person_Coin_Finder(data: Array<{ id: number, amount: number }>, target: AllianceCoin) {
     let find = false
@@ -29,10 +29,10 @@ export async function Person_Coin_Printer(context: any) {
         const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
         if (!coin_check) {
             const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
-            res += `${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+            res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
             await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} by user ${user.idvk}`)
         } else {
-            res += `${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+            res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
         }
     }
     return res
@@ -46,10 +46,10 @@ export async function Person_Coin_Printer_Self(context: any, id: number) {
         const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
         if (!coin_check) {
             const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
-            res.text += `${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+            res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
             await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId ?? context.peerId}`)
         } else {
-            res.text += `${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+            res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
         }
         res.smile += `${coin.smile}`
     }

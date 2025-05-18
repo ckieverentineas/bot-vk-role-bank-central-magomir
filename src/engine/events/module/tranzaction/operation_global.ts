@@ -1,8 +1,9 @@
+import { User } from "@prisma/client"
 import { timer_text_oper } from "../../../.."
 
 
 //Модуль вовзврата
-export async function Back(id: number, context: any) {
+export async function Back(id: number, context: any, user_adm: User) {
     console.log(`Admin ${context.senderId} canceled operation for user UID: ${id}`)
     await context.send(`⚙ Операция отменена пользователем.`)
 }

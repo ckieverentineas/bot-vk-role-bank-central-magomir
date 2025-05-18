@@ -6,7 +6,7 @@ import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Ipnut_Gold } from "./operation_global"
 
 //Модуль редактирования персонажей
-export async function Editor(id: number, context: any) {
+export async function Editor(id: number, context: any, user_adm: User) {
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return }
     let answer_check = false
@@ -32,7 +32,7 @@ export async function Editor(id: number, context: any) {
                     'edit_alliance': Edit_Alliance,
                     'edit_facult': Edit_Facult
                 }
-                await config[answer1.payload.command](id, context)
+                await config[answer1.payload.command](id, context, user_adm)
             } else {
                 answer_check = true
                 await context.send(`⚙ Отмена редактирования`)
@@ -41,7 +41,7 @@ export async function Editor(id: number, context: any) {
     }
 }
 
-async function Edit_Name(id: number, context: any){
+async function Edit_Name(id: number, context: any, user_adm: User){
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return }
     let name_check = false
@@ -57,7 +57,7 @@ async function Edit_Name(id: number, context: any){
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена имени с ${user.name} на ${update_name.name}.`)
                 const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed name user from ${user.name} on ${update_name.name} for ${update_name.idvk} by admin ${context.senderId}`)
@@ -70,7 +70,7 @@ async function Edit_Name(id: number, context: any){
         }
     }
 }
-async function Edit_Class(id: number, context: any){
+async function Edit_Class(id: number, context: any, user_adm: User){
     const user: any = await prisma.user.findFirst({ where: { id: id } })
     let answer_check = false
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
@@ -98,7 +98,7 @@ async function Edit_Class(id: number, context: any){
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
                 const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
@@ -107,7 +107,7 @@ async function Edit_Class(id: number, context: any){
         }
     }
 }
-async function Edit_Spec(id: number, context: any){
+async function Edit_Spec(id: number, context: any, user_adm: User){
     const user: any = await prisma.user.findFirst({ where: { id: id } })
     let spec_check = false
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
@@ -122,7 +122,7 @@ async function Edit_Spec(id: number, context: any){
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена специализации с ${user.spec} на ${update_spec.spec}.`)
                 const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
                 await Logger(`In a private chat, changed specialization user from ${user.spec} on ${update_spec.spec} for ${update_spec.idvk} by admin ${context.senderId}`)
@@ -132,7 +132,7 @@ async function Edit_Spec(id: number, context: any){
         }
     }
 }
-async function Edit_Alliance(id: number, context: any){
+async function Edit_Alliance(id: number, context: any, user_adm: User){
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return await context.send(`⚠ Ролевик под UID${id} не был обнаружен в системе!`)}
     const person: { id_alliance: null | number, alliance: null | string,  } = { id_alliance: null, alliance: null }
@@ -221,7 +221,7 @@ async function Edit_Alliance(id: number, context: any){
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
         const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
-        const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
         let tr = 0
         if (alli_get_was) {
             alli_get_was.id_chat ? await Send_Message(alli_get_was.id_chat, ans_log) : tr++
@@ -233,7 +233,7 @@ async function Edit_Alliance(id: number, context: any){
         await Logger(`In a private chat, changed alliance user from ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} on ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} for ${update_alliance.idvk} by admin ${context.senderId}`)
     }
 }
-async function Edit_Facult(id: number, context: any){
+async function Edit_Facult(id: number, context: any, user_adm: User){
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return }
     const person: { id_facult: null | number, facult: null | string, rank_action: string | null } = { id_facult: null, facult: null, rank_action: null }
@@ -321,7 +321,7 @@ async function Edit_Facult(id: number, context: any){
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена факультета с ${facult_sel} на ${person.facult}.`)
         const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Ваш факультет ролевой сменилась с ${facult_sel} на ${person.facult}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
-        const ans_log = `⚙ @id${context.senderId}(Admin) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
         const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
         await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)

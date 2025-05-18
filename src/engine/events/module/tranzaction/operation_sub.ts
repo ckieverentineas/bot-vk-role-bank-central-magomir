@@ -5,9 +5,10 @@ import prisma from "../prisma_client"
 import { ico_list } from "../data_center/icons_lib"
 import { Back } from "./operation_global"
 import { Editor } from "./person_editor"
+import { User } from "@prisma/client"
 
 //Модуль доп клавиатуры
-export async function Sub_Menu(id: number, context: any) {
+export async function Sub_Menu(id: number, context: any, user_adm: User) {
     const keyboard = new KeyboardBuilder()
     keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
     .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
@@ -26,13 +27,13 @@ export async function Sub_Menu(id: number, context: any) {
     }
     if (ans_again?.payload?.command in config) {
         const commandHandler = config[ans_again.payload.command];
-        const answergot = await commandHandler(Number(id), context)
+        const answergot = await commandHandler(Number(id), context, user_adm)
     } else {
         await context.send(`⚙ Операция отменена пользователем.`)
     }
 }
 
-async function User_Drop(id: number, context: any) {
+async function User_Drop(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
     const confirmq = await context.question(`⁉ Вы уверены, что хотите выпнуть с ролевого проекта ${user_get.name}`,
         {
@@ -71,7 +72,7 @@ async function User_Drop(id: number, context: any) {
             await context.send(`❗ Выпнут пользователь ${user_del.name}`)
             const notif_ans = await Send_Message_Detected(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователю завершена успешно.`)
-            const ans_log = `⚙ @id${context.senderId}(Admin) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name})`
+            const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name})`
             if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
             await Send_Message(chat_id, ans_log)
             await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
@@ -103,7 +104,7 @@ async function User_Drop(id: number, context: any) {
 }
 
 //Модуль уничтожения персонажа
-async function User_delete(id: number, context: any) {
+async function User_delete(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
     const confirmq = await context.question(`⁉ Вы уверены, что хотите удалить клиента ${user_get.name}`,
         {
@@ -129,7 +130,7 @@ async function User_delete(id: number, context: any) {
                 }
                 const notif_ans = await Send_Message_Detected(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались Центробанком Магомира Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(Admin) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name})`
                 await Send_Message(chat_id, ans_log)
             }
             await Logger(`In database, deleted user: ${user_del.idvk}-${user_del.id} by admin ${context.senderId}`)
@@ -139,7 +140,7 @@ async function User_delete(id: number, context: any) {
     }
 }
 
-async function Inventory_Show(id: number, context: any) { 
+async function Inventory_Show(id: number, context: any, user_adm: User) { 
     const artefact = await prisma.inventory.findMany({ where: { id_user: id } })
     if (artefact.length > 0) {
         for(const element of artefact) {

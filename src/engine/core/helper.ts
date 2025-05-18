@@ -571,3 +571,19 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
 	}
     return input
 }
+
+export function Format_Number_Correction(num: any): number | string {
+    try {
+        if (typeof num !== 'number' || isNaN(num)) {
+            throw new Error('Некорректный ввод: ожидается число');
+        }
+        if (Number.isInteger(num)) {
+            return num;
+        } else {
+            return parseFloat(num.toFixed(3));
+        }
+    } catch (error: any) {
+        console.warn('Ошибка форматирования:', error.message);
+        return 'Ошибка';
+    }
+}
