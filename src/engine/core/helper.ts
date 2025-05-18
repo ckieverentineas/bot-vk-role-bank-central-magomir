@@ -123,6 +123,7 @@ export async function Keyboard_Index(context: any, messa: any) {
         keyboard.textButton({ label: '!опмасс', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
+    keyboard.textButton({ label: '!помощь', payload: { command: 'sliz' }, color: 'secondary' }).row()
     // Отправляем клавиатуру без сообщения
     await vk.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
     .then(async (response: MessagesSendResponse) => { 

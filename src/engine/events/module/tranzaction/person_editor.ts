@@ -3,6 +3,7 @@ import prisma from "../prisma_client"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { Accessed, Fixed_Number_To_Five, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
+import { Ipnut_Gold } from "./operation_global"
 
 //Модуль редактирования персонажей
 export async function Editor(id: number, context: any) {
@@ -140,7 +141,8 @@ async function Edit_Alliance(id: number, context: any){
         const answer_selector = await context.question(`🧷 Укажите статус в Министерстве Магии для ${user.name}-${user.id}:`,
             {	
                 keyboard: Keyboard.builder()
-                .textButton({ label: 'Союзник', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: 'Союзник Кнопки', payload: { command: 'student' }, color: 'secondary' }).row()
+                .textButton({ label: 'Союзник Номер', payload: { command: 'student' }, color: 'secondary' }).row()
                 .textButton({ label: 'Не союзник', payload: { command: 'professor' }, color: 'secondary' })
                 .textButton({ label: 'Соло', payload: { command: 'citizen' }, color: 'secondary' })
                 .oneTime().inline(), answerTimeLimit
@@ -151,12 +153,13 @@ async function Edit_Alliance(id: number, context: any){
             await context.send(`💡 Жмите только по кнопкам с иконками!`)
         } else {
             person.alliance = answer_selector.text
-            person.id_alliance = answer_selector.text == 'Не союзник' ? -1 : 0
-            answer_check = true
+            if (answer_selector.text == 'Не союзник') { person.id_alliance = -1 }
+            if (answer_selector.text == 'Соло') { person.id_alliance = 0 }
+			answer_check = true
         }
     }
     let alliance_check = false
-    if (person.alliance == 'Союзник') {
+    if (person.alliance == 'Союзник Кнопки') {
         let id_builder_sent = 0
         while (!alliance_check) {
             const keyboard = new KeyboardBuilder()
@@ -203,6 +206,13 @@ async function Edit_Alliance(id: number, context: any){
                 }
             }
         }
+    }
+    if (person.alliance == 'Союзник Номер') {
+        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатара ролевого проекта AUID📜')
+        const alliance = await prisma.alliance.findFirst({ where: { id: Number(input_alliance) } })
+        if (!alliance) { return context.send(`Альянс под AUID ${input_alliance} не найден! Повторите регистрацию заново с нуля.`) }
+        person.alliance = alliance.name
+        person.id_alliance = alliance.id
     }
     const alli_get_was: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
     const update_alliance = await prisma.user.update({ where: { id: user.id }, data: { id_alliance: person.id_alliance, id_facult: 0 } })

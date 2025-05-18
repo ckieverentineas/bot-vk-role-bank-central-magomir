@@ -1,12 +1,13 @@
 import { Keyboard, KeyboardBuilder, MessageContext } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text, vk } from "../../../.."
-import { Fixed_Number_To_Five, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper"
+import { Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper"
 import prisma from "../prisma_client"
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 import { ico_list } from "../data_center/icons_lib"
 import { Simply_Carusel_Selector } from "../../../core/simply_carusel_selector"
 import { Person_Coin_Printer_Self } from "./person_coin"
 import { Facult_Coin_Printer_Self } from "../alliance/facult_rank"
+import { Ipnut_Gold } from "../tranzaction/operation_global"
 
 export async function Person_Register(context: any) {
     const person: { name: null | string, id_alliance: null | number, alliance: null | string, class: null | string, spec: null | string, facult: null | string, id_facult: null | number } = { name: null, id_alliance: null, alliance: null, class: null, spec: null, facult: null, id_facult: null }
@@ -37,10 +38,11 @@ export async function Person_Register(context: any) {
     }*/
 	let answer_check = false
 	while (answer_check == false) {
-		const answer_selector = await context.question(`${ico_list['attach'].ico} Укажите ваш статус в Министерстве Магии`,
+		const answer_selector = await context.question(`${ico_list['attach'].ico} Укажите ваш статус в Министерстве Магии, при выборе "Союзник", вас попросят выбрать подключенный ролевой проект или ввести AUID проекта`,
 			{	
 				keyboard: Keyboard.builder()
-				.textButton({ label: 'Союзник', payload: { command: 'student' }, color: 'secondary' })
+				.textButton({ label: 'Союзник Кнопки', payload: { command: 'student' }, color: 'secondary' }).row()
+                .textButton({ label: 'Союзник Номер', payload: { command: 'student' }, color: 'secondary' }).row()
 				.textButton({ label: 'Не союзник', payload: { command: 'professor' }, color: 'secondary' })
 				.textButton({ label: 'Соло', payload: { command: 'citizen' }, color: 'secondary' })
 				.oneTime().inline(), answerTimeLimit
@@ -51,12 +53,13 @@ export async function Person_Register(context: any) {
 			await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
 		} else {
 			person.alliance = answer_selector.text
-            person.id_alliance = answer_selector.text == 'Не союзник' ? -1 : 0
+            if (answer_selector.text == 'Не союзник') { person.id_alliance = -1 }
+            if (answer_selector.text == 'Соло') { person.id_alliance = 0 }
 			answer_check = true
 		}
 	}
     let alliance_check = false
-	if (person.alliance == 'Союзник') {
+	if (person.alliance == 'Союзник Кнопки') {
         const alliance_list: Alliance[] = await prisma.alliance.findMany({})
         const alliance_id_sel = await Simply_Carusel_Selector(
             context,
@@ -71,6 +74,13 @@ export async function Person_Register(context: any) {
         if (!alliance_get) { return }
         person.alliance = alliance_get.name
         person.id_alliance = alliance_get.id
+    }
+    if (person.alliance == 'Союзник Номер') {
+        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатара ролевого проекта AUID📜')
+        const alliance = await prisma.alliance.findFirst({ where: { id: Number(input_alliance) } })
+        if (!alliance) { return context.send(`Альянс под AUID ${input_alliance} не найден! Повторите регистрацию заново с нуля.`) }
+        person.alliance = alliance.name
+        person.id_alliance = alliance.id
     }
     let answer_check1 = false
 	while (answer_check1 == false) {

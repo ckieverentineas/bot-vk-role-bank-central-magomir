@@ -1,4 +1,4 @@
-import { Alliance, AllianceCoin, BalanceFacult, Monitor, User } from "@prisma/client";
+import { Account, Alliance, AllianceCoin, BalanceFacult, Monitor, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
@@ -298,9 +298,10 @@ function Encrypt_Data(data: string): string {
 
 // Функция для проверки пользователя
 export async function User_Bonus_Check(idvk: number, monitor: Monitor) {
-    const account = await prisma.account.findFirst({ where: { idvk: idvk } })
+    const account: Account | null = await prisma.account.findFirst({ where: { idvk: idvk } })
     if (!account) { return false; }
-    const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
+    let user = await prisma.user.findFirst({ where: { id: account.select_user, id_alliance: monitor.id_alliance } })
+    user = user ? user : await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
     if (!user) { return false; }
     return user
 }
@@ -311,7 +312,8 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
     // префаб персонажа
     const account = await prisma.account.findFirst({ where: { idvk: idvk } })
     if (!account) { return answer; }
-    const user = await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
+    let user = await prisma.user.findFirst({ where: { id: account.select_user, id_alliance: monitor.id_alliance } })
+    user = user ? user : await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
     if (!user) { return answer; }
     const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_user: user.id }})
     if (!balance) { return answer; }
@@ -324,7 +326,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
         case '+':
             const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: reward } } })
             if (!balance_up) { return answer; }
-            answer.message += `📰 Вам начислено за добавленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile}\n`
+            answer.message += `📰 ${user.name}, вам начислено за добавленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile}\n`
             answer.console += `(monitor) ~ user ${user.idvk} ${target} and got ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`
             answer.status = true
             if (coin?.point == true && balance_facult_check) {
@@ -338,7 +340,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
         case '-':
             const balance_down = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: reward } } })
             if (!balance_down) { return answer; }
-            answer.message += `📰 С вас снято за удаленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile}\n`
+            answer.message += `📰 ${user.name}, с вас снято за удаленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile}\n`
             answer.console += `(monitor) ~ user ${user.idvk} ${target} and lost ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile} by <monitor> №${monitor.id}`
             answer.status = true
             if (coin?.point == true && balance_facult_check) {
