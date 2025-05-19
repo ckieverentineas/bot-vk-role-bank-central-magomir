@@ -231,7 +231,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     monik.token = Encrypt_Data(group_token)
     await context.send(`${ico_list['warn'].ico} Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
-    if (!coin_pass) { return context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
+    if (!coin_pass) { return await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent1 = 0
     while (!coin_check) {

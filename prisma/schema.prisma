@@ -163,6 +163,7 @@ model Alliance {
   AllianceCoin    AllianceCoin[]
   AllianceFacult  AllianceFacult[]
   Monitor         Monitor[]
+  Shop           AllianceShop[]
 }
 
 model AllianceCoin {
@@ -205,4 +206,33 @@ model BalanceFacult {
   facult    AllianceFacult @relation(fields: [id_facult], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_facult Int
   amount    Float          @default(0)
+}
+
+model AllianceShop {
+  id        Int            @id @default(autoincrement())
+  name      String
+  id_alliance   Int
+  Alliance  Alliance        @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Shop_category    AllianceShopCategory[]
+}
+
+model AllianceShopCategory {
+  id        Int            @id @default(autoincrement())
+  name      String
+  id_alliance_shop   Int
+  Alliance_Shop  AllianceShop        @relation(fields: [id_alliance_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Shop_item    AllianceShopItem[]
+}
+
+model AllianceShopItem {
+  id        Int @id @default(autoincrement())
+  name        String
+  description String?
+  image       String?
+  price       Int
+  id_coin     Int
+  limit       Int
+  limit_tr Boolean
+  shop      AllianceShopCategory   @relation(fields: [id_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_shop   Int
 }

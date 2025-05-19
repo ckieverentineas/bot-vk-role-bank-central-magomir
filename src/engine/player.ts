@@ -21,6 +21,8 @@ import { restartMonitor, stopMonitor } from "../monitring";
 import { ico_list } from "./events/module/data_center/icons_lib";
 import { Operation_Solo } from "./events/module/tranzaction/operation_solo";
 import { Operation_Group } from "./events/module/tranzaction/operation_group";
+import { AllianceShop_Printer } from "./events/module/shop/alliance_shop";
+import { AllianceShop_Selector } from "./events/module/shop/alliance_shop_client";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/Лютный переулок/, async (context) => {
@@ -607,6 +609,29 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             \n⚠ Команды с символами:\n👤 - Доступны обычным пользователям;\n⭐ - Доступны администраторам бота;`
         )
         await Keyboard_Index(context, `⌛ 911, что у вас случилось?`)
+    })
+    hearManager.hear(/!магаз/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        const keyboard = new KeyboardBuilder()
+        await AllianceShop_Printer(context, user_check.id_alliance!)
+        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+    })
+    hearManager.hear(/!покупки/, async (context: any) => {
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        const keyboard = new KeyboardBuilder()
+        await AllianceShop_Selector(context, user_check.id_alliance!)
+        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     /*hearManager.hear(/фото/, async (context: any) => {
         if (context.hasAttachments('photo')) {
