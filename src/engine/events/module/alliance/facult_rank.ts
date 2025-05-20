@@ -25,9 +25,9 @@ export async function Facult_Rank_Printer(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     let res = ``
-    for (const facult of await prisma.allianceFacult.findMany({ where: { id_alliance: user.id_alliance! } })) {
+    for (const facult of await prisma.allianceFacult.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
         res += `${facult.smile} ${facult.name}\n`
-        for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance! } })) {
+        for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
             if (coin.point) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})
                 if (!coin_check) {
@@ -49,9 +49,9 @@ export async function Facult_Coin_Printer_Self(context: any, id: number) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return }
     let res = { text: '', smile: '' }
-    for (const facult of await prisma.allianceFacult.findMany({ where: { id_alliance: user.id_alliance! } })) {
+    for (const facult of await prisma.allianceFacult.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
         res.text += `${facult.smile} ${facult.name} -->\n`
-        for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance! } })) {
+        for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
             if (coin.point) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})
                 if (!coin_check) {
