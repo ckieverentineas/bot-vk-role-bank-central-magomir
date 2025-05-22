@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Send_Message } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -110,7 +110,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
 
     const imageUrl = await context.question(`📷 Вставьте ссылку на изображение (или "нет"):`, timer_text);
     if (imageUrl.isTimeout) return res;
-    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : imageUrl.text;
+    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
 
     const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
     if (!alli_shop_cat) { return }
@@ -169,15 +169,14 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     if (priceInput.isTimeout) return res;
     price = parseInt(priceInput.text);
 
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар безлимитным?`);
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным?`);
     await context.send(confirm.text);
     if (confirm.status) {
         limit_tr = true;
-    } else {
         const limitInput = await context.question(`🔢 Укажите лимит товара:`, timer_text);
         if (limitInput.isTimeout) return res;
         limit = parseInt(limitInput.text) || 0;
-    };
+    }
 
     if (name_loc) {
         const item = await prisma.allianceShopItem.create({
@@ -206,6 +205,17 @@ async function AllianceShopItem_Edit(context: any, data: any, category: any) {
         await context.send(`❌ Товар не найден.`);
         return res;
     }
+    const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
+    if (!alli_shop_cat) { return }
+    const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
+    if (!alli_shop) { return }
+    const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
+    let text_item = `🛍 Товар: ${item_check.name}\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Цена: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n ${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}`;
+    const attached = item_check?.image?.includes('photo') ? item_check.image : null
+    await context.send(`Вы просматриваете товар: ${text_item}`, { attachment: attached })
+    const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `Хотите отредактировать товар?`);
+    //await context.send(confirm.text);
+    if (!confirm_ask.status) { return res }
     let limit = item_check?.limit
     let limit_tr = false
     let id_coin = item_check.id_coin
@@ -219,10 +229,6 @@ async function AllianceShopItem_Edit(context: any, data: any, category: any) {
     const imageUrl = await context.question(`📷 Вставьте ссылку на изображение (или "нет"), сейчас [${item_check.image}]`, timer_text);
     if (imageUrl.isTimeout) return res;
 
-    const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
-    if (!alli_shop_cat) { return }
-    const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
-    if (!alli_shop) { return }
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
     if (!coin_pass) { await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`); return res }
     let coin_check = false
@@ -275,20 +281,19 @@ async function AllianceShopItem_Edit(context: any, data: any, category: any) {
     const priceInput = await context.question(`💰 Введите цену товара, сейчас [${item_check.price}]:`, timer_text);
     if (priceInput.isTimeout) return res;
 
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар безлимитным, сейчас [${item_check.limit_tr ? 'безлимит' : 'лимит'}]?`);
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным, сейчас [${item_check.limit_tr ? 'лимит' : 'безлимит'}]?`);
     await context.send(confirm.text);
     if (confirm.status) {
         limit_tr = true;
-    } else {
         const limitInput = await context.question(`🔢 Укажите лимит товара, сейчас [${item_check.limit}]:`, timer_text);
         if (limitInput.isTimeout) return res;
         limit = parseInt(limitInput.text) || 0;
-    };
+    }
 
     const updatedData: any = {};
     if (name.text.toLowerCase() !== 'оставить') updatedData.name = name.text;
     updatedData.description = desc.text.toLowerCase() === 'нет' ? '' : desc.text;
-    updatedData.image = imageUrl.text.toLowerCase() === 'нет' ? '' : imageUrl.text;
+    updatedData.image = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text);
     updatedData.price = parseInt(priceInput.text) || item_check.price;
     updatedData.limit = limit;
     updatedData.limit_tr = limit_tr;
