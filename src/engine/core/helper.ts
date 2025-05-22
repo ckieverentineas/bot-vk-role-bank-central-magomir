@@ -587,3 +587,8 @@ export function Format_Number_Correction(num: any): number | string {
         return 'Ошибка';
     }
 }
+
+export function Get_Url_Picture(url: string): string | null {
+    const match = url.match(/photo-\d+_\d+/);
+    return match ? match[0] : null;
+}
