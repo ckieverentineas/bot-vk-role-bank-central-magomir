@@ -154,7 +154,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
         event_logger += `\n${1 + cursor} из ${item_counter}`;
 
         const bt = await context.question(
-            `💎 Выберите товар:\n${event_logger}`,
+            `🛒 Выберите товар:\n${event_logger}`,
             { keyboard, answerTimeLimit }
         );
 
@@ -184,6 +184,8 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
 async function Buyer_Item_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    let answer_log = ''
+    let answer_chat_log = ''
     if (!item) {
         await context.send(`❌ Товар не найден.`);
         return res;
@@ -211,10 +213,10 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
     
     // подготавливаем внешний вид товара
-    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n\n📦 Осталось: ${item.limit_tr ? `: ${item.limit}` : '♾️'}`;
+    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
     const attached = item?.image?.includes('photo') ? item.image : null
     await context.send(`${text_item}`, { attachment: attached })
-    const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `хотите купить данный товар?`);
+    const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный товар?`);
         //await context.send(confirm.text);
     if (!confirm_ask.status) { return res }
     if (balance.amount < item.price) {
@@ -230,20 +232,22 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price } } });
+    answer_log += `✅ Вы купили "${item.name}" за ${item.price}${coin_get.smile}.\n Ваш баланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
+    answer_chat_log += `🛍 @id${user.idvk}(${user.name}) купил "${item.name}", ${balance.amount}-${item.price}=${buying_act.amount}${coin_get.smile}`
     // Списание баллов факультета
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
     if (coin_get?.point == true && balance_facult_check) {
         const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price } } })
         if (balance_facult_plus) {
-            //answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
-            //answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_log += `\n\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_chat_log += `\n\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
         }
     }
     // Выдача предмета
-    /*await prisma.inventory.create({
+    const save_item = await prisma.inventoryAllianceShop.create({
         data: { id_user: user.id, id_item: item.id }
-    });*/
+    });
 
     // Обновление лимита
     if (item.limit_tr) {
@@ -254,7 +258,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
     // Логирование
     await Logger(`Игрок @id${context.senderId} купил "${item.name}" за ${item.price} монет`);
-    await Send_Message(chat_id, `🛍 @id${context.senderId}(Player) купил "${item.name}"`);
+    await Send_Message(chat_id, `${answer_chat_log}`);
 
     // Кнопка "ОК"
     const okKeyboard = new KeyboardBuilder()
@@ -262,7 +266,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         .inline().oneTime();
 
     await context.send({
-        message: `✅ Вы купили "${item.name}" за ${item.price} монет.`,
+        message: `${answer_log}`,
         keyboard: okKeyboard
     });
 

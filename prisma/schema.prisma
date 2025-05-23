@@ -36,39 +36,40 @@ model Monitor {
 }
 
 model Limiter {
-  id         Int     @id @default(autoincrement())
-  monitor    Monitor @relation(fields: [id_monitor], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id         Int      @id @default(autoincrement())
+  monitor    Monitor  @relation(fields: [id_monitor], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_monitor Int
   id_user    Int
-  user       User    @relation(fields: [id_user], references: [id], onDelete: Cascade)
-  likes      Int     @default(0)
-  comment    Int     @default(0)
+  user       User     @relation(fields: [id_user], references: [id], onDelete: Cascade)
+  likes      Int      @default(0)
+  comment    Int      @default(0)
   update     DateTime @default(now())
 }
 
 model User {
-  id          Int           @id @default(autoincrement())
-  name        String
-  class       String
-  idvk        Int
-  spec        String
-  id_alliance Int?
-  medal       Int           @default(5)
-  id_facult   Int?
-  private     Boolean       @default(false)
-  notification Boolean      @default(true)
-  crdate      DateTime      @default(now())
-  id_role     Int           @default(1)
-  role        Role          @relation(fields: [id_role], references: [id], onDelete: Cascade)
-  id_account  Int           @default(1)
-  account     Account       @relation(fields: [id_account], references: [id], onDelete: Cascade)
-  Artefact    Artefact[]
-  Inventory   Inventory[]
-  Trigger     Trigger[]
-  Achievement Achievement[]
-  Analyzer    Analyzer[]
-  BalanceCoin BalanceCoin[]
-  Limiter     Limiter[]
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  class                 String
+  idvk                  Int
+  spec                  String
+  id_alliance           Int?
+  medal                 Int                     @default(5)
+  id_facult             Int?
+  private               Boolean                 @default(false)
+  notification          Boolean                 @default(true)
+  crdate                DateTime                @default(now())
+  id_role               Int                     @default(1)
+  role                  Role                    @relation(fields: [id_role], references: [id], onDelete: Cascade)
+  id_account            Int                     @default(1)
+  account               Account                 @relation(fields: [id_account], references: [id], onDelete: Cascade)
+  Artefact              Artefact[]
+  Inventory             Inventory[]
+  Trigger               Trigger[]
+  Achievement           Achievement[]
+  Analyzer              Analyzer[]
+  BalanceCoin           BalanceCoin[]
+  Limiter               Limiter[]
+  InventoryAllianceShop InventoryAllianceShop[]
 }
 
 model BlackBox {
@@ -163,7 +164,7 @@ model Alliance {
   AllianceCoin    AllianceCoin[]
   AllianceFacult  AllianceFacult[]
   Monitor         Monitor[]
-  Shop           AllianceShop[]
+  Shop            AllianceShop[]
 }
 
 model AllianceCoin {
@@ -209,30 +210,39 @@ model BalanceFacult {
 }
 
 model AllianceShop {
-  id        Int            @id @default(autoincrement())
-  name      String
+  id            Int                    @id @default(autoincrement())
+  name          String
   id_alliance   Int
-  Alliance  Alliance        @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  Shop_category    AllianceShopCategory[]
+  Alliance      Alliance               @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Shop_category AllianceShopCategory[]
 }
 
 model AllianceShopCategory {
-  id        Int            @id @default(autoincrement())
-  name      String
-  id_alliance_shop   Int
-  Alliance_Shop  AllianceShop        @relation(fields: [id_alliance_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  Shop_item    AllianceShopItem[]
+  id               Int                @id @default(autoincrement())
+  name             String
+  id_alliance_shop Int
+  Alliance_Shop    AllianceShop       @relation(fields: [id_alliance_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  Shop_item        AllianceShopItem[]
 }
 
 model AllianceShopItem {
-  id        Int @id @default(autoincrement())
-  name        String
-  description String?
-  image       String?
-  price       Int
-  id_coin     Int
-  limit       Int
-  limit_tr Boolean
-  shop      AllianceShopCategory   @relation(fields: [id_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  id_shop   Int
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  description           String?
+  image                 String?
+  price                 Int
+  id_coin               Int
+  limit                 Int
+  limit_tr              Boolean
+  shop                  AllianceShopCategory    @relation(fields: [id_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_shop               Int
+  InventoryAllianceShop InventoryAllianceShop[]
+}
+
+model InventoryAllianceShop {
+  id      Int              @id @default(autoincrement())
+  id_user Int
+  id_item Int
+  item    AllianceShopItem @relation(fields: [id_item], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [id_user], references: [id], onDelete: Cascade)
 }
