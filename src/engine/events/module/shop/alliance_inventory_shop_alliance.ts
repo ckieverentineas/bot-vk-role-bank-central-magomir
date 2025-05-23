@@ -122,7 +122,7 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
     const attached = item.image ? item.image : null;
 
     const okKeyboard = new KeyboardBuilder()
-        .textButton({ label: `✅ ОК`, payload: { command: 'inventory_ok' }, color: 'positive' })
+        .textButton({ label: `✅ ОК`, payload: { command: 'inventory_return' }, color: 'positive' })
         .inline().oneTime();
 
     await Send_Message_Universal(context.peerId, text, okKeyboard, attached);
@@ -155,7 +155,7 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
         await Logger(`Игрок @id${user_adm?.idvk} удалил "${deleted.item.name}" из инвентаря`);
         await context.send(`Вы удалили "${deleted.item.name}" из инвентаря.`);
         if(user_adm) {
-            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.item.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в африке, а не себе, или хотябы пожертвовали в Азкабан.`);
+            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.item.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
             await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.item.name}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
         } else { 
             await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.item.name}" из инвентаря`);

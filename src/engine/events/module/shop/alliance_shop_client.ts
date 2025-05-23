@@ -262,7 +262,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     // Кнопка "ОК"
     const okKeyboard = new KeyboardBuilder()
-        .textButton({ label: `✅ ОК`, payload: { command: 'buyershop_item_ok' }, color: 'positive' })
+        .textButton({ label: `✅ ОК`, payload: { command: 'buyershop_item_return' }, color: 'positive' })
         .inline().oneTime();
 
     await context.send({
