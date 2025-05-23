@@ -6,12 +6,14 @@ import { ico_list } from "../data_center/icons_lib"
 import { Back } from "./operation_global"
 import { Editor } from "./person_editor"
 import { User } from "@prisma/client"
+import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
 
 //Модуль доп клавиатуры
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
     const keyboard = new KeyboardBuilder()
     keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
-    .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' }).row()
+    .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' })
+    .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
     if (await Accessed(context) == 3) { keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) }
@@ -21,6 +23,7 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
     const config: any = {
         'back': Back,
         'inventory_show': Inventory_Show,
+        'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
         'user_delete': User_delete,
         'user_drop': User_Drop,
         'editor': Editor,
@@ -31,6 +34,11 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
     } else {
         await context.send(`⚙ Операция отменена пользователем.`)
     }
+}
+
+async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: User) {
+    const user_get: any = await prisma.user.findFirst({ where: { id: id } })
+    await Inventory_Printer(context, user_get, user_adm);
 }
 
 async function User_Drop(id: number, context: any, user_adm: User) {

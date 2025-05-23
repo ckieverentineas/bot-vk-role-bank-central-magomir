@@ -32,7 +32,7 @@ async function Inventory_Get(cursor: number, user_id: number): Promise<Inventory
     return res;
 }
 
-export async function Inventory_Printer(context: any, user: User) {
+export async function Inventory_Printer(context: any, user: User, user_adm?: User) {
     let inventory_tr = false;
     let cursor = 0;
 
@@ -50,12 +50,14 @@ export async function Inventory_Printer(context: any, user: User) {
                 payload: { command: 'inventory_select', cursor, id_item: inv.id },
                 color: 'secondary'
             })
-            .textButton({
-                label: `⛔`,
-                payload: { command: 'inventory_delete', cursor, id_item: inv.id },
-                color: 'negative'
-            }).row();
-
+            if (user_adm) {
+                keyboard.textButton({
+                    label: `⛔`,
+                    payload: { command: 'inventory_delete', cursor, id_item: inv.id },
+                    color: 'negative'
+                });
+            }
+            keyboard.row()
             event_logger += `🧳 ${inv.id} - ${item.name}\n`;
         }
 
@@ -73,7 +75,7 @@ export async function Inventory_Printer(context: any, user: User) {
         event_logger += `\n${1 + cursor} из ${totalItems}`;
 
         const inv_bt = await context.question(
-            `🎒 Ваш инвентарь:\n${event_logger}`,
+            `🎒 ${user_adm ? `${user.name}` : 'Ваш'} инвентарь:\n${event_logger}`,
             { keyboard, answerTimeLimit }
         );
 
@@ -95,13 +97,13 @@ export async function Inventory_Printer(context: any, user: User) {
             'inventory_return': Inventory_Return
         };
 
-        const ans = await config[inv_bt.payload.command](context, inv_bt.payload, user);
+        const ans = await config[inv_bt.payload.command](context, inv_bt.payload, user, user_adm);
         cursor = ans?.cursor ?? cursor;
         inventory_tr = ans.stop ?? false;
     }
 }
 
-async function Inventory_Select(context: any, data: any, user: User) {
+async function Inventory_Select(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor };
     const inv = await prisma.inventoryAllianceShop.findFirst({
         where: { id: data.id_item },
@@ -128,7 +130,7 @@ async function Inventory_Select(context: any, data: any, user: User) {
     return res;
 }
 
-async function Inventory_Delete(context: any, data: any, user: User) {
+async function Inventory_Delete(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor };
     const inv = await prisma.inventoryAllianceShop.findFirst({
         where: { id: data.id_item },
@@ -150,25 +152,30 @@ async function Inventory_Delete(context: any, data: any, user: User) {
     });
 
     if (deleted) {
-        await Logger(`Игрок @id${user.idvk} удалил "${deleted.item.name}" из инвентаря`);
+        await Logger(`Игрок @id${user_adm?.idvk} удалил "${deleted.item.name}" из инвентаря`);
         await context.send(`Вы удалили "${deleted.item.name}" из инвентаря.`);
-        await Send_Message(chat_id, `🎒 @id${user.idvk}(Player) удаляет "${deleted.item.name}" из инвентаря`);
+        if(user_adm) {
+            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.item.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в африке, а не себе, или хотябы пожертвовали в Азкабан.`);
+            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.item.name}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
+        } else { 
+            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.item.name}" из инвентаря`);
+        }
     }
 
     return res;
 }
 
-async function Inventory_Next(context: any, data: any, user: User) {
+async function Inventory_Next(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor + 5 };
     return res;
 }
 
-async function Inventory_Back(context: any, data: any, user: User) {
+async function Inventory_Back(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor - 5 };
     return res;
 }
 
-async function Inventory_Return(context: any, data: any, user: User) {
+async function Inventory_Return(context: any, data: any, user: User, user_adm?: User) {
     const res = { stop: true };
     await context.send(`Вы вышли из инвентаря.`);
     return res;
