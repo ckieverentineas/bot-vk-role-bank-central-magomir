@@ -396,7 +396,7 @@ async function Medal_Up_Many(uids: number[], context: any, person_adm: User) {
         const user_get: any = await prisma.user.findFirst({ where: { id } })
         if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
         const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
-        const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+        const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
         const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
         await Send_Message(chat_id, ans_log)
@@ -412,7 +412,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
         if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
         if (user_get.medal-count >= 0) {
             const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-            const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+            const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
             const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
             await Send_Message(chat_id, ans_log)
@@ -430,7 +430,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
             if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на снятие жетонов с ${user_get.name} истекло!`) }
             if (confirmq.payload.command === 'confirm') {
                 const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-                const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+                const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
                 const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 await Send_Message(chat_id, ans_log)

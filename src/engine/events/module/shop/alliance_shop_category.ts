@@ -37,6 +37,11 @@ export async function AllianceShopCategory_Printer(context: any, id_shop: number
                 color: 'secondary'
             })
             .textButton({
+                label: `✏`,
+                payload: { command: 'allianceshopcategory_edit', cursor, id_category: category.id },
+                color: 'secondary'
+            })
+            .textButton({
                 label: `⛔`,
                 payload: { command: 'allianceshopcategory_delete', cursor, id_category: category.id },
                 color: 'negative'
@@ -80,13 +85,59 @@ export async function AllianceShopCategory_Printer(context: any, id_shop: number
             'allianceshopcategory_next': AllianceShopCategory_Next,
             'allianceshopcategory_back': AllianceShopCategory_Back,
             'allianceshopcategory_return': AllianceShopCategory_Return,
-            'allianceshopcategory_delete': AllianceShopCategory_Delete
+            'allianceshopcategory_delete': AllianceShopCategory_Delete,
+            'allianceshopcategory_edit': AllianceShopCategory_Edit
         };
 
         const ans = await config[category_bt.payload.command](context, category_bt.payload, shop);
         cursor = ans?.cursor ?? cursor;
         category_tr = ans.stop ?? false;
     }
+}
+
+async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
+    const res = { cursor: data.cursor };
+    const category_id = data.id_category;
+
+    // Получаем текущую категорию
+    const category_check = await prisma.allianceShopCategory.findFirst({
+        where: { id: category_id }
+    });
+
+    if (!category_check) {
+        await context.send(`❌ Категория не найдена.`);
+        return res;
+    }
+
+    // Запрашиваем новое имя
+    const name = await context.question(
+        `🧷 Вы редактируете категорию "${category_check.name}". Введите новое название (до 100 символов):`,
+        { answerTimeLimit }
+    );
+
+    if (name.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
+    }
+
+    if (name.text.length === 0 || name.text.length > 100) {
+        await context.send(`💡 Название должно быть от 1 до 100 символов!`);
+        return res;
+    }
+
+    // Обновляем категорию
+    const updatedCategory = await prisma.allianceShopCategory.update({
+        where: { id: category_check.id },
+        data: { name: name.text }
+    });
+
+    if (updatedCategory) {
+        await Logger(`Категория обновлена: ${category_check.id} → "${category_check.name}" → "${updatedCategory.name}" админом ${context.senderId}`);
+        await context.send(`Вы обновили категорию: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`);
+        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > обновляет категорию: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`);
+    }
+
+    return res;
 }
 
 async function AllianceShopCategory_Select(context: any, data: any, shop: any) {

@@ -121,7 +121,7 @@ async function Medal_Up(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } })
     if (!user_get) { return }
     const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
-    const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+    const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
     !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_get.name} не доставлено`) : await context.send(`⚙ Операция начисления министерских жетонов завершена успешно`)
     const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
     await Send_Message(chat_id, ans_log)
@@ -133,7 +133,7 @@ async function Medal_Down(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id } })
     if (user_get.medal-count >= 0) {
         const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-        const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+        const notif_ans = await Send_Message_Detected(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_get.name} не доставлено`) : await context.send(`⚙ Операция снятия министерских жетонов завершена успешно`)
         const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
         await Send_Message(chat_id, ans_log)
@@ -283,7 +283,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
             break;
     }
     if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-    const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
+    const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом, ${user.name}: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
     !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
     const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
     const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
@@ -414,7 +414,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
                 break;
         }
         if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-        const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
+        const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом, ${user.name}: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
         const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
         const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)

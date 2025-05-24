@@ -36,6 +36,11 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
                 color: 'secondary'
             })
             .textButton({
+                label: `✏`,
+                payload: { command: 'allianceshop_edit', cursor, id_shop: shop.id },
+                color: 'secondary'
+            })
+            .textButton({
                 label: `⛔`,
                 payload: { command: 'allianceshop_delete', cursor: cursor, id_shop: shop.id },
                 color: 'negative'
@@ -95,13 +100,56 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
             'allianceshop_next': AllianceShop_Next,
             'allianceshop_back': AllianceShop_Back,
             'allianceshop_return': AllianceShop_Return,
-            'allianceshop_delete': AllianceShop_Delete
+            'allianceshop_delete': AllianceShop_Delete,
+            'allianceshop_edit': AllianceShop_Edit
         };
 
         const ans = await config[shop_bt.payload.command](context, shop_bt.payload, id_alliance);
         cursor = ans?.cursor ?? cursor;
         shop_tr = ans.stop ?? false;
     }
+}
+
+async function AllianceShop_Edit(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const shop_id = data.id_shop;
+
+    // Получаем текущий магазин
+    const shop_check = await prisma.allianceShop.findFirst({ where: { id: shop_id } });
+    if (!shop_check) {
+        await context.send(`❌ Магазин не найден.`);
+        return res;
+    }
+
+    // Запрашиваем новое имя
+    const name = await context.question(
+        `🧷 Вы редактируете магазин "${shop_check.name}". Введите новое название (до 100 символов):`,
+        { answerTimeLimit }
+    );
+
+    if (name.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
+    }
+
+    if (name.text.length === 0 || name.text.length > 100) {
+        await context.send(`💡 Название должно быть от 1 до 100 символов!`);
+        return res;
+    }
+
+    // Обновляем магазин
+    const updatedShop = await prisma.allianceShop.update({
+        where: { id: shop_check.id },
+        data: { name: name.text }
+    });
+
+    if (updatedShop) {
+        await Logger(`Магазин обновлён: ${shop_check.id} → "${shop_check.name}" → "${updatedShop.name}" админом ${context.senderId}`);
+        await context.send(`Вы обновили магазин: ${shop_check.id}-${shop_check.name} -> ${shop_check.id}-${updatedShop.name}`);
+        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > обновляет магазин: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`);
+    }
+
+    return res;
 }
 
 async function AllianceShop_Delete(context: any, data: any) {
