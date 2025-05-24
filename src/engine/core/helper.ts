@@ -592,3 +592,12 @@ export function Get_Url_Picture(url: string): string | null {
     const match = url.match(/photo-\d+_\d+/);
     return match ? match[0] : null;
 }
+
+export async function Send_Message_Smart(context: any, user: User, message: string) {
+    const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
+    const user_adm: User | null | undefined = await Person_Get(context)
+    const notif_ans = await Send_Message_Detected(user.idvk, `🔔 Уведомление для ${user.name}\n💬 ${message}`)
+    !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
+    const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`)
+    if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`) }
+}

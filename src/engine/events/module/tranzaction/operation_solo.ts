@@ -1,6 +1,6 @@
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Message_Detected, Send_Message_Smart } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -283,11 +283,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
             break;
     }
     if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-    const notif_ans = await Send_Message_Detected(user.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом, ${user.name}: ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n Уведомление: ${messa}\n${facult_income}`)
-    !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
-    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${findas?.amount} ${person.operation} ${person.amount} = ${incomer} для @id${user.idvk}(${user.name}) 🧷: ${messa}\n${facult_income}`
-    const notif_ans_chat = await Send_Message_Detected(alli_get?.id_chat ?? 0, ans_log)
-    if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
+    await Send_Message_Smart(context, user, `"${person.operation} ${person.amount}${person.coin?.smile}" --> ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n🧷 Сообщение: ${messa}\n${facult_income}`)
     await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
 }
 

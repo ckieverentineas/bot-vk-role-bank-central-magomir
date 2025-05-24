@@ -142,7 +142,12 @@ async function startMonitor(monitor: any) {
             await Logger(`(system) ~ running monitor ${monitor.name}-${monitor.idvk} success by <system> №0`);
             await Sleep(5000);
             await Send_Message(chat_id, `🎥 Мама я заработаль, монитор №${monitor.id} по адресу: https://vk.com/club${monitor.idvk}`);
-            await vks.api.groups.enableOnline({ group_id: monitor.idvk });
+            try {
+                await vks.api.groups.enableOnline({ group_id: monitor.idvk });
+            } catch (e) {
+                Logger(`${e}`)
+            }
+            
         }).catch(console.error);
     } catch (error) {
         console.error(error);

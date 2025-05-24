@@ -108,7 +108,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     if (description.isTimeout) return res;
     desc = description.text;
 
-    const imageUrl = await context.question(`📷 Вставьте ссылку на изображение (или "нет"):`, timer_text);
+    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"):`, timer_text);
     if (imageUrl.isTimeout) return res;
     image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
 
@@ -226,7 +226,7 @@ async function AllianceShopItem_Edit(context: any, data: any, category: any) {
     const desc = await context.question(`📝 Введите описание товара (или "нет"), сейчас [${item_check.description}]`, timer_text);
     if (desc.isTimeout) return res;
 
-    const imageUrl = await context.question(`📷 Вставьте ссылку на изображение (или "нет"), сейчас [${item_check.image}]`, timer_text);
+    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${item_check.image}]`, timer_text);
     if (imageUrl.isTimeout) return res;
 
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
