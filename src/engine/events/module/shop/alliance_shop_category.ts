@@ -145,10 +145,16 @@ async function AllianceShopCategory_Select(context: any, data: any, shop: any) {
 async function AllianceShopCategory_Delete(context: any, data: any, shop: any) {
     const res = { cursor: data.cursor };
     const category_check = await prisma.allianceShopCategory.findFirst({ where: { id: data.id_category } });
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}?`);
 
-    await context.send(confirm.text);
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}?`);
+    //await context.send(confirm.text);
     if (!confirm.status) return res;
+    const confirm2: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}, все товары в данной категории пропадут?`);
+    //await context.send(confirm.text);
+    if (!confirm2.status) return res;
+    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}, все покупки из инвенторя пользователя исчезнут данных товаров?`);
+    //await context.send(confirm.text);
+    if (!confirm3.status) return res;
 
     if (category_check) {
         const category_del = await prisma.allianceShopCategory.delete({ where: { id: category_check.id } });

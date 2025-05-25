@@ -213,6 +213,7 @@ model AllianceShop {
   id            Int                    @id @default(autoincrement())
   name          String
   id_alliance   Int
+  id_user_owner Int                    @default(0)
   Alliance      Alliance               @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
   Shop_category AllianceShopCategory[]
 }

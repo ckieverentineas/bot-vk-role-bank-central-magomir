@@ -9,6 +9,7 @@ import prisma from "../prisma_client"
 import { Back, Ipnut_Gold, Ipnut_Message } from "./operation_global"
 import { Sub_Menu } from "./operation_sub"
 import { ico_list } from "../data_center/icons_lib"
+import { AllianceShop_Get } from "../shop/alliance_shop"
 
 
 
@@ -93,6 +94,7 @@ export async function Operation_Solo(context: any) {
     keyboard.textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
     .textButton({ label: `♾️${info_coin?.smile}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' }).row()
     .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' })
+    .textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' })
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .oneTime().inline()
     const ans: any = await context.question(`✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard, answerTimeLimit })
@@ -103,7 +105,8 @@ export async function Operation_Solo(context: any) {
         'medal_up': Medal_Up,
         'medal_down': Medal_Down,
         'coin_engine': Coin_Engine,
-        'coin_engine_infinity': Coin_Engine_Infinity
+        'coin_engine_infinity': Coin_Engine_Infinity,
+        'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector
     }
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
@@ -114,6 +117,39 @@ export async function Operation_Solo(context: any) {
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
 }
 
+async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: User) {
+    const user_get: User | null = await prisma.user.findFirst({ where: { id } })
+    if (!user_get) { return }
+    const uid: any = await context.question( `🧷 Введите SUID магазина для назначения владельцем:`,
+        {   
+            keyboard: Keyboard.builder()
+            .textButton({ label: '🚫Отмена', payload: { command: 'limited' }, color: 'secondary' })
+            .oneTime().inline(),
+            timer_text
+        }
+    )
+    if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
+    if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
+        const get_alliance_shop = await prisma.allianceShop.findFirst({ where: { id: Number(uid.text) } })
+        if (get_alliance_shop && (user_adm?.id_alliance == get_alliance_shop.id_alliance || user_get?.id_alliance == get_alliance_shop.id_alliance)) {
+            const shop_up = await prisma.allianceShop.update({ where: { id: get_alliance_shop.id }, data: { id_user_owner: user_get.id } })
+            const owner_old = await prisma.user.findFirst({ where: { id: get_alliance_shop.id_user_owner } })
+            await Send_Message_Smart(context, user_get, `"🛍 Назначить владение магазином [${shop_up?.name}]" --> изменен владелец магазина ${owner_old?.id}-${owner_old?.name} -> ${shop_up.id_user_owner}-${user_get.name}`)
+        } else { 
+            if (get_alliance_shop?.id_alliance != user_get?.id_alliance) {
+                await context.send(`💡 Игрок ${user_get?.name} ${user_get?.id} в ролевой AUID: ${user_get?.id_alliance}, в то время, как магазин состоит в AUID: ${get_alliance_shop?.id_alliance}`)
+            } else {
+                await context.send(`💡 Нет такого магазина!`) 
+            }
+        }
+    } else {
+        if (uid.text == "🚫Отмена") { 
+            return await context.send(`💡 Операции прерваны пользователем!`) 
+            
+        }
+        await context.send(`💡 Необходимо ввести корректный UID!`)
+    }
+}
 // модуль Министреских начислений
 async function Medal_Up(id: number, context: any, user_adm: User) {
     const count: number = await Ipnut_Gold(context, 'начисления министерских жетонов') 

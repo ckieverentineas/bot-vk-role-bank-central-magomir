@@ -147,9 +147,15 @@ async function AllianceShopItem_Delete(context: any, data: any, category: any) {
     const confirm = await Confirm_User_Success(context, `удалить товар "${item.name}"?`);
     await context.send(confirm.text);
     if (!confirm.status) return res;
+    const confirm2 = await Confirm_User_Success(context, `удалить товар "${item.name}", все купленные товары также исчезнут из инвентаря игроков?`);
+    await context.send(confirm.text);
+    if (!confirm2.status) return res;
+    const confirm3 = await Confirm_User_Success(context, `удалить товар "${item.name}", вы можете скрыть товар для покупки, вы уверены?`);
+    await context.send(confirm.text);
+    if (!confirm3.status) return res;
 
-    await prisma.allianceShopItem.delete({ where: { id: item.id } });
-
+    const item_del = await prisma.allianceShopItem.delete({ where: { id: item.id } });
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  удален товар из магазина и у всех игроков из инвентаря: ${item_del.id}-${item_del.name}`)
     await context.send(`✅ Товар удалён из магазина`);
 
     return res;
@@ -180,7 +186,7 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
     const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
     if (!alli_shop) { return }
     const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
-    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n ${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n⚙ Выберите действие:`;
+    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n⚙ Выберите действие:`;
     const keyboard = new KeyboardBuilder()
         .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
         .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()

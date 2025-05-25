@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart_Callback } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
@@ -183,7 +183,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
 
 async function Buyer_Item_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
-    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item }, include: { shop: { include: { Alliance_Shop: true } } } });
     let answer_log = ''
     let answer_chat_log = ''
     if (!item) {
@@ -253,11 +253,11 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (item.limit_tr) {
         await prisma.allianceShopItem.update({
             where: { id: item.id },
-            data: { limit: item.limit - 1 }
+            data: { limit: { decrement: 1 } }
         });
     }
     // Логирование
-    await Logger(`Игрок @id${context.senderId} купил "${item.name}" за ${item.price} монет`);
+    await Logger(`Игрок @id${context.senderId}(${user.name}) покупает "${item.name}" за ${item.price} монет`);
     await Send_Message(chat_id, `${answer_chat_log}`);
 
     // Кнопка "ОК"
@@ -269,7 +269,23 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         message: `${answer_log}`,
         keyboard: okKeyboard
     });
-
+    //модуль откатов
+    let answer_owner_alliance_log = ''
+    const user_payed_check = await prisma.user.findFirst({ where: { id: item.shop.Alliance_Shop.id_user_owner } })
+    if (!user_payed_check) { return res; }
+    const user_payed_balance_check = await prisma.balanceCoin.findFirst({ where: { id_user: user_payed_check.id, id_coin: item.id_coin } })
+    if (!user_payed_balance_check) { return res; }
+    const user_paying = await prisma.balanceCoin.update({ where: { id: user_payed_balance_check.id }, data: { amount: { increment: item.price } } })
+    if (!user_paying) { return res; }
+    const alli_fac_owner = await prisma.allianceFacult.findFirst({ where: { id: user_payed_check.id_facult ?? 0 } })
+    const balance_facult_check_owner = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user_payed_check.id_facult ?? 0 } })
+    if (coin_get?.point == true && balance_facult_check_owner) {
+        const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price } } })
+        if (balance_facult_plus_owner) {
+            answer_owner_alliance_log += `\n\n🌐 "+${coin_get?.smile}" > ${balance_facult_check_owner.amount} + ${item.price} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
+        }
+    }
+    await Send_Message_Smart_Callback(user_payed_check, `"+ ${coin_get?.smile}" --> продажа товара через магазин [${item.shop.Alliance_Shop.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`)
     return res;
 }
 

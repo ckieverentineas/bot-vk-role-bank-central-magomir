@@ -4,7 +4,7 @@ import { answerTimeLimit, chat_id, timer_text } from "../../../..";
 import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 
-async function AllianceShop_Get(cursor: number, id_alliance: number) {
+export async function AllianceShop_Get(cursor: number, id_alliance: number) {
     const batchSize = 5;
     let counter = 0;
     let limiter = 0;
@@ -30,6 +30,7 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
         let event_logger = '';
 
         for await (const shop of await AllianceShop_Get(cursor, id_alliance)) {
+            const user_owner = await prisma.user.findFirst({ where: { id: shop.id_user_owner } })
             keyboard.textButton({
                 label: `🧾 ${shop.id}-${shop.name.slice(0, 30)}`,
                 payload: { command: 'allianceshop_select', cursor: cursor, id_shop: shop.id },
@@ -46,7 +47,7 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
                 color: 'negative'
             }).row();
 
-            event_logger += `💬 ${shop.id} - ${shop.name}\n`;
+            event_logger += `💬 ${shop.id} - ${shop.name}, владелец [${user_owner?.name}-${user_owner?.id}]\n`;
         }
 
         if (cursor >= 5) {
@@ -152,9 +153,14 @@ async function AllianceShop_Delete(context: any, data: any) {
     const res = { cursor: data.cursor };
     const shop_check = await prisma.allianceShop.findFirst({ where: { id: data.id_shop } });
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}?`);
-
-    await context.send(confirm.text);
+    //await context.send(confirm.text);
     if (!confirm.status) return res;
+    const confirm2: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}, все категории магазина и их товары исчезнут?`);
+    //await context.send(confirm.text);
+    if (!confirm2.status) return res;
+    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}, все покупки из данного магазина в инвентарях игроков пропадут?`);
+    //await context.send(confirm.text);
+    if (!confirm3.status) return res;
 
     if (shop_check) {
         const shop_del = await prisma.allianceShop.delete({ where: { id: shop_check.id } });

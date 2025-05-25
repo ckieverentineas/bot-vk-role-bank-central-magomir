@@ -611,6 +611,14 @@ export async function Send_Message_Smart_Self(context: any, message: string) {
     await Logger(`🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`);
 }
 
+export async function Send_Message_Smart_Callback(user_target: User, message: string) {
+    const alliance = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
+    await Send_Message(user_target.idvk, `🔔 Уведомление для ${user_target.name}\n💬 ${message}`)
+    const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat ?? 0, `👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`)
+    if (!notif_ans_chat ) { await Send_Message(chat_id, `👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`) }
+    await Logger(`👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`);
+}
+
 /**
  * Функция выбора валюты из списка альянса
  * @param context VK.IO контекст
