@@ -6,7 +6,7 @@ import { Image_Interface, Image_Random } from "./imagecpu"
 import { promises as fsPromises } from 'fs'
 import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
-import { User } from "@prisma/client"
+import { AllianceCoin, User } from "@prisma/client"
 import { Person_Get } from "../events/module/person/person"
 import { ico_list } from "../events/module/data_center/icons_lib"
 
@@ -600,4 +600,103 @@ export async function Send_Message_Smart(context: any, user: User, message: stri
     !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
     const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`)
     if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`) }
+}
+
+export async function Send_Message_Smart_Self(context: any, message: string) {
+    const user_adm: User | null | undefined = await Person_Get(context)
+    const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } })
+    await context.send(`✅ ${message}`)
+    const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`)
+    if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`) }
+    await Logger(`🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`);
+}
+
+/**
+ * Функция выбора валюты из списка альянса
+ * @param context VK.IO контекст
+ * @param id_alliance ID альянса, чьи валюты показываем
+ * @returns ID выбранной валюты или null
+ */
+export async function Select_Alliance_Coin(context: any, id_alliance: number): Promise<number | null> {
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({
+        where: { id_alliance: Number(id_alliance) }
+    });
+
+    if (!coin_pass || coin_pass.length === 0) {
+        await context.send(`${ico_list['warn'].ico} Админы ещё не создали ролевые валюты.`);
+        return null;
+    }
+
+    let coin_check = false;
+    let id_builder_sent1 = 0;
+
+    while (!coin_check) {
+        const keyboard = new KeyboardBuilder();
+        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1);
+        let event_logger = `${ico_list['money'].ico} Выберите валюту:\n\n`;
+
+        const limiter = 5;
+        let counter = 0;
+
+        for (let i = id_builder_sent1; i < coin_pass.length && counter < limiter; i++) {
+            const builder = coin_pass[i];
+            keyboard.textButton({
+                label: `${builder.smile}-${builder.name.slice(0, 30)}`,
+                payload: { command: 'select_coin', id_builder_sent1: i, id_coin: builder.id, coin: builder.name },
+                color: 'secondary'
+            }).row();
+
+            event_logger += `\n${ico_list['message'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}`;
+            counter++;
+        }
+
+        event_logger += `\n\n${coin_pass.length > 1 ? `~~~~ ${Math.min(id_builder_sent1 + limiter, coin_pass.length)} из ${coin_pass.length} ~~~~` : ''}`;
+
+        // Навигация ← →
+        if (id_builder_sent1 > 0) {
+            keyboard.textButton({
+                label: `${ico_list['back'].ico}`,
+                payload: { command: 'select_coin_back', id_builder_sent1 },
+                color: 'secondary'
+            });
+        }
+
+        if (id_builder_sent1 + limiter < coin_pass.length) {
+            keyboard.textButton({
+                label: `${ico_list['next'].ico}`,
+                payload: { command: 'select_coin_next', id_builder_sent1 },
+                color: 'secondary'
+            });
+        }
+
+        // Запрос у пользователя
+        const answer = await context.question(event_logger, {
+            keyboard: keyboard.inline(),
+            answerTimeLimit
+        });
+
+        if (answer.isTimeout) {
+            await context.send(`${ico_list['time'].ico} Время истекло!`);
+            return null;
+        }
+
+        if (!answer.payload) {
+            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам!`);
+            continue;
+        }
+
+        const cmd = answer.payload.command;
+        if (cmd === 'select_coin') {
+            // Пользователь выбрал валюту
+            return answer.payload.id_coin;
+        } else if (cmd === 'select_coin_back') {
+            // Предыдущая страница
+            id_builder_sent1 = answer.payload.id_builder_sent1;
+        } else if (cmd === 'select_coin_next') {
+            // Следующая страница
+            id_builder_sent1 = answer.payload.id_builder_sent1;
+        }
+    }
+
+    return null;
 }

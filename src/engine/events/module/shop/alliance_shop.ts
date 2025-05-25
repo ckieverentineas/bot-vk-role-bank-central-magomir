@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 
 async function AllianceShop_Get(cursor: number, id_alliance: number) {
@@ -143,11 +143,7 @@ async function AllianceShop_Edit(context: any, data: any) {
         data: { name: name.text }
     });
 
-    if (updatedShop) {
-        await Logger(`Магазин обновлён: ${shop_check.id} → "${shop_check.name}" → "${updatedShop.name}" админом ${context.senderId}`);
-        await context.send(`Вы обновили магазин: ${shop_check.id}-${shop_check.name} -> ${shop_check.id}-${updatedShop.name}`);
-        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > обновляет магазин: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`);
-    }
+    if (updatedShop) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  изменено название магазина: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`) }
 
     return res;
 }
@@ -162,11 +158,7 @@ async function AllianceShop_Delete(context: any, data: any) {
 
     if (shop_check) {
         const shop_del = await prisma.allianceShop.delete({ where: { id: shop_check.id } });
-        if (shop_del) {
-            await Logger(`Удалён магазин: ${shop_del.id}-${shop_del.name} админом ${context.senderId}`);
-            await context.send(`Вы удалили магазин: ${shop_del.id}-${shop_del.name}`);
-            await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > удаляет магазин: ${shop_del.id}-${shop_del.name}`);
-        }
+        if (shop_del) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  удален магазин: ${shop_del.id}-${shop_del.name}`) }
     }
 
     return res;
@@ -219,11 +211,7 @@ async function AllianceShop_Create(context: any, data: any, id_alliance: number)
         }
     });
 
-    if (shop_cr) {
-        await Logger(`Создан магазин: ${shop_cr.id}-${shop_cr.name} админом ${context.senderId}`);
-        await context.send(`Вы создали магазин: ${shop_cr.id}-${shop_cr.name}`);
-        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > создаёт магазин: ${shop_cr.id}-${shop_cr.name}`);
-    }
+    if (shop_cr) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  открыт новый магазин: ${shop_cr.id}-${shop_cr.name}`) }
 
     return res;
 }

@@ -2,7 +2,7 @@ import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
 import prisma from "../prisma_client";
 import { AllianceShopItem_Printer } from "./alliance_shop_item";
-import { Confirm_User_Success, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
 
 async function AllianceShopCategory_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -131,11 +131,7 @@ async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
         data: { name: name.text }
     });
 
-    if (updatedCategory) {
-        await Logger(`Категория обновлена: ${category_check.id} → "${category_check.name}" → "${updatedCategory.name}" админом ${context.senderId}`);
-        await context.send(`Вы обновили категорию: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`);
-        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > обновляет категорию: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`);
-    }
+    if (updatedCategory) { await Send_Message_Smart_Self(context, `"Конфигурация категорий магазина" -->  изменено название категории магазина [${shop?.name}]: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`) }
 
     return res;
 }
@@ -156,11 +152,7 @@ async function AllianceShopCategory_Delete(context: any, data: any, shop: any) {
 
     if (category_check) {
         const category_del = await prisma.allianceShopCategory.delete({ where: { id: category_check.id } });
-        if (category_del) {
-            await Logger(`Удалена категория: ${category_del.id}-${category_del.name} админом ${context.senderId}`);
-            await context.send(`Вы удалили категорию: ${category_del.id}-${category_del.name}`);
-            await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > удаляет категорию: ${category_del.id}-${category_del.name}`);
-        }
+        if (category_del) { await Send_Message_Smart_Self(context, `"Конфигурация категорий магазина" -->  удалена категория магазина [${shop?.name}]: ${category_del.id}-${category_del.name}`) }
     }
 
     return res;
@@ -193,11 +185,7 @@ async function AllianceShopCategory_Create(context: any, data: any, shop: any) {
             }
         });
 
-        if (category_cr) {
-            await Logger(`Создана категория: ${category_cr.id}-${category_cr.name} админом ${context.senderId}`);
-            await context.send(`Вы создали категорию: ${category_cr.id}-${category_cr.name}`);
-            await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > создаёт категорию: ${category_cr.id}-${category_cr.name}`);
-        }
+        if (category_cr) { await Send_Message_Smart_Self(context, `"Конфигурация категорий магазина" -->  добавлена новая категория магазину [${shop?.name}]: ${category_cr.id}-${category_cr.name}`) }
     }
 
     return res;

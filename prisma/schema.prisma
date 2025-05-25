@@ -234,6 +234,7 @@ model AllianceShopItem {
   id_coin               Int
   limit                 Int
   limit_tr              Boolean
+  hidden                Boolean @default(false)
   shop                  AllianceShopCategory    @relation(fields: [id_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_shop               Int
   InventoryAllianceShop InventoryAllianceShop[]

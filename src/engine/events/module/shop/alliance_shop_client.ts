@@ -109,7 +109,7 @@ async function Buyer_Item_Get(cursor: number, id_category: number) {
     let limiter = 0;
     let res: any[] = [];
 
-    for (const item of await prisma.allianceShopItem.findMany({ where: { id_shop: id_category } })) {
+    for (const item of await prisma.allianceShopItem.findMany({ where: { id_shop: id_category, hidden: false } })) {
         if ((cursor <= counter && batchSize + cursor >= counter) && limiter < batchSize) {
             res.push(item);
             limiter++;

@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart_Self, Send_Message_Universal } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -33,15 +33,10 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
 
         for await (const item of await AllianceShopItem_Get(cursor, id_category)) {
             keyboard.textButton({
-                label: `💎 ${item.id}-${item.name.slice(0, 30)}`,
-                payload: { command: 'allianceshopitem_edit', cursor, id_item: item.id },
+                label: `🧳 ${item.id}-${item.name.slice(0, 30)}`,
+                payload: { command: 'allianceshopitem_select', cursor, id_item: item.id },
                 color: 'secondary'
-            })
-            .textButton({
-                label: `⛔`,
-                payload: { command: 'allianceshopitem_delete', cursor, id_item: item.id },
-                color: 'negative'
-            }).row();
+            }).row()
 
             event_logger += `💬 ${item.id} - ${item.name}\n`;
         }
@@ -65,23 +60,16 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
             { keyboard, answerTimeLimit }
         );
 
-        if (item_bt.isTimeout) {
-            await context.send(`⏰ Время ожидания выбора истекло!`);
-            return;
-        }
+        if (item_bt.isTimeout) { await context.send(`⏰ Время ожидания выбора истекло!`); return; }
 
-        if (!item_bt.payload) {
-            await context.send(`💡 Жмите только по кнопкам!`);
-            continue;
-        }
+        if (!item_bt.payload) { await context.send(`💡 Жмите только по кнопкам!`); continue; }
 
         const config: any = {
-            'allianceshopitem_edit': AllianceShopItem_Edit,
+            'allianceshopitem_select': AllianceShopItem_Select,
             'allianceshopitem_create': AllianceShopItem_Create,
             'allianceshopitem_next': AllianceShopItem_Next,
             'allianceshopitem_back': AllianceShopItem_Back,
             'allianceshopitem_return': AllianceShopItem_Return,
-            'allianceshopitem_delete': AllianceShopItem_Delete
         };
 
         const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
@@ -96,7 +84,6 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     let desc = '';
     let image_url = '';
     let price = 0;
-    let id_coin = 0;
     let limit = 0;
     let limit_tr = false;
 
@@ -117,53 +104,8 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
     if (!alli_shop) { return }
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
-    if (!coin_pass) { await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`); return res }
-    let coin_check = false
-    let id_builder_sent1 = 0
-    while (!coin_check) {
-        const keyboard = new KeyboardBuilder()
-        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `${ico_list['money'].ico} Выберите валюту, за которую будет покупаться данный товар:\n\n`
-        const builder_list: AllianceCoin[] = coin_pass
-        if (builder_list.length > 0) {
-            const limiter = 5
-            let counter = 0
-            for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
-                const builder = builder_list[i]
-                keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
-                event_logger += `\n\n${ico_list['message'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                counter++
-            }
-            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
-            //предыдущий офис
-            if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
-                keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
-            }
-            //следующий офис
-            if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
-                keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
-            }
-        } else {
-            event_logger = `${ico_list['warn'].ico} Админы ролевой еще не создали ролевые валюты`
-            return context.send(`${event_logger}`)
-        }
-        const answer1: any = await context.question(`${event_logger}`,
-            {	
-                keyboard: keyboard.inline(), answerTimeLimit
-            }
-        )
-        if (answer1.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора статуса истекло!`) }
-        if (!answer1.payload) {
-            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
-        } else {
-            if (answer1.text == `${ico_list['next'].ico}` || answer1.text == `${ico_list['back'].ico}`) {
-                id_builder_sent1 = answer1.payload.id_builder_sent1
-            } else {
-                id_coin = answer1.payload.id_coin
-                coin_check = true
-            }
-        }
-    }
+    const selectedCoinId = await Select_Alliance_Coin(context, Number(alli_shop.id_alliance));
+    const id_coin = selectedCoinId
 
     const priceInput = await context.question(`💰 Введите цену товара:`, timer_text);
     if (priceInput.isTimeout) return res;
@@ -179,134 +121,19 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     }
 
     if (name_loc) {
-        const item = await prisma.allianceShopItem.create({
+        const item_cr = await prisma.allianceShopItem.create({
             data: {
                 name: name_loc,
                 description: desc,
                 image: image_url,
                 price,
                 id_shop: category.id,
-                id_coin: id_coin,
+                id_coin: id_coin ?? 0,
                 limit: limit,
                 limit_tr: limit_tr
             }
         });
-
-        await context.send(`✅ Товар создан: ${item.name}`);
-    }
-
-    return res;
-}
-
-async function AllianceShopItem_Edit(context: any, data: any, category: any) {
-    const res = { cursor: data.cursor };
-    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
-    if (!item_check) {
-        await context.send(`❌ Товар не найден.`);
-        return res;
-    }
-    const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
-    if (!alli_shop_cat) { return }
-    const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
-    if (!alli_shop) { return }
-    const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
-    let text_item = `🛍 Товар: ${item_check.name}\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Цена: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n ${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}`;
-    const attached = item_check?.image?.includes('photo') ? item_check.image : null
-    await context.send(`Вы просматриваете товар: ${text_item}`, { attachment: attached })
-    const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `Хотите отредактировать товар?`);
-    //await context.send(confirm.text);
-    if (!confirm_ask.status) { return res }
-    let limit = item_check?.limit
-    let limit_tr = false
-    let id_coin = item_check.id_coin
-
-    const name = await context.question(`🧷 Введите новое название товара (или "оставить"), сейчас [${item_check.name}]:`, timer_text);
-    if (name.isTimeout) return res;
-
-    const desc = await context.question(`📝 Введите описание товара (или "нет"), сейчас [${item_check.description}]`, timer_text);
-    if (desc.isTimeout) return res;
-
-    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${item_check.image}]`, timer_text);
-    if (imageUrl.isTimeout) return res;
-
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
-    if (!coin_pass) { await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`); return res }
-    let coin_check = false
-    let id_builder_sent1 = 0
-    while (!coin_check) {
-        const keyboard = new KeyboardBuilder()
-        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `${ico_list['money'].ico} Выберите валюту, за которую будет покупаться данный товар, сейчас [${item_check.id_coin}]:\n\n`
-        const builder_list: AllianceCoin[] = coin_pass
-        if (builder_list.length > 0) {
-            const limiter = 5
-            let counter = 0
-            for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
-                const builder = builder_list[i]
-                keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
-                event_logger += `\n\n${ico_list['message'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                counter++
-            }
-            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
-            //предыдущий офис
-            if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
-                keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
-            }
-            //следующий офис
-            if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
-                keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
-            }
-        } else {
-            event_logger = `${ico_list['warn'].ico} Админы ролевой еще не создали ролевые валюты`
-            return context.send(`${event_logger}`)
-        }
-        const answer1: any = await context.question(`${event_logger}`,
-            {	
-                keyboard: keyboard.inline(), answerTimeLimit
-            }
-        )
-        if (answer1.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора статуса истекло!`) }
-        if (!answer1.payload) {
-            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
-        } else {
-            if (answer1.text == `${ico_list['next'].ico}` || answer1.text == `${ico_list['back'].ico}`) {
-                id_builder_sent1 = answer1.payload.id_builder_sent1
-            } else {
-                id_coin = answer1.payload.id_coin
-                coin_check = true
-            }
-        }
-    }
-
-    const priceInput = await context.question(`💰 Введите цену товара, сейчас [${item_check.price}]:`, timer_text);
-    if (priceInput.isTimeout) return res;
-
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным, сейчас [${item_check.limit_tr ? 'лимит' : 'безлимит'}]?`);
-    await context.send(confirm.text);
-    if (confirm.status) {
-        limit_tr = true;
-        const limitInput = await context.question(`🔢 Укажите лимит товара, сейчас [${item_check.limit}]:`, timer_text);
-        if (limitInput.isTimeout) return res;
-        limit = parseInt(limitInput.text) || 0;
-    }
-
-    const updatedData: any = {};
-    if (name.text.toLowerCase() !== 'оставить') updatedData.name = name.text;
-    updatedData.description = desc.text.toLowerCase() === 'нет' ? '' : desc.text;
-    updatedData.image = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text);
-    updatedData.price = parseInt(priceInput.text) || item_check.price;
-    updatedData.limit = limit;
-    updatedData.limit_tr = limit_tr;
-
-    const item_up = await prisma.allianceShopItem.update({
-        where: { id: item_check.id },
-        data: updatedData
-    });
-
-    if (item_up) {
-        await Logger(`Товар обновлён: ${item_up.id}-${item_up.name} админом ${context.senderId}`);
-        await context.send(`Вы обновили товар: ${item_up.id}-${item_up.name}`);
-        await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > обновляет товар: ${item_up.id}-${item_up.name}`);
+        await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  добавлен новый товара: ${item_cr.id}-${item_cr.name}`)
     }
 
     return res;
@@ -314,20 +141,16 @@ async function AllianceShopItem_Edit(context: any, data: any, category: any) {
 
 async function AllianceShopItem_Delete(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
-    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить товар ${item_check?.id}-${item_check?.name}?`);
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
 
+    const confirm = await Confirm_User_Success(context, `удалить товар "${item.name}"?`);
     await context.send(confirm.text);
     if (!confirm.status) return res;
 
-    if (item_check) {
-        const item_del = await prisma.allianceShopItem.delete({ where: { id: item_check.id } });
-        if (item_del) {
-            await Logger(`Удалён товар: ${item_del.id}-${item_del.name} админом ${context.senderId}`);
-            await context.send(`Вы удалили товар: ${item_del.id}-${item_del.name}`);
-            await Send_Message(chat_id, `📅 @id${context.senderId}(GameMaster) > удаляет товар: ${item_del.id}-${item_del.name}`);
-        }
-    }
+    await prisma.allianceShopItem.delete({ where: { id: item.id } });
+
+    await context.send(`✅ Товар удалён из магазина`);
 
     return res;
 }
@@ -345,5 +168,228 @@ async function AllianceShopItem_Next(context: any, data: any, category: any) {
 
 async function AllianceShopItem_Back(context: any, data: any, category: any) {
     const res = { cursor: data.cursor - 5 };
+    return res;
+}
+
+async function AllianceShopItem_Select(context: any, data: any, category: any) {
+    const res = { cursor: data.cursor };
+    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item_check) { await context.send(`❌ Товар не найден.`); return res; }
+    const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
+    if (!alli_shop_cat) { return }
+    const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
+    if (!alli_shop) { return }
+    const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
+    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n ${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n⚙ Выберите действие:`;
+    const keyboard = new KeyboardBuilder()
+        .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
+        .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()
+        .textButton({ label: '📉 Лимит', payload: { command: 'allianceshopitem_edit_limit', id_item: item_check.id }, color: 'secondary' })
+        .textButton({ label: '📜 Описание', payload: { command: 'allianceshopitem_edit_description', id_item: item_check.id }, color: 'secondary' }).row()
+        .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
+        .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
+        .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
+        .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' }).row()
+        .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
+        .textButton({ label: '✅ Готово', payload: { command: 'allianceshopitem_return', id_item: item_check.id }, color: 'positive' }).row().inline();
+    const attached = item_check.image ? item_check.image : null;
+
+    const item_bt = await context.question(`${text}`, { keyboard, answerTimeLimit, attachment: attached });
+
+    if (item_bt.isTimeout) { await context.send(`⏰ Время ожидания выбора истекло!`); return res; }
+
+    if (!item_bt.payload) { await context.send(`💡 Жмите только по кнопкам!`); return res; }
+
+    const config: any = {
+        'allianceshopitem_return': AllianceShopItem_Return,
+        'allianceshopitem_delete': AllianceShopItem_Delete,
+        'allianceshopitem_edit_name': AllianceShopItem_Edit_Name,
+        'allianceshopitem_edit_image': AllianceShopItem_Edit_Image,
+        'allianceshopitem_edit_limit': AllianceShopItem_Edit_Limit,
+        'allianceshopitem_view_stats': AllianceShopItem_View_Stats,
+        'allianceshopitem_hide': AllianceShopItem_Hide,
+        'allianceshopitem_edit_description': AllianceShopItem_Edit_Description,
+        'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,  
+        'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin
+    };
+
+    const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
+
+    return res;
+}
+
+async function AllianceShopItem_Edit_Name(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item_check) return res;
+
+    const newName = await context.question(`🧷 Введите новое название для "${item_check.name}":`, timer_text);
+    if (newName.isTimeout || !newName.text) return res;
+
+    const item_name = await prisma.allianceShopItem.update({
+        where: { id: item_check.id },
+        data: { name: newName.text }
+    });
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменено название товара: ${item_check.id}-${item_check.name} -> ${item_name.id}-${item_name.name} `)
+    return res;
+}
+
+async function AllianceShopItem_Edit_Image(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item_check) return res;
+
+    const newImage = await context.question(`📷 Вставьте ссылку на новое изображение или "нет":`, timer_text);
+    if (newImage.isTimeout) return res;
+    const imageUrl = newImage.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(newImage.text) ?? '';
+
+    const item_image = await prisma.allianceShopItem.update({ where: { id: item_check.id }, data: { image: imageUrl } });
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменено изображение товара [${item_check.id}-${item_check.name}]: https://vk.com/${item_check.image} -> https://vk.com/${item_image?.image} `)
+    return res;
+}
+
+async function AllianceShopItem_Edit_Limit(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item_check) return res;
+    let limit = item_check?.limit
+    let limit_tr = false
+
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным, сейчас [${item_check.limit_tr ? 'лимит' : 'безлимит'}]?`);
+    await context.send(confirm.text);
+    if (confirm.status) {
+        limit_tr = true;
+        const limitInput = await context.question(`🔢 Укажите лимит товара, сейчас [${item_check.limit}]:`, timer_text);
+        if (limitInput.isTimeout) return res;
+        limit = parseInt(limitInput.text) || 0;
+    }
+    const item_limit = await prisma.allianceShopItem.update({ where: { id: item_check.id }, data: { limit_tr: limit_tr, limit: limit } });
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменен лимит товара [${item_limit.id}-${item_limit.name}]: ${item_check.limit_tr ? `количество товаров ${item_check.limit}` : 'безлимит'} -> ${item_limit.limit_tr ? `количество товаров ${item_limit.limit}` : 'безлимит'} `)
+    return res;
+}
+
+async function AllianceShopItem_View_Stats(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const purchases = await prisma.inventoryAllianceShop.count({
+        where: { id_item: data.id_item }
+    });
+
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+
+    const statsText = `📈 Статистика товара "${item.name}"\n🛒 Куплено: ${purchases} раз(а)\n📦 Осталось: ${item.limit_tr ? item.limit : '∞ Безлимит'}`;
+
+    await context.send(statsText);
+    return res;
+}
+
+async function AllianceShopItem_Hide(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+
+    const confirm = await Confirm_User_Success(context, `скрыть товар "${item.name}"?`);
+    await context.send(confirm.text);
+    if (!confirm.status) return res;
+
+    const item_hidden = await prisma.allianceShopItem.update({ where: { id: item.id }, data: { hidden: item.hidden ? false : true } });
+    if (item_hidden) { await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  ${item_hidden.hidden ? 'недоступен' : 'доступен'} к покупки товар: ${item_hidden.id}-${item_hidden.name}`) }
+
+    return res;
+}
+
+async function AllianceShopItem_Edit_Description(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+
+    const newDescription = await context.question(
+        `📝 Введите новое описание для "${item.name}"\n(текст или "нет"):\n\n${item.description || 'Нет описания'}`,
+        timer_text
+    );
+
+    if (newDescription.isTimeout) return res;
+
+    const updatedDesc = await prisma.allianceShopItem.update({
+        where: { id: item.id },
+        data: { description: newDescription.text.toLowerCase() === 'нет' ? '' : newDescription.text }
+    });
+
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> обновлено описание товара [${updatedDesc.id}-${updatedDesc.name}]: ${item.description || 'было пустым'} → ${updatedDesc.description || 'стало пустым'}`);
+    
+    return res;
+}
+
+async function AllianceShopItem_Edit_Price(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+    const coin_get = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin } })
+    const newPrice = await context.question(
+        `💰 Введите новую цену для "${item.name}". Сейчас: ${item.price}${coin_get?.smile}`,
+        timer_text
+    );
+
+    if (newPrice.isTimeout) return res;
+
+    const priceValue = parseInt(newPrice.text);
+    if (isNaN(priceValue)) {
+        await context.send(`❌ Введите число!`);
+        return res;
+    }
+
+    const updated = await prisma.allianceShopItem.update({
+        where: { id: item.id },
+        data: { price: priceValue }
+    });
+
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> изменена цена товара: ${item.price} → ${updated.price} (${item.name})`);
+    
+    return res;
+}
+
+async function AllianceShopItem_Edit_Coin(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item_check = await prisma.allianceShopItem.findFirst({
+        where: { id: data.id_item },
+        include: {
+            shop: {
+                include: {
+                    Alliance_Shop: {
+                        include: {
+                            Alliance: true
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    if (!item_check || !item_check.shop || !item_check.shop.Alliance_Shop || !item_check.shop.Alliance_Shop.Alliance) {
+        await context.send(`❌ Не удалось получить данные о магазине или альянсе`);
+        return res;
+    }
+
+    const id_alliance = item_check.shop.Alliance_Shop.Alliance.id;
+
+    // Вызываем твою универсальную функцию выбора валюты
+    const selectedCoinId = await Select_Alliance_Coin(context, id_alliance);
+    if (!selectedCoinId) {
+        await context.send(`${ico_list['warn'].ico} Выбор валюты прерван.`);
+        return res;
+    }
+    const coin_get_old = await prisma.allianceCoin.findFirst({ where: { id: item_check.id_coin } })
+    const coin_get = await prisma.allianceCoin.findFirst({ where: { id: selectedCoinId } })
+    // Обновляем товар
+    const updatedItem = await prisma.allianceShopItem.update({
+        where: { id: item_check.id },
+        data: {
+            id_coin: selectedCoinId
+        }
+    });
+    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> изменена валюта товара [${item_check.id}-${item_check.name}]: ${item_check.id_coin}-${coin_get_old?.name} → ${updatedItem.id_coin}-${coin_get?.name}`);
+
+    //await context.send(`${ico_list['success'].ico} Валюта товара обновлена на ID: ${selectedCoinId}`);
+
     return res;
 }
