@@ -2,7 +2,7 @@ import { AllianceShopItem, InventoryAllianceShop, Prisma, User } from "@prisma/c
 import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Logger, Send_Message, Send_Message_Universal } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Universal } from "../../../core/helper";
 
 export type InventoryWithItem = Prisma.InventoryAllianceShopGetPayload<{
     include: {
@@ -101,6 +101,7 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
         cursor = ans?.cursor ?? cursor;
         inventory_tr = ans.stop ?? false;
     }
+    await Keyboard_Index(context, `⌛ Вместимость неограничена, это маготехнологии министерства?`)
 }
 
 async function Inventory_Select(context: any, data: any, user: User, user_adm?: User) {

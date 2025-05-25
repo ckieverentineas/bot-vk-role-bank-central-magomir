@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 
 export async function AllianceShop_Get(cursor: number, id_alliance: number) {
@@ -109,6 +109,7 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
         cursor = ans?.cursor ?? cursor;
         shop_tr = ans.stop ?? false;
     }
+    await Keyboard_Index(context, `⌛ Магазины уже здесь, как такое произошло?`)
 }
 
 async function AllianceShop_Edit(context: any, data: any) {

@@ -26,7 +26,7 @@ import { AllianceShop_Selector } from "./events/module/shop/alliance_shop_client
 import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_alliance";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-    hearManager.hear(/Лютный переулок/, async (context) => {
+    hearManager.hear(/!Лютный переулок/, async (context) => {
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             console.log(`Admin ${context.senderId} enter in shopping`)
@@ -492,7 +492,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
-    hearManager.hear(/⚙ !настроить факультеты/, async (context) => {
+    hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Facult_Printer(context)
@@ -600,6 +600,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             \n👤 [📊 Отчатор] - меню получения информации внутри ролевого проекта
             \n👤 [➕👤] - создание нового персонажа
             \n👤 [🔃👥] - смена персонажа
+            \n👤 [🧳 Инвентарь ролевой] - просмотр покупок из ролевых магазинов
             \n⭐ [⚙ !мониторы нафиг] - вызов меню конфигурации мониторов
             \n⭐ [!привязать мониторы] - пишется в чате с ботом, чтобы привязать чат для логов с мониторов ролевого проекта
             \n⭐ [!привязать финансы] - пишется в чате с ботом, чтобы привязать чат для логов внутрифинансовых операций ролевого проекта
@@ -611,7 +612,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         )
         await Keyboard_Index(context, `⌛ 911, что у вас случилось?`)
     })
-    hearManager.hear(/!магаз/, async (context: any) => {
+    hearManager.hear(/⚙ !магазины настроить/, async (context: any) => {
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -623,7 +624,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await AllianceShop_Printer(context, user_check.id_alliance!)
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
-    hearManager.hear(/!покупки/, async (context: any) => {
+    hearManager.hear(/🛍 Магазины/, async (context: any) => {
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -634,7 +635,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await AllianceShop_Selector(context, user_check.id_alliance!)
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
-    hearManager.hear(/!инвентарь/, async (context: any) => {
+    hearManager.hear(/🧳 Инвентарь ролевой/, async (context: any) => {
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }

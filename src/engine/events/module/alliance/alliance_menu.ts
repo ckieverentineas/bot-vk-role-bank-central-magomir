@@ -16,6 +16,9 @@ export async function Alliance_Enter(context:any) {
     const facult_rank = await Facult_Rank_Printer(context)
     const text = `${ico_list['alliance'].ico} Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
     const keyboard = new KeyboardBuilder()
+    if (await prisma.allianceShop.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
+        keyboard.textButton({ label: `🛍 Магазины`, payload: { command: 'operation_enter' }, color: 'secondary' }).row()
+    }
     if (await prisma.allianceCoin.findFirst({ where: { id_alliance: get_user.id_alliance ?? 0 } })) {
         keyboard.textButton({ label: `${ico_list[`converter`].ico} Конвертер`, payload: { command: 'operation_enter' }, color: 'secondary' }).row()
     }
@@ -38,7 +41,8 @@ export async function Alliance_Enter_Admin(context:any) {
         const text = `${ico_list['alliance'].ico} Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name}] --> \n`
         const keyboard = new KeyboardBuilder()
         if (await Accessed(context) != 1) {
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить факультеты`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !факультеты настроить`, color: 'secondary' })
+            keyboard.textButton({ label: `${ico_list['config'].ico} !магазины настроить`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !настроить валюты`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !настроить конвертацию`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()

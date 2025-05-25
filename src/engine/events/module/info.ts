@@ -101,9 +101,12 @@ export async function Inventory_Enter(context: any) {
     let attached = null
     //if ((fUArr && fUArr[0] != undefined) && fUArr.length <= 20) { attached = await Image_Interface_Inventory(fUArr, context) }
     let final: any = Array.from(new Set(compile));
-    const text = final.length > 0 ? `✉ Вы приобрели следующее: \n ${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
+    const text = final.length > 0 ? `✉ Вы приобрели следующее: \n${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
     await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)
-    const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    const keyboard = new KeyboardBuilder()
+    .textButton({ label: '🧳 Инвентарь ролевой', payload: { command: 'system_call' }, color: 'secondary' }).row()
+    .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' })
+    .inline().oneTime()
     await Send_Message_Universal(context.peerId, text, keyboard, attached)
     let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
     await vk.api.messages.sendMessageEventAnswer({

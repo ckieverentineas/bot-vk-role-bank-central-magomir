@@ -115,7 +115,7 @@ export async function Keyboard_Index(context: any, messa: any) {
     if (!user_check) { return }
     const keyboard = new KeyboardBuilder()
     if (user_check.idvk == root) {
-        keyboard.textButton({ label: 'Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
+        keyboard.textButton({ label: '!Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
     }
     if (await Accessed(context) != 1) {
         keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
