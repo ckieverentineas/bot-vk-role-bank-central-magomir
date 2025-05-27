@@ -332,7 +332,7 @@ export async function AllianceShop_Selector(context: any, id_alliance: number) {
 
         for await (const shop of await Buyer_Shop_Get(cursor, id_alliance)) {
             keyboard.textButton({
-                label: `🛍 ${shop.name}`,
+                label: `🛍 ${shop.name.slice(0, 30)}`,
                 payload: { command: 'buyershop_select', cursor, id_shop: shop.id },
                 color: 'secondary'
             }).row();

@@ -4,7 +4,7 @@ import { randomInt } from "crypto";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { root, vk } from "..";
-import { Logger, Send_Message_Universal } from "./core/helper";
+import { Logger, Send_Message } from "./core/helper";
 
 const prisma = new PrismaClient()
 
@@ -131,6 +131,6 @@ export function InitGameRoutes(hearManager: HearManager<IQuestionMessageContext>
 				await Logger(`In database, already init alliance id: ${alli_check.id} name: ${alli_check.name} for users by admin ${context.senderId}`)
 			}
 		}*/
-		await Send_Message_Universal(context.senderId, `✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}\n 🏠 Добавлено новых союзов: ${res.count_alliance}`)
+		await Send_Message(context.senderId, `✅ Игра инициализирована успешно.\n\n 👫 Добавлено новых ролей: ${res.count_role}\n 🎪 Добавлено новых магазинов: ${res.count_shop}\n 👜 Добавлено новых предметов: ${res.count_item}\n 🏠 Добавлено новых союзов: ${res.count_alliance}`)
 	})
 }

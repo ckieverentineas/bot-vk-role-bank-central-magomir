@@ -2,7 +2,7 @@ import { AllianceShopItem, InventoryAllianceShop, Prisma, User } from "@prisma/c
 import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Universal } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 
 export type InventoryWithItem = Prisma.InventoryAllianceShopGetPayload<{
     include: {
@@ -126,7 +126,7 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
         .textButton({ label: `✅ ОК`, payload: { command: 'inventory_return' }, color: 'positive' })
         .inline().oneTime();
 
-    await Send_Message_Universal(context.peerId, text, okKeyboard, attached);
+    await Send_Message(context.peerId, text, okKeyboard, attached);
 
     return res;
 }

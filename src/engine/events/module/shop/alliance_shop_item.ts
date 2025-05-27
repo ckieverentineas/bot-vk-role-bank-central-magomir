@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart_Self, Send_Message_Universal } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -133,7 +133,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 limit_tr: limit_tr
             }
         });
-        await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  добавлен новый товара: ${item_cr.id}-${item_cr.name}`)
+        await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  добавлен новый товар: ${item_cr.id}-${item_cr.name}`)
     }
 
     return res;

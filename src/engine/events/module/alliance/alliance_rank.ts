@@ -4,7 +4,7 @@ import prisma from "../prisma_client"
 import { Person_Coin_Printer, Person_Coin_Printer_Self } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
-import { Edit_Message, Logger, Send_Message_Universal } from "../../../core/helper"
+import { Edit_Message, Logger, Send_Message } from "../../../core/helper"
 import { vk } from "../../../.."
 import { ico_list } from "../data_center/icons_lib"
 
@@ -66,7 +66,7 @@ export async function Alliance_Rank_Enter(context:any) {
         keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init, facult: facult_tr }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
-    await Send_Message_Universal(context.peerId, text, keyboard)
+    await Send_Message(context.peerId, text, keyboard)
 }
 
 export async function Alliance_Rank_Coin_Enter(context:any) {
@@ -137,5 +137,5 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
         keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary', })
     }
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_enter' }, color: 'secondary' }).inline().oneTime()
-    await Send_Message_Universal(context.peerId, text, keyboard)
+    await Send_Message(context.peerId, text, keyboard)
 }

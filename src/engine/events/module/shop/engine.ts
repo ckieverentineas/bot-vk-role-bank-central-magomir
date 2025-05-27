@@ -2,8 +2,7 @@ import { Category, Inventory, Item, User } from "@prisma/client"
 import { KeyboardBuilder } from "vk-io"
 import { Person_Get } from "../person/person"
 import prisma from "../prisma_client"
-import { Fixed_Number_To_Five, Logger, Send_Message, Send_Message_Universal } from "../../../core/helper"
-import { Image_Item_Target, Image_Random } from "../../../core/imagecpu"
+import { Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper"
 import { Simply_Carusel_Selector } from "../../../core/simply_carusel_selector"
 import { ico_list } from "../data_center/icons_lib"
 import { chat_id, vk } from "../../../.."
@@ -33,7 +32,7 @@ export async function Shop_Category_Enter(context: any) {
         keyboard.callbackButton({ label: `🎪 ${category[i].name}`, payload: { command: "shop_enter_multi", item: "id", value: category[i], current: 0, rendering: true }, color: 'primary' }).row()
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await Send_Message_Universal(context.peerId, text, keyboard, attached)
+    await Send_Message(context.peerId, text, keyboard, attached)
     await Logger(`In a private chat, enter in shopping is viewed by user ${context.peerId}`)
 }
 
@@ -51,7 +50,7 @@ export async function Shop_Enter_Multi(context: any) {
         for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
             const builder = builder_list[i]
             keyboard.callbackButton({ label: `👀 ${builder.name.slice(0,30)}`, payload: { command: 'shop_enter', id_builder_sent: i, id_item: builder.id, item: "id", value: input, item_sub: "item", }, color: 'secondary' }).row()
-            event_logger += `\n💬 ${builder.name}`
+            event_logger += `\n💬 ${builder.name} - ${builder.price}🔘`
             counter++
         }
         event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${Math.min(id_builder_sent + limiter, builder_list.length)} из ${builder_list.length} ~~~~` : ''}`
@@ -69,7 +68,7 @@ export async function Shop_Enter_Multi(context: any) {
     //новый офис
     keyboard.callbackButton({ label: '🚫', payload: { command: 'shop_cancel' }, color: 'secondary' })
     .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
-    await Send_Message_Universal(context.peerId, `${event_logger}`, keyboard/*, attachment: attached.toString()*/ )
+    await Send_Message(context.peerId, `${event_logger}`, keyboard/*, attachment: attached.toString()*/ )
 }
 export async function Shop_Enter(context: any) {
     if (context.eventPayload.item == "id") {
@@ -98,7 +97,7 @@ export async function Shop_Enter(context: any) {
         .callbackButton({ label: '✅', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
         const attached = item_check?.image?.includes('photo') ? item_check.image : null
         await Logger(`In a private chat, open shop ${input.name} is viewed by user ${context.peerId}`)
-        await Send_Message_Universal(context.peerId, text, keyboard, attached)
+        await Send_Message(context.peerId, text, keyboard, attached)
     }
 }
 export async function Shop_Bought(context: any) {
@@ -151,10 +150,10 @@ export async function Shop_Buy(context: any) {
                 text = !item_inventory || input.type == 'unlimited' ? `💡 У вас  недостаточно средств для покупки ${input.name}!!` : `💡 У вас уже есть ${input.name}!`
             }
         }       
-        const attached = await Image_Item_Target(input.name)
+        const attached = input.image
         let keyboard = new KeyboardBuilder()
         keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter_multi', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, id_builder_sent: id_builder_sent }, color: 'secondary' }).inline().oneTime()
-        await Send_Message_Universal(context.peerId, text, keyboard, attached)
+        await Send_Message(context.peerId, text, keyboard, attached)
     }
 }
 export async function Shop_Cancel(context: any) {

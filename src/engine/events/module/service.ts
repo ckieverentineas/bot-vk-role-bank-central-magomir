@@ -1,5 +1,4 @@
 import { KeyboardBuilder } from "vk-io"
-import { Image_Random } from "../../core/imagecpu"
 import prisma from "./prisma_client"
 import { chat_id, vk } from "../../.."
 import { randomInt } from "crypto"

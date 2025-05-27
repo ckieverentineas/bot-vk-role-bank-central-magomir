@@ -1,5 +1,5 @@
 import { Context, KeyboardBuilder } from "vk-io"
-import { Edit_Message, Fixed_Number_To_Five, Input_Text, Logger, Send_Message, Send_Message_Universal } from "../../../core/helper"
+import { Edit_Message, Fixed_Number_To_Five, Input_Text, Logger, Send_Message } from "../../../core/helper"
 import prisma from "../prisma_client"
 import { Alliance } from "@prisma/client"
 import { chat_id, timer_text, vk } from "../../../.."
@@ -35,7 +35,7 @@ export async function Alliance_Control_Multi(context: Context) {
     }
     keyboard.textButton({ label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' })
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime() 
-    await Send_Message_Universal(context.peerId, event_logger, keyboard)
+    await Send_Message(context.peerId, event_logger, keyboard)
 }
 
 export async function Alliance_Control(context: Context) {
@@ -67,7 +67,7 @@ export async function Alliance_Control(context: Context) {
     }
     keyboard.textButton({ label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' })
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' }).inline().oneTime() 
-    await Send_Message_Universal(context.peerId, event_logger, keyboard)
+    await Send_Message(context.peerId, event_logger, keyboard)
 }
 
 export async function Alliance_Controller(context: Context) {
@@ -141,7 +141,7 @@ async function Alliance_Destroy(context: Context, target: number) {
     }
     //назад хз куда
     keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_control', office_current: 0, id_builder_sent: 0, target: undefined, id_planet: 0 }, color: 'secondary' }).inline().oneTime() 
-    await Send_Message_Universal(context.peerId, event_logger, keyboard)
+    await Send_Message(context.peerId, event_logger, keyboard)
 }
 
 export async function Alliance_Updater(context: any) {

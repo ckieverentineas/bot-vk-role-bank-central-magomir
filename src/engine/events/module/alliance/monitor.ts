@@ -2,7 +2,7 @@ import { Account, Alliance, AllianceCoin, BalanceFacult, Monitor, User } from "@
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Detected } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import * as CryptoJS from 'crypto-js';
 import { ico_list } from "../data_center/icons_lib";
@@ -357,12 +357,12 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
     if (!answer.status) { return }
     if (user.notification) { await Send_Message(account.idvk, answer.message) } 
     if (coin?.point == false) {
-        const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat_monitor ?? 0, `👤 Для ${user.name}-${user.id} -->\n ${answer.message}`)
+        const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, `👤 Для ${user.name}-${user.id} -->\n ${answer.message}`)
         if (!notif_ans_chat) { await Send_Message(chat_id, answer.message) } 
     }
     await Logger(answer.console)
     if (answer.logging) {
-        const notif_ans_chat = await Send_Message_Detected(alliance?.id_chat_monitor ?? 0, answer.logging)
+        const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, answer.logging)
         if (!notif_ans_chat) { await Send_Message(chat_id, answer.logging) } 
     }
 }
