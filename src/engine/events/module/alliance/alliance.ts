@@ -1,5 +1,5 @@
 import { Context, KeyboardBuilder } from "vk-io"
-import { Edit_Message, Fixed_Number_To_Five, Input_Text, Logger, Send_Message } from "../../../core/helper"
+import { Fixed_Number_To_Five, Input_Text, Logger, Send_Message } from "../../../core/helper"
 import prisma from "../prisma_client"
 import { Alliance } from "@prisma/client"
 import { chat_id, timer_text, vk } from "../../../.."

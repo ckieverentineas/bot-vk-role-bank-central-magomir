@@ -3,7 +3,7 @@ import { randomInt } from "crypto"
 import { Keyboard, KeyboardBuilder, PhotoAttachment, VK } from "vk-io"
 import { answerTimeLimit, chat_id, group_id, root, starting_date, timer_text, vk } from "../.."
 import { promises as fsPromises } from 'fs'
-import { MessagesGetHistoryResponse, MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
+import { MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
 import { AllianceCoin, User } from "@prisma/client"
 import { Person_Get } from "../events/module/person/person"
@@ -15,81 +15,6 @@ export function Sleep(ms: number) {
     });
 }
 
-export async function Gen_Inline_Button(context: any, weapon_type: any) {
-    let checker = false
-    let counter = 0
-    let current = 0
-    let modif = 0
-    let skill:any = {}
-    while (checker == false) {
-        let keyboard = Keyboard.builder()
-        counter = 0
-        current = modif
-        const limit = 6
-        let weapon_list = ''
-        while (current < weapon_type.length && counter < limit ) {
-            keyboard.textButton({
-                label: weapon_type[current].label,
-                payload: {
-                    command: weapon_type[current].id
-                },
-                color: 'primary'
-            })
-            weapon_list += `- ${weapon_type[current].description} \n`
-            counter++
-            current++
-            if (counter%2 == 0) {
-                keyboard.row()
-            }
-        }
-        keyboard.row()
-        .textButton({
-            label: '<',
-            payload: {
-                command: "left"
-            },
-            color: 'primary'
-        })
-        .textButton({
-            label: 'назад',
-            payload: {
-                command: 'back'
-            },
-            color: 'primary'
-        })
-        .textButton({
-            label: '>',
-            payload: {
-                command: 'right'
-            },
-            color: 'primary'
-        })
-        
-        skill = await context.question(`${weapon_list}`, { keyboard: keyboard.inline(), answerTimeLimit } )
-        if (skill.isTimeout) { return await context.send(`⏰ Время ожидания вашей активности истекло!`) }
-        if (!skill.payload) {
-            context.send('Жмите по inline кнопкам!')
-        } else {
-            if (skill.payload.command == 'back') {
-                context.send('Вы нажали назад')
-                modif = 0
-                continue
-            }
-            if (skill.payload.command == 'left') {
-                modif-limit >= 0 && modif < weapon_type.length ? modif-=limit : context.send('Позади ничего нет!')
-                continue
-            }
-            if (skill.payload.command == 'right') {
-                console.log('test ' + modif + ' total:' + weapon_type.length)
-                modif+limit < weapon_type.length ? modif+=limit: context.send('Впереди ничего нет')
-                continue
-            }
-            checker = true
-            return skill
-        }
-    }
-}
-
 export async function Accessed(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
@@ -99,16 +24,6 @@ export async function Accessed(context: any) {
     return ans
 }
 
-export async function Book_Random_String(filename: string) {
-    try {
-        const contents = await fsPromises.readFile(filename, 'utf-8');
-        const arr: any = contents.split(/\r?\n/);
-        const clear = await arr.filter((value: any) => value !== undefined && value.length > 5);
-        return clear[randomInt(0, clear.length - 1)];
-    } catch (err) {
-        console.log(err);
-    }
-}
 export async function Keyboard_Index(context: any, messa: any) {
     const user_check: User | null | undefined = await Person_Get(context)
     if (!user_check) { return }
@@ -130,93 +45,6 @@ export async function Keyboard_Index(context: any, messa: any) {
         return vk.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
     .then(() => { Logger(`In a private chat, succes get keyboard is viewed by user ${context.senderId}`) })
     .catch((error) => { console.error(`User ${context.senderId} fail get keyboard: ${error}`) });
-
-    // Получаем последнее сообщение из истории беседы
-  const [lastMessage] = (await vk.api.messages.getHistory({
-    peer_id: context.peerId,
-    count: 1,
-  })).items;
-
-  // Если последнее сообщение от пользователя и не содержит текст "!банк",
-  // помечаем беседу как "говорит"
-  if (lastMessage.from_id !== group_id && lastMessage.text !== '!банк') {
-    await vk.api.messages.setActivity({
-      type: 'typing',
-      peer_id: context.peerId,
-    });
-  } else {
-    // Иначе отправляем событие, что бот прочитал сообщение
-    await vk.api.messages.markAsRead({
-      peer_id: context.peerId,
-    });
-  }
-
-}
-
-async function Searcher(data: any, target: number) {
-    let counter = 0
-    while (data.length != counter) {
-        if (data[counter].id_item == target) {
-            return true
-        }
-        counter++
-    }
-    return false
-}
-
-export async function Gen_Inline_Button_Category(context: any, weapon_type: any, mesa: string) {
-    //await Image_Random(context, "shop")
-    let checker = false
-    let counter = 0
-    let current = 0
-    let modif = 0
-    while (checker == false) {
-        let keyboard = Keyboard.builder()
-        counter = 0
-        current = modif
-        const limit = 5
-        let weapon_list = ''
-        while (current < weapon_type.length && counter < limit ) {
-            keyboard.textButton({   label: weapon_type[current].name,
-                                    payload: {  command: weapon_type[current]   },
-                                    color: 'primary'
-            }).row()
-            weapon_list += `⚓${weapon_type[current].id} ${weapon_type[current].name} \n`
-            counter++
-            current++
-        }
-        keyboard.row()
-        .textButton({   label: '<',
-                        payload: { command: "left" },
-                        color: 'primary'              })
-        .textButton({   label: 'Вернуться',
-                        payload: { command: 'back' },
-                        color: 'primary'              })
-        .textButton({   label: '>',
-                        payload: { command: 'right' },
-                        color: 'primary'              })
-        const skill = await context.question( `✉ ${mesa}\n${weapon_list}`, { keyboard: keyboard.inline(), answerTimeLimit } )
-        if (skill.isTimeout) { await context.send('⏰ Время ожидания выбора места посещения истекло!'); return false }
-        if (!skill.payload) {
-            await context.send('💡 Жмите по inline кнопкам!')
-        } else {
-            if (skill.payload.command == 'back') {
-                await context.send('💡 Шоппинг успешно отменен')
-                modif = 0
-                return false
-            }
-            if (skill.payload.command == 'left') {
-                modif-limit >= 0 && modif < weapon_type.length ? modif-=limit : await context.send('💡 Позади ничего нет!')
-                continue
-            }
-            if (skill.payload.command == 'right') {
-                modif+limit < weapon_type.length ? modif+=limit: await context.send('💡 Впереди ничего нет')
-                continue
-            }
-            checker = true
-            return skill.payload.command
-        }
-    }
 }
 
 export async function Fixed_Number_To_Five(num: number) {
@@ -274,16 +102,16 @@ export async function Send_Message(idvk: number, message: string, keyboard?: Key
     message = message ? message : 'invalid message'
     try {
         if (!attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }
-        if (attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment } ) }
+        if (attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment.toString() } ) }
         if (!attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) }
-        if (attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard, attachment: attachment } ) }
+        if (attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard, attachment: attachment.toString() } ) }
         return true
     } catch (e) {
         await Logger(`Ошибка отправки сообщения: ${e}`)
         return false
     }
 }
-export async function Edit_Message(context: any, message: string, keyboard?: Keyboard, attached?: PhotoAttachment | null) {
+export async function Edit_Message_Pro(context: any, message: string, keyboard?: Keyboard, attached?: PhotoAttachment | null) {
     message = message ? message : 'invalid message'
     try {
         if (keyboard && attached) {
@@ -485,31 +313,72 @@ export function Get_Url_Picture(url: string): string | null {
     return match ? match[0] : null;
 }
 
-export async function Send_Message_Smart(context: any, user: User, message: string) {
-    const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
-    const user_adm: User | null | undefined = await Person_Get(context)
-    const notif_ans = await Send_Message(user.idvk, `🔔 Уведомление для ${user.name}\n💬 ${message}`)
-    !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
-    const notif_ans_chat = await Send_Message(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`)
-    if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user.idvk}(${user.name})\n💬 ${message}`) }
+/**
+ * Типы уведомлений
+ */
+type NotificationType = 'admin_and_client' | 'admin_solo' | 'client_solo' | 'client_callback';
+
+/**
+ * Универсальная функция отправки уведомлений
+ * @param context VK.IO контекст
+ * @param message Сообщение для пользователя / чата
+ * @param type Тип уведомления
+ * @param user_target Целевой пользователь (если есть)
+ */
+export async function Send_Message_Smart(
+    context: any,
+    message: string,
+    type: NotificationType,
+    user_target?: User | null,
+): Promise<void> {
+
+    const finalLogMessage = message || 'Уведомление обработано';
+
+    switch (type) {
+        case 'admin_solo':
+            // Для админа, который делает действие
+            const admin: User | null | undefined = await Person_Get(context)
+            const alliance_admin = await prisma.alliance.findFirst({ where: { id: admin?.id_alliance ?? 0 } })
+            await context.send(`✅ ${message}`)
+            const notif_ans_chat = await Send_Message(alliance_admin?.id_chat ?? 0, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`)
+            if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`) }
+            await Logger(`🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`);
+            break;
+
+        case 'client_callback':
+            // Для целевого пользователя
+            const alliance_user_target = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
+            await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name}\n💬 ${message}`)
+            const notif_ans_chat1 = await Send_Message(alliance_user_target?.id_chat ?? 0, `👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`)
+            if (!notif_ans_chat1 ) { await Send_Message(chat_id, `👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`) }
+            await Logger(`👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`);
+            break;
+        
+        case 'client_solo':
+            // Для клиента
+            const client: User | null | undefined = await Person_Get(context)
+            const alliance_client = await prisma.alliance.findFirst({ where: { id: client?.id_alliance ?? 0 } })
+            await Send_Message(client?.idvk ?? 0, `💬 ${message}`)
+            const notif_ans_chat2 = await Send_Message(alliance_client?.id_chat ?? 0, `👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`)
+            if (!notif_ans_chat2 ) { await Send_Message(chat_id, `👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`) }
+            await Logger(`👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`);
+            break;
+
+        case 'admin_and_client':
+            // Общий тип: отправка и пользователю, и в чат
+            const alliance = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
+            const user_adm: User | null | undefined = await Person_Get(context)
+            const notif_ans = await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name}\n💬 ${message}`)
+            !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user_target?.name} не доставлено\n💬 ${message}`) : await context.send(`⚙ Операция завершена успешно для ${user_target?.name}\n💬 ${message}`)
+            const notif_ans_chat3 = await Send_Message(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n💬 ${message}`)
+            if (!notif_ans_chat3 ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n💬 ${message}`) }
+            break;
+        default:
+            //
+            break;
+    }
 }
 
-export async function Send_Message_Smart_Self(context: any, message: string) {
-    const user_adm: User | null | undefined = await Person_Get(context)
-    const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } })
-    await context.send(`✅ ${message}`)
-    const notif_ans_chat = await Send_Message(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`)
-    if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`) }
-    await Logger(`🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n🔧 ${message}`);
-}
-
-export async function Send_Message_Smart_Callback(user_target: User, message: string) {
-    const alliance = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
-    await Send_Message(user_target.idvk, `🔔 Уведомление для ${user_target.name}\n💬 ${message}`)
-    const notif_ans_chat = await Send_Message(alliance?.id_chat ?? 0, `👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`)
-    if (!notif_ans_chat ) { await Send_Message(chat_id, `👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`) }
-    await Logger(`👤 Клиент @id${user_target.idvk}(${user_target.name})\n🔧 ${message}`);
-}
 
 /**
  * Функция выбора валюты из списка альянса

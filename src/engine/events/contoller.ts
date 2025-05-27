@@ -3,7 +3,7 @@ import prisma from "./module/prisma_client"
 import { root, vk } from "../.."
 import { User } from "@prisma/client";
 import { Person_Get } from "./module/person/person";
-import { Accessed, Edit_Message, Send_Message } from "../core/helper";
+import { Accessed, Send_Message } from "../core/helper";
 import { image_bank } from "./module/data_center/system_image";
 
 export async function Main_Menu_Init(context: any) {
@@ -25,7 +25,7 @@ export async function Main_Menu_Init(context: any) {
 }
 export async function Exit(context: any) {
     const text = `💡 Сессия успешно завершена. Чтобы начать новую, напишите [!банк] без квадратных скобочек`
-    await Edit_Message(context, text)
+    await Send_Message(context.peerId, text)
     await vk.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,

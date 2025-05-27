@@ -6,7 +6,7 @@ import { Image_Text_Add_Card } from "../../core/imagecpu"
 import { randomInt } from "crypto"
 import { Analyzer_Birthday_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
-import { Accessed, Edit_Message, Logger, Send_Message } from "../../core/helper"
+import { Accessed, Logger, Send_Message } from "../../core/helper"
 import { Person_Coin_Printer } from "./person/person_coin"
 import { Facult_Rank_Printer } from "./alliance/facult_rank"
 import { image_admin } from "./data_center/system_image"
@@ -32,7 +32,7 @@ export async function Card_Enter(context:any) {
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
         let ii = `В общем, вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
-        await Edit_Message(context, text, keyboard, attached)
+        await Send_Message(context.peerId, text, keyboard, attached)
         if (context?.eventPayload?.command == "card_enter") {
             await vk.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,

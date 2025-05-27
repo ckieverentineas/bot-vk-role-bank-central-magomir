@@ -10,7 +10,7 @@ import { Group_Id_Get, Keyboard_Index, Logger, Send_Message, Sleep, Worker_Check
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
-import { Admin_Enter, Artefact_Enter, Birthday_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
+import { Admin_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
 import { Person_Detector } from './engine/events/module/person/person';
@@ -97,9 +97,7 @@ vk.updates.on('message_event', async (context: any, next: any) => {
 	const config: any = {
 		"system_call": Main_Menu_Init,
 		"card_enter": Card_Enter,
-		"birthday_enter": Birthday_Enter,
 		"exit": Exit,
-		"artefact_enter": Artefact_Enter,
 		"inventory_enter": Inventory_Enter,
 		"admin_enter": Admin_Enter,
 		"service_enter": Service_Enter,

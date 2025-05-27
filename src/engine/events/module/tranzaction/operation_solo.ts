@@ -134,7 +134,7 @@ async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: 
         if (get_alliance_shop && (user_adm?.id_alliance == get_alliance_shop.id_alliance || user_get?.id_alliance == get_alliance_shop.id_alliance)) {
             const shop_up = await prisma.allianceShop.update({ where: { id: get_alliance_shop.id }, data: { id_user_owner: user_get.id } })
             const owner_old = await prisma.user.findFirst({ where: { id: get_alliance_shop.id_user_owner } })
-            await Send_Message_Smart(context, user_get, `"🛍 Назначить владение магазином [${shop_up?.name}]" --> изменен владелец магазина ${owner_old?.id}-${owner_old?.name} -> ${shop_up.id_user_owner}-${user_get.name}`)
+            await Send_Message_Smart(context, `"🛍 Назначить владение магазином [${shop_up?.name}]" --> изменен владелец магазина ${owner_old?.id}-${owner_old?.name} -> ${shop_up.id_user_owner}-${user_get.name}`, 'admin_and_client', user_get)
         } else { 
             if (get_alliance_shop?.id_alliance != user_get?.id_alliance) {
                 await context.send(`💡 Игрок ${user_get?.name} ${user_get?.id} в ролевой AUID: ${user_get?.id_alliance}, в то время, как магазин состоит в AUID: ${get_alliance_shop?.id_alliance}`)
@@ -319,7 +319,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
             break;
     }
     if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
-    await Send_Message_Smart(context, user, `"${person.operation} ${person.amount}${person.coin?.smile}" --> ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n🧷 Сообщение: ${messa}\n${facult_income}`)
+    await Send_Message_Smart(context, `"${person.operation} ${person.amount}${person.coin?.smile}" --> ${findas?.amount} ${person.operation} ${person.amount} = ${incomer}\n🧷 Сообщение: ${messa}\n${facult_income}`, 'admin_and_client',user)
     await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
 }
 

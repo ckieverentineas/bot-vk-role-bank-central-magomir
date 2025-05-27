@@ -1,8 +1,9 @@
-import { KeyboardBuilder } from "vk-io";
+import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart_Callback } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
+import { ico_list } from "../data_center/icons_lib";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -49,7 +50,7 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_category_next', cursor }, color: 'secondary' });
         }
 
-        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime();
+        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime().inline();
 
         event_logger += `\n${1 + cursor} из ${category_counter}`;
 
@@ -149,7 +150,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_item_next', cursor }, color: 'secondary' });
         }
 
-        keyboard.textButton({ label: `🚫 Назад`, payload: { command: 'buyershop_item_return', cursor }, color: 'negative' }).oneTime();
+        keyboard.textButton({ label: `🚫 Назад`, payload: { command: 'buyershop_item_return', cursor }, color: 'negative' }).oneTime().inline();
 
         event_logger += `\n${1 + cursor} из ${item_counter}`;
 
@@ -232,16 +233,14 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price } } });
-    answer_log += `✅ Вы купили "${item.name}" за ${item.price}${coin_get.smile}.\n Ваш баланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
-    answer_chat_log += `🛍 @id${user.idvk}(${user.name}) купил "${item.name}", ${balance.amount}-${item.price}=${buying_act.amount}${coin_get.smile}`
+    answer_log += `совершена покупка товара "${item.name}" за ${item.price}${coin_get.smile}. баланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
     // Списание баллов факультета
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
     if (coin_get?.point == true && balance_facult_check) {
         const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price } } })
         if (balance_facult_plus) {
-            answer_log += `\n\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
-            answer_chat_log += `\n\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_log += `\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
         }
     }
     // Выдача предмета
@@ -257,18 +256,8 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         });
     }
     // Логирование
-    await Logger(`Игрок @id${context.senderId}(${user.name}) покупает "${item.name}" за ${item.price} монет`);
-    await Send_Message(chat_id, `${answer_chat_log}`);
+    await Send_Message_Smart(context, answer_log, 'client_solo')
 
-    // Кнопка "ОК"
-    const okKeyboard = new KeyboardBuilder()
-        .textButton({ label: `✅ ОК`, payload: { command: 'buyershop_item_return' }, color: 'positive' })
-        .inline().oneTime();
-
-    await context.send({
-        message: `${answer_log}`,
-        keyboard: okKeyboard
-    });
     //модуль откатов
     let answer_owner_alliance_log = ''
     const user_payed_check = await prisma.user.findFirst({ where: { id: item.shop.Alliance_Shop.id_user_owner } })
@@ -282,10 +271,10 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (coin_get?.point == true && balance_facult_check_owner) {
         const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price } } })
         if (balance_facult_plus_owner) {
-            answer_owner_alliance_log += `\n\n🌐 "+${coin_get?.smile}" > ${balance_facult_check_owner.amount} + ${item.price} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
+            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}" > ${balance_facult_check_owner.amount} + ${item.price} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
         }
     }
-    await Send_Message_Smart_Callback(user_payed_check, `"+ ${coin_get?.smile}" --> продажа товара через магазин [${item.shop.Alliance_Shop.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`)
+    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item.shop.Alliance_Shop.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
     return res;
 }
 
@@ -349,7 +338,7 @@ export async function AllianceShop_Selector(context: any, id_alliance: number) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_next', cursor }, color: 'secondary' });
         }
 
-        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime();
+        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime().inline();
 
         event_logger += `\n${1 + cursor} из ${shop_counter}`;
 
@@ -400,6 +389,6 @@ async function Buyershop_Back(context: any, data: any) {
 
 async function Buyershop_Return(context: any, data: any) {
     const res = { stop: true };
-    await context.send(`Вы вышли из магазина.`);
+    await context.send(`Вы вышли из магазина.`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() });
     return res;
 }

@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -133,7 +133,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 limit_tr: limit_tr
             }
         });
-        await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  добавлен новый товар: ${item_cr.id}-${item_cr.name}`)
+        await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  добавлен новый товар: ${item_cr.id}-${item_cr.name}`, 'admin_solo')
     }
 
     return res;
@@ -155,7 +155,7 @@ async function AllianceShopItem_Delete(context: any, data: any, category: any) {
     if (!confirm3.status) return res;
 
     const item_del = await prisma.allianceShopItem.delete({ where: { id: item.id } });
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  удален товар из магазина и у всех игроков из инвентаря: ${item_del.id}-${item_del.name}`)
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  удален товар из магазина и у всех игроков из инвентаря: ${item_del.id}-${item_del.name}`, 'admin_solo')
     await context.send(`✅ Товар удалён из магазина`);
 
     return res;
@@ -236,7 +236,7 @@ async function AllianceShopItem_Edit_Name(context: any, data: any) {
         where: { id: item_check.id },
         data: { name: newName.text }
     });
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменено название товара: ${item_check.id}-${item_check.name} -> ${item_name.id}-${item_name.name} `)
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  изменено название товара: ${item_check.id}-${item_check.name} -> ${item_name.id}-${item_name.name}`, 'admin_solo')
     return res;
 }
 
@@ -250,7 +250,7 @@ async function AllianceShopItem_Edit_Image(context: any, data: any) {
     const imageUrl = newImage.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(newImage.text) ?? '';
 
     const item_image = await prisma.allianceShopItem.update({ where: { id: item_check.id }, data: { image: imageUrl } });
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменено изображение товара [${item_check.id}-${item_check.name}]: https://vk.com/${item_check.image} -> https://vk.com/${item_image?.image} `)
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  изменено изображение товара [${item_check.id}-${item_check.name}]: https://vk.com/${item_check.image} -> https://vk.com/${item_image?.image}`, 'admin_solo')
     return res;
 }
 
@@ -270,7 +270,7 @@ async function AllianceShopItem_Edit_Limit(context: any, data: any) {
         limit = parseInt(limitInput.text) || 0;
     }
     const item_limit = await prisma.allianceShopItem.update({ where: { id: item_check.id }, data: { limit_tr: limit_tr, limit: limit } });
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  изменен лимит товара [${item_limit.id}-${item_limit.name}]: ${item_check.limit_tr ? `количество товаров ${item_check.limit}` : 'безлимит'} -> ${item_limit.limit_tr ? `количество товаров ${item_limit.limit}` : 'безлимит'} `)
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  изменен лимит товара [${item_limit.id}-${item_limit.name}]: ${item_check.limit_tr ? `количество товаров ${item_check.limit}` : 'безлимит'} -> ${item_limit.limit_tr ? `количество товаров ${item_limit.limit}` : 'безлимит'}`, 'admin_solo')
     return res;
 }
 
@@ -299,7 +299,7 @@ async function AllianceShopItem_Hide(context: any, data: any) {
     if (!confirm.status) return res;
 
     const item_hidden = await prisma.allianceShopItem.update({ where: { id: item.id }, data: { hidden: item.hidden ? false : true } });
-    if (item_hidden) { await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" -->  ${item_hidden.hidden ? 'недоступен' : 'доступен'} к покупки товар: ${item_hidden.id}-${item_hidden.name}`) }
+    if (item_hidden) { await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  ${item_hidden.hidden ? 'недоступен' : 'доступен'} к покупки товар: ${item_hidden.id}-${item_hidden.name}`, 'admin_solo') }
 
     return res;
 }
@@ -321,7 +321,7 @@ async function AllianceShopItem_Edit_Description(context: any, data: any) {
         data: { description: newDescription.text.toLowerCase() === 'нет' ? '' : newDescription.text }
     });
 
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> обновлено описание товара [${updatedDesc.id}-${updatedDesc.name}]: ${item.description || 'было пустым'} → ${updatedDesc.description || 'стало пустым'}`);
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" --> обновлено описание товара [${updatedDesc.id}-${updatedDesc.name}]: ${item.description || 'было пустым'} → ${updatedDesc.description || 'стало пустым'}`, 'admin_solo');
     
     return res;
 }
@@ -349,7 +349,7 @@ async function AllianceShopItem_Edit_Price(context: any, data: any) {
         data: { price: priceValue }
     });
 
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> изменена цена товара: ${item.price} → ${updated.price} (${item.name})`);
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" --> изменена цена товара: ${item.price} → ${updated.price} (${item.name})`, 'admin_solo');
     
     return res;
 }
@@ -393,7 +393,7 @@ async function AllianceShopItem_Edit_Coin(context: any, data: any) {
             id_coin: selectedCoinId
         }
     });
-    await Send_Message_Smart_Self(context, `"Конфигурация товаров магазина" --> изменена валюта товара [${item_check.id}-${item_check.name}]: ${item_check.id_coin}-${coin_get_old?.name} → ${updatedItem.id_coin}-${coin_get?.name}`);
+    await Send_Message_Smart(context, `"Конфигурация товаров магазина" --> изменена валюта товара [${item_check.id}-${item_check.name}]: ${item_check.id_coin}-${coin_get_old?.name} → ${updatedItem.id_coin}-${coin_get?.name}`, 'admin_solo');
 
     //await context.send(`${ico_list['success'].ico} Валюта товара обновлена на ID: ${selectedCoinId}`);
 

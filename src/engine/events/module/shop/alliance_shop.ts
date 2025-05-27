@@ -1,7 +1,7 @@
-import { KeyboardBuilder } from "vk-io";
+import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart_Self } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 
 export async function AllianceShop_Get(cursor: number, id_alliance: number) {
@@ -145,7 +145,7 @@ async function AllianceShop_Edit(context: any, data: any) {
         data: { name: name.text }
     });
 
-    if (updatedShop) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  изменено название магазина: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`) }
+    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  изменено название магазина: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`, 'admin_solo') }
 
     return res;
 }
@@ -165,7 +165,7 @@ async function AllianceShop_Delete(context: any, data: any) {
 
     if (shop_check) {
         const shop_del = await prisma.allianceShop.delete({ where: { id: shop_check.id } });
-        if (shop_del) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  удален магазин: ${shop_del.id}-${shop_del.name}`) }
+        if (shop_del) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  удален магазин: ${shop_del.id}-${shop_del.name}`, 'admin_solo') }
     }
 
     return res;
@@ -173,7 +173,7 @@ async function AllianceShop_Delete(context: any, data: any) {
 
 async function AllianceShop_Return(context: any, data: any) {
     const res = { cursor: data.cursor, stop: true };
-    await context.send(`Вы отменили управление магазинами.`);
+    await context.send(`Вы отменили управление магазинами.`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() });
     return res;
 }
 
@@ -218,7 +218,7 @@ async function AllianceShop_Create(context: any, data: any, id_alliance: number)
         }
     });
 
-    if (shop_cr) { await Send_Message_Smart_Self(context, `"Конфигурация магазинов" -->  открыт новый магазин: ${shop_cr.id}-${shop_cr.name}`) }
+    if (shop_cr) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  открыт новый магазин: ${shop_cr.id}-${shop_cr.name}`, 'admin_solo') }
 
     return res;
 }
