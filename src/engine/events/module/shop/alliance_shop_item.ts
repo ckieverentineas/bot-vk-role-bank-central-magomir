@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
-import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Smart } from "../../../core/helper";
+import { answerTimeLimit, timer_text } from "../../../..";
+import { Confirm_User_Success, Get_Url_Picture, Select_Alliance_Coin, Send_Message_Smart } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 

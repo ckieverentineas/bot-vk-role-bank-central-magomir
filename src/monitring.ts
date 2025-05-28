@@ -1,7 +1,6 @@
 import { Context, VK } from "vk-io";
 import prisma from "./engine/events/module/prisma_client";
 import { Group_Id_Get, Logger, Send_Message, Sleep } from "./engine/core/helper";
-import { BalanceFacult, Limiter } from "@prisma/client";
 import { Date_Compare_Resetor } from "./engine/events/module/alliance/limiter";
 import { chat_id, SECRET_KEY } from ".";
 import * as CryptoJS from 'crypto-js';

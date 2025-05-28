@@ -1,8 +1,5 @@
-
-import { randomInt } from "crypto"
 import { Keyboard, KeyboardBuilder, PhotoAttachment, VK } from "vk-io"
-import { answerTimeLimit, chat_id, group_id, root, starting_date, timer_text, vk } from "../.."
-import { promises as fsPromises } from 'fs'
+import { answerTimeLimit, chat_id, root, starting_date, timer_text, vk } from "../.."
 import { MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
 import { AllianceCoin, User } from "@prisma/client"

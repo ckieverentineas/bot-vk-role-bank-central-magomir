@@ -1,9 +1,8 @@
-import { Alliance, AllianceCoin, BalanceFacult, User } from "@prisma/client";
+import { Alliance, AllianceCoin } from "@prisma/client";
 
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { Person_Coin_Printer_Self } from "../person/person_coin";
-import { Carusel_Selector, Fixed_Number_To_Five, Keyboard_Index, Logger } from "../../../core/helper";
-import { title } from "process";
+import { Carusel_Selector, Keyboard_Index } from "../../../core/helper";
 import prisma from "../prisma_client";
 import { Person_Get } from "../person/person";
 import { answerTimeLimit } from "../../../..";

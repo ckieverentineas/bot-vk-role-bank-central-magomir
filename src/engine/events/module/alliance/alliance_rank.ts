@@ -1,11 +1,9 @@
-import { Alliance, User } from "@prisma/client"
+import { AllianceFacult, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
 import prisma from "../prisma_client"
-import { Person_Coin_Printer, Person_Coin_Printer_Self } from "../person/person_coin"
-import { Facult_Rank_Printer } from "./facult_rank"
+import { Person_Coin_Printer_Self } from "../person/person_coin"
 import { KeyboardBuilder } from "vk-io"
 import { Logger, Send_Message } from "../../../core/helper"
-import { vk } from "../../../.."
 import { ico_list } from "../data_center/icons_lib"
 
 export async function Alliance_Rank_Enter(context:any) {
@@ -72,7 +70,7 @@ export async function Alliance_Rank_Enter(context:any) {
 export async function Alliance_Rank_Coin_Enter(context:any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
-    const facult = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } })
+    const facult: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } })
     let facult_tr = context.eventPayload.facult ?? false
     const id_coin_default = await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })
     let id_coin = context.eventPayload.id_coin ?? id_coin_default?.id ?? 0

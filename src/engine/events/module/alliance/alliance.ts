@@ -2,7 +2,7 @@ import { Context, KeyboardBuilder } from "vk-io"
 import { Fixed_Number_To_Five, Input_Text, Logger, Send_Message } from "../../../core/helper"
 import prisma from "../prisma_client"
 import { Alliance } from "@prisma/client"
-import { chat_id, timer_text, vk } from "../../../.."
+import { chat_id, vk } from "../../../.."
 import { ico_list } from "../data_center/icons_lib"
 import { Person_Get } from "../person/person"
 

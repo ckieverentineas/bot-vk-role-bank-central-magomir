@@ -5,7 +5,6 @@ import { Person_Coin_Printer } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
 import { KeyboardBuilder } from "vk-io"
 import { Accessed, Logger, Send_Message } from "../../../core/helper"
-import { vk } from "../../../.."
 import { ico_list } from "../data_center/icons_lib"
 
 export async function Alliance_Enter(context:any) {

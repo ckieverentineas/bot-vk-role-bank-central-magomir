@@ -1,9 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
-import { randomInt } from "crypto";
-import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
-import { root, vk } from "..";
+import { root } from "..";
 import { Logger, Send_Message } from "./core/helper";
 
 const prisma = new PrismaClient()

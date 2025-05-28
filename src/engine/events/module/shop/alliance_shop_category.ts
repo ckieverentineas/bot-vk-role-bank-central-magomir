@@ -1,8 +1,8 @@
 import { KeyboardBuilder } from "vk-io";
-import { answerTimeLimit, chat_id, timer_text } from "../../../..";
+import { answerTimeLimit, timer_text } from "../../../..";
 import prisma from "../prisma_client";
 import { AllianceShopItem_Printer } from "./alliance_shop_item";
-import { Confirm_User_Success, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Send_Message_Smart } from "../../../core/helper";
 
 async function AllianceShopCategory_Get(cursor: number, id_shop: number) {
     const batchSize = 5;

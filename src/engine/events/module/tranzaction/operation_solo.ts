@@ -9,9 +9,6 @@ import prisma from "../prisma_client"
 import { Back, Ipnut_Gold, Ipnut_Message } from "./operation_global"
 import { Sub_Menu } from "./operation_sub"
 import { ico_list } from "../data_center/icons_lib"
-import { AllianceShop_Get } from "../shop/alliance_shop"
-
-
 
 export async function Operation_Solo(context: any) {
     if (context.peerType == 'chat') { return }

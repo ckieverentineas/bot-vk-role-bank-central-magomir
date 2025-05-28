@@ -1,7 +1,7 @@
 import { Alliance, AllianceCoin, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
-import { answerTimeLimit, chat_id, timer_text } from "../../../..";
+import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import { ico_list } from "../data_center/icons_lib";

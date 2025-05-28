@@ -1,10 +1,8 @@
 import { randomInt } from "crypto";
 import Jimp = require("jimp")
-import { UploadAllowedSource } from "vk-io";
 import { vk } from "../..";
 import { promises as fs } from 'fs';
 import prisma from "../events/module/prisma_client";
-import { Logger } from "./helper";
 
 export async function Image_Text_Add_Card(context: any, x: number, y: number, text: any) {
     const check = await prisma.user.findFirst({ where: { idvk: context.peerId } })

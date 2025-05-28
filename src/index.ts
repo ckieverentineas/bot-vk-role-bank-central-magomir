@@ -1,4 +1,4 @@
-import { VK, Keyboard } from 'vk-io';
+import { VK } from 'vk-io';
 import { HearManager } from '@vk-io/hear';
 import {
     QuestionManager,
@@ -6,9 +6,8 @@ import {
 } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Group_Id_Get, Keyboard_Index, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
+import { Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import prisma from './engine/events/module/prisma_client';
 import { Exit, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
@@ -76,7 +75,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	//await vk.api.messages.send({ peer_id: 463031671, random_id: 0, message: `тест2`, attachment: `photo200840769_457273112` } )
 	const pk_counter_st = await Counter_PK_Module(context)
 	//console.log(users_pk)
-	if (pk_counter_st) { return }
+	if (pk_counter_st) { return await next(); }
 	if (context.peerType == 'chat') { 
 		/*
 		try { 
@@ -87,10 +86,10 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			await Logger(`In chat received a message from the user ${context.senderId} and wasn't deleted`)
 			//await vk.api.messages.send({ peer_id: chat_id, random_id: 0, message: `⛔🚫 @id${context.senderId} ${context.text}`}) 
 		}  */
-		return
+		return await next();
 	}
 	await Account_Register(context)
-	return next();
+	return await next();
 })
 vk.updates.on('message_event', async (context: any, next: any) => { 
 	await Person_Detector(context)

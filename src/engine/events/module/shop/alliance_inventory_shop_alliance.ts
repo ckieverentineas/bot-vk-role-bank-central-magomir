@@ -1,4 +1,4 @@
-import { AllianceShopItem, InventoryAllianceShop, Prisma, User } from "@prisma/client";
+import { Prisma, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";

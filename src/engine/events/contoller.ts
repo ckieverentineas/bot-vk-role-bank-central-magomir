@@ -1,6 +1,6 @@
 import { KeyboardBuilder } from "vk-io"
 import prisma from "./module/prisma_client"
-import { root, vk } from "../.."
+import { vk } from "../.."
 import { User } from "@prisma/client";
 import { Person_Get } from "./module/person/person";
 import { Accessed, Send_Message } from "../core/helper";

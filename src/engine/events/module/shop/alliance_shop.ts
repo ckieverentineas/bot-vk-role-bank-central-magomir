@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
-import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
+import { answerTimeLimit, timer_text } from "../../../..";
+import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 
 export async function AllianceShop_Get(cursor: number, id_alliance: number) {
