@@ -2,6 +2,8 @@ import { Keyboard } from "vk-io";
 import { users_pk } from "../../..";
 
 export async function Counter_PK_Module(context: any) {
+    if (context.id == 0) { return }
+    //console.log(context)
     await User_Pk_Init(context)
     const id = await User_Pk_Get(context)
     

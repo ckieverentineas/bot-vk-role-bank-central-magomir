@@ -103,7 +103,7 @@ export async function Shop_Bought(context: any) {
         const input = context.eventPayload.value_sub
         const item = await prisma.item.findFirst({ where: { id: Number(input) } })
         if (context?.eventPayload?.command == "shop_bought") {
-            await vk.api.messages.sendMessageEventAnswer({
+            await vk?.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
                 user_id: context.userId,
                 peer_id: context.peerId,
@@ -131,7 +131,7 @@ export async function Shop_Buy(context: any) {
             const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
             const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: input.id } })
             await Logger(`In a private chat, bought a new item ${input.id} by user ${user.idvk}`)
-            await vk.api.messages.send({
+            await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
                 message: `🛍 @id${user.idvk}(${user.name}) покупает ${input.name}`
@@ -157,7 +157,7 @@ export async function Shop_Buy(context: any) {
 export async function Shop_Cancel(context: any) {
     await Logger(`In a private chat, left in shopping is viewed by user ${context.peerId}`)
     await Shop_Category_Enter(context)
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,

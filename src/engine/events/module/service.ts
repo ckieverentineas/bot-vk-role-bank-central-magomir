@@ -18,9 +18,9 @@ export async function Service_Enter(context: any) {
     .textButton({ label: '!пкметр', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row()
     .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
     const text = `✉ В данный момент доступны следующие операции:`
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})  
+    await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})  
     if (context?.eventPayload?.command == "service_enter") {
-        await vk.api.messages.sendMessageEventAnswer({
+        await vk?.api.messages.sendMessageEventAnswer({
             event_id: context.eventId,
             user_id: context.userId,
             peer_id: context.peerId,
@@ -33,7 +33,7 @@ export async function Service_Enter(context: any) {
 }
 export async function Service_Cancel(context: any) {
     await Service_Enter(context)
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,
@@ -99,5 +99,5 @@ export async function Service_Kvass_Open(context: any) {
         }
     }
     keyboard.callbackButton({ label: '🚫', payload: { command: 'service_cancel' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()}) 
+    await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()}) 
 }

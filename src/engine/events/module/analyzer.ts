@@ -56,12 +56,12 @@ export async function Analyzer_Birthday_Counter(context: any) {
                         if (achive_add) {
                             const xp = randomInt(1, 15)
                             await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
                                 message: `🌟 Получено достижение:\n${achive_add.name}`
                             })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
                                 message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
@@ -109,12 +109,12 @@ export async function Analyzer_Kvass_Counter(context: any) {
                         if (achive_add) {
                             const xp = randomInt(1, 15)
                             await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
                                 message: `🌟 Получено достижение:\n${achive_add.name}`
                             })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
                                 message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
@@ -162,12 +162,12 @@ export async function Analyzer_Convert_MO_Counter(context: any) {
                         if (achive_add) {
                             const xp = randomInt(1, 15)
                             await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
                                 message: `🌟 Получено достижение:\n${achive_add.name}`
                             })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
                                 message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
@@ -215,12 +215,12 @@ export async function Analyzer_Buying_Counter(context: any) {
                         if (achive_add) {
                             const xp = randomInt(1, 15)
                             await prisma.user.update({ where: { id: id_user }, data: { medal: { increment: xp } } })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
                                 message: `🌟 Получено достижение:\n${achive_add.name}`
                             })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
                                 message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
@@ -267,12 +267,12 @@ export async function Analyzer_THERE_Counter(context: any) {
                         if (achive_add) {
                             const xp = randomInt(1, 15)
                             await prisma.user.update({ where: { id: id_user }, data: { xp: { increment: xp } } })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: user.idvk,
                                 random_id: 0,
                                 message: `🌟 Получено достижение:\n${achive_add.name}`
                             })
-                            await vk.api.messages.send({
+                            await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
                                 message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`

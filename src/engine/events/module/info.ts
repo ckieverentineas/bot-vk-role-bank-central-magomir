@@ -32,7 +32,7 @@ export async function Card_Enter(context:any) {
         let ii = `В общем, вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
         await Send_Message(context.peerId, text, keyboard, attached)
         if (context?.eventPayload?.command == "card_enter") {
-            await vk.api.messages.sendMessageEventAnswer({
+            await vk?.api.messages.sendMessageEventAnswer({
                 event_id: context.eventId,
                 user_id: context.userId,
                 peer_id: context.peerId,
@@ -78,7 +78,7 @@ export async function Inventory_Enter(context: any) {
     .inline().oneTime()
     await Send_Message(context.peerId, text, keyboard, attached)
     let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,
@@ -106,7 +106,7 @@ export async function Admin_Enter(context: any) {
     const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await Send_Message(context.peerId, puller, keyboard, attached)
     await Logger(`In a private chat, the list administrators is viewed by admin ${user.idvk}`)
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,
@@ -127,7 +127,7 @@ export async function Statistics_Enter(context: any) {
     text = `⚙ Конфиденциальная информация:\n\n🍺 Сливочное: ${stats?.beer}/20000\n🍵 Бамбуковое: ${stats?.beer_premiun}/1000\n🎁 Дни Рождения: ${stats?.birthday}/15\n🛒 Покупок: ${stats?.buying}/20000\n🧙 Конвертаций МО: ${stats?.convert_mo}/20000\n📅 Получено ЕЗ: ${stats?.quest}/20000\n👙 Залогов: ${stats?.underwear}/20000\n`
     console.log(`User ${context.peerId} get statistics information`)
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
-    await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
+    await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
 }
 
 export async function Rank_Enter(context: any) {

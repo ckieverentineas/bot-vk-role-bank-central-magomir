@@ -1,9 +1,8 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
-import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
+import { answerTimeLimit } from "../../../..";
+import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
-import { ico_list } from "../data_center/icons_lib";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;

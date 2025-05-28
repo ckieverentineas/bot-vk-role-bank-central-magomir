@@ -36,10 +36,10 @@ export async function Keyboard_Index(context: any, messa: any) {
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
     keyboard.textButton({ label: '!помощь', payload: { command: 'sliz' }, color: 'secondary' }).row()
     // Отправляем клавиатуру без сообщения
-    await vk.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
+    await vk?.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
     .then(async (response: MessagesSendResponse) => { 
         await Sleep(1000)
-        return vk.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
+        return await vk!.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
     .then(() => { Logger(`In a private chat, succes get keyboard is viewed by user ${context.senderId}`) })
     .catch((error) => { console.error(`User ${context.senderId} fail get keyboard: ${error}`) });
 }
@@ -51,7 +51,7 @@ export async function Fixed_Number_To_Five(num: number) {
 	return res
 }
 export async function Worker_Checker() {
-    await vk.api.messages.send({
+    await vk?.api.messages.send({
         peer_id: chat_id,
         random_id: 0,
         message: `✅ Все ок! ${await Up_Time()}\n🗿 Поставьте здесь свою реакцию о том, как прошел ваш день!`,
@@ -61,7 +61,7 @@ export async function Worker_Online_Setter(group_id: number) {
     try {
 		await Sleep(1000)
         console.log(group_id)
-		await vk.api.groups.enableOnline({ group_id: group_id }) 
+		await vk?.api.groups.enableOnline({ group_id: group_id }) 
 	} catch(e) {
 		await Logger(`${e}`)
 	}
@@ -98,10 +98,10 @@ export async function Logger(text: String) {
 export async function Send_Message(idvk: number, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
     message = message ? message : 'invalid message'
     try {
-        if (!attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }
-        if (attachment && !keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment.toString() } ) }
-        if (!attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) }
-        if (attachment && keyboard) { await vk.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard, attachment: attachment.toString() } ) }
+        if (!attachment && !keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }
+        if (attachment && !keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment.toString() } ) }
+        if (!attachment && keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard } ) }
+        if (attachment && keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, keyboard: keyboard, attachment: attachment.toString() } ) }
         return true
     } catch (e) {
         await Logger(`Ошибка отправки сообщения: ${e}`)
@@ -112,22 +112,22 @@ export async function Edit_Message_Pro(context: any, message: string, keyboard?:
     message = message ? message : 'invalid message'
     try {
         if (keyboard && attached) {
-            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard, attachment: attached.toString()})
+            await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard, attachment: attached.toString()})
         }
         if (!keyboard && attached) {
-            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, attachment: attached.toString()})
+            await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, attachment: attached.toString()})
         }
         if (keyboard && !attached) {
-            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard})
+            await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`, keyboard: keyboard})
         }
         if (!keyboard && !attached) {
-            await vk.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`})
+            await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${message}`})
         }
     } catch (e) {
         const err = `Ошибка редактирования сообщения, попробуйте через 1-15 минут, в зависимости от ошибки: ${e}`
         console.log(`Ошибка редактирования сообщения, попробуйте через 1-15 минут, в зависимости от ошибки: ${e}`)
         try {
-            await vk.api.messages.send({
+            await vk?.api.messages.send({
                 peer_id: context.senderId ?? context.peerId,
                 random_id: 0,
                 message: err.slice(0,250)
@@ -210,7 +210,7 @@ export async function Carusel_Selector(context: any, data: { message_title: stri
 
 export async function Group_Id_Get(token: string) {
 	const vk = new VK({ token: token, apiLimit: 1 });
-	const [group] = await vk.api.groups.getById(vk);
+	const [group] = await vk?.api.groups.getById(vk);
 	const groupId = group.id;
 	return groupId
 }

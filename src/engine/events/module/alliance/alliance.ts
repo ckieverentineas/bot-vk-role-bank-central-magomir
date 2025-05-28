@@ -91,7 +91,7 @@ export async function Alliance_Add(context: Context) {
     if (!targeta) { return}
     const temp = targeta.replace(/.*[/]/, "");
     try {
-        const [group] = await vk.api.groups.getById({ group_id: temp });
+        const [group] = await vk!.api.groups.getById({ group_id: temp });
 	    if (!group) { return }
 	    const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
 	    if (!alli_check) {
@@ -148,7 +148,7 @@ export async function Alliance_Updater(context: any) {
     await Send_Message(context.senderId, `${ico_list['run'].ico} Приступаем к процессу сверки названий ролевых проектов!`)
     for (const alli of await prisma.alliance.findMany({})) {
         const temp = alli.idvk
-        const [group] = await vk.api.groups.getById({ group_id: temp });
+        const [group] = await vk!.api.groups.getById({ group_id: temp });
         if (!group) { continue }
         const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
         if (alli_check) {

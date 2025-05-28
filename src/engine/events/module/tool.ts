@@ -1,12 +1,12 @@
 import { vk } from "../../..";
 
 export async function User_Info(context: any) {
-    let [userData]= await vk.api.users.get({user_id: context.senderId});
+    let [userData]= await vk!.api.users.get({user_id: context.senderId});
     return userData
 }
 export async function Operation_Enter(context: any) {
     if (context?.eventPayload?.command == "operation_enter") {
-        await vk.api.messages.sendMessageEventAnswer({
+        await vk?.api.messages.sendMessageEventAnswer({
             event_id: context.eventId,
             user_id: context.userId,
             peer_id: context.peerId,
@@ -19,7 +19,7 @@ export async function Operation_Enter(context: any) {
 }
 export async function Right_Enter(context: any) {
     if (context?.eventPayload?.command == "right_enter") {
-        await vk.api.messages.sendMessageEventAnswer({
+        await vk?.api.messages.sendMessageEventAnswer({
             event_id: context.eventId,
             user_id: context.userId,
             peer_id: context.peerId,

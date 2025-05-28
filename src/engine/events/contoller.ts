@@ -13,7 +13,7 @@ export async function Main_Menu_Init(context: any) {
     const text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     await Send_Message(context.peerId, text, await Main_Menu(context), attached)
     //${user?.gold}💰 ${user?.xp}🧙
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,
@@ -26,7 +26,7 @@ export async function Main_Menu_Init(context: any) {
 export async function Exit(context: any) {
     const text = `💡 Сессия успешно завершена. Чтобы начать новую, напишите [!банк] без квадратных скобочек`
     await Send_Message(context.peerId, text)
-    await vk.api.messages.sendMessageEventAnswer({
+    await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
         peer_id: context.peerId,

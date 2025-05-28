@@ -212,7 +212,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     if (!targeta) { return res}
     const temp = targeta.replace(/.*[/]/, "");
     try {
-        const [group] = await vk.api.groups.getById({ group_id: temp });
+        const [group] = await vk!.api.groups.getById({ group_id: temp });
 	    if (!group) { return }
 	    const alli_check = await prisma.monitor.findFirst({ where: { idvk: group.id } })
 	    if (!alli_check) {
@@ -292,7 +292,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
 
 // Функция для шифрования данных
 function Encrypt_Data(data: string): string {
-    const encryptedData = CryptoJS.AES.encrypt(data, SECRET_KEY).toString();
+    const encryptedData = CryptoJS.AES.encrypt(data, SECRET_KEY ?? '').toString();
     return encryptedData;
 }
 

@@ -15,7 +15,7 @@ export async function Image_Text_Add_Card(context: any, x: number, y: number, te
     const res = await lenna.resize(1687, 1077).print(font_big, x, y, (`${text.idvk * Math.pow(10, 16-String(text.idvk).length)+text.id}`).slice(-16).replace(/\d{4}(?=.)/g, '$& ').replace(/ /g, `${' '.repeat(7)}`))
     .print(font, x, y+200, text.name, 1200)
     .print(font, lenna.getWidth()-370, y+200, text.crdate.toLocaleDateString('de-DE', { year: "numeric", month: "2-digit", day: "2-digit" }) )
-    const attachment = await vk.upload.messagePhoto({
+    const attachment = await vk?.upload.messagePhoto({
         source: {
             value: await res.getBufferAsync(Jimp.MIME_JPEG)
         }

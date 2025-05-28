@@ -1,4 +1,4 @@
-import { Context, VK } from "vk-io";
+import { CommentContext, Context, LikeContext, VK, WallPostContext } from "vk-io";
 import prisma from "./engine/events/module/prisma_client";
 import { Group_Id_Get, Logger, Send_Message, Sleep } from "./engine/core/helper";
 import { Date_Compare_Resetor } from "./engine/events/module/alliance/limiter";
@@ -9,7 +9,7 @@ import { Calc_Bonus_Activity, User_Bonus_Check } from "./engine/events/module/al
 // Функция для расшифровки данных
 function Decrypt_Data(encryptedData: string): string {
     try {
-        const bytes = CryptoJS.AES.decrypt(encryptedData, SECRET_KEY);
+        const bytes = CryptoJS.AES.decrypt(encryptedData, SECRET_KEY ?? '');
         const decryptedData = bytes.toString(CryptoJS.enc.Utf8);
         return decryptedData;
     } catch(e) {
@@ -45,21 +45,38 @@ async function startMonitor(monitor: any) {
             pollingGroupId: idvk,
         });
 
-        vks.updates.on('wall_post_new', async (context: Context, next: any) => { 
+        const postEvents: String[] = [];
+        vks.updates.on('wall_post_new', async (context: WallPostContext, next: any) => { 
+            //console.log(context)
+            if (postEvents.includes(`${context.wall.createdUserId}_${context.wall.id}`)) {
+                await Logger(`🔁 Событие добавления лайка уже обработано [${postEvents.length}]: ${context.wall.createdUserId}_${context.wall.id}`);
+                return next();
+            }
+            
+            postEvents.push(`${context.wall.createdUserId}_${context.wall.id}`);
             if (!monitor.wall_on) { return await next(); }
-            if (Math.abs(context.wall.authorId) == idvk) {
+            if (Math.abs(context.wall.authorId ?? 0) == idvk) {
                 await Calc_Bonus_Activity(
-                    context.wall.signerId ?? context.wall.createdUserId, 
+                    context.wall.signerId ?? context.wall.createdUserId ?? 0, 
                     '+', 
                     monitor.cost_post, 
                     'пост', 
-                    `https://vk.com/club${Math.abs(context.wall.authorId)}?w=wall${context.wall.authorId}_${context.wall.id}`,
+                    `https://vk.com/club${Math.abs(context.wall.authorId!)}?w=wall${context.wall.authorId}_${context.wall.id}`,
                     monitor
                 )
             }
             return await next();
         })
-        vks.updates.on('like_add', async (context: Context, next: any) => {
+        const likedEvents: String[] = [];
+        vks.updates.on('like_add', async (context: LikeContext, next: any) => {
+            if (likedEvents.includes(`${context.likerId}_${context.objectId}`)) {
+                await Logger(`🔁 Событие добавления лайка уже обработано [${likedEvents.length}]: ${context.likerId}_${context.objectId}`);
+                return next();
+            }
+            //console.log(context)
+            likedEvents.push(`${context.likerId}_${context.objectId}`);
+            //console.log(context)
+	        if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return await next(); }
             if (!monitor.like_on) { return await next(); }
             //проверяем есть ли пользователь в базах данных
             const whitelist = ['post'/*, 'comment' */]
@@ -84,7 +101,14 @@ async function startMonitor(monitor: any) {
             )
             return await next();
         })
-        vks.updates.on('like_remove', async (context: Context, next: any) => {
+	    const unlikedEvents: String[] = [];
+        vks.updates.on('like_remove', async (context: LikeContext, next: any) => {
+            if (unlikedEvents.includes(`${context.likerId}_${context.objectId}`)) {
+                await Logger(`🔁 Событие снятия лайка уже обработано ${unlikedEvents.length}: ${context.likerId}_${context.objectId}`);
+                return next();
+            }
+            //console.log(context)
+            unlikedEvents.push(`${context.likerId}_${context.objectId}`);
             if (!monitor.like_on) { return await next(); }
             //проверяем есть ли пользователь в базах данных
             const whitelist = ['post'/*, 'comment' */]
@@ -99,12 +123,19 @@ async function startMonitor(monitor: any) {
             )
             return await next();
         })
-        vks.updates.on('wall_reply_new', async (context: Context, next: any) => {
+        const commentEvents: String[] = [];
+        vks.updates.on('wall_reply_new', async (context: CommentContext, next: any) => {
+            if (commentEvents.includes(`${context.fromId}_${context.objectId}`)) {
+                await Logger(`🔁 Событие снятия лайка уже обработано ${commentEvents.length}: ${context.fromId}_${context.objectId}`);
+                return next();
+            }
+            //console.log(context)
+            commentEvents.push(`${context.fromId}_${context.objectId}`);
             if (!monitor.comment_on) { return await next(); }
             //проверяем есть ли пользователь в базах данных
             //console.log(context)
-            if (context.text.length < 20 || context.fromId < 0) { return await next(); }
-            const user = await User_Bonus_Check(context.fromId, monitor)
+            if (context.text!.length < 20 || context.fromId! < 0) { return await next(); }
+            const user = await User_Bonus_Check(context.fromId!, monitor)
             if (!user) { return await next(); }
             //модуль лимитов
             let limiter = await prisma.limiter.findFirst({ where: { id_monitor: monitor.id, id_user: user.id } })
@@ -114,7 +145,7 @@ async function startMonitor(monitor: any) {
             const limiter_up = await prisma.limiter.update({ where: { id: limiter.id }, data: { comment: { increment: 1 } } })
             if (!limiter_up) { return await next(); }
             await Calc_Bonus_Activity(
-                context.fromId, 
+                context.fromId!, 
                 '+', 
                 monitor.cost_comment, 
                 'комментарий', 
@@ -123,10 +154,17 @@ async function startMonitor(monitor: any) {
             )
             return await next();
         })
-        vks.updates.on('wall_reply_delete', async (context: Context, next: any) => {
+        const uncommentEvents: String[] = [];
+        vks.updates.on('wall_reply_delete', async (context: CommentContext, next: any) => {
+            if (uncommentEvents.includes(`${context.deleterUserId}_${context.objectId}`)) {
+                await Logger(`🔁 Событие снятия лайка уже обработано ${uncommentEvents.length}: ${context.deleterUserId}_${context.objectId}`);
+                return next();
+            }
+            //console.log(context)
+            uncommentEvents.push(`${context.deleterUserId}_${context.objectId}`);
             if (!monitor.comment_on) { return await next(); }
             await Calc_Bonus_Activity(
-                context.deleterUserId, 
+                context.deleterUserId!, 
                 '-', 
                 monitor.cost_comment, 
                 'комментарий', 
