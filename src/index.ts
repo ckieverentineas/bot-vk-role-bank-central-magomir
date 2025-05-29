@@ -3,9 +3,9 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
+import { Antivirus_VK, Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import { Exit, Main_Menu_Init } from './engine/events/contoller';
+import { Exit, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
@@ -59,13 +59,14 @@ const initializeGroupId = async () => {
         process.exit(1);
     }
 };
+
 // Загружаем всё перед запуском
 initializeGroupId().then(async () => {
     // Здесь создаём экземпляр VK только после инициализации group_id
     const vk_init = new VK({
         token,
         pollingGroupId: group_id!,
-        apiLimit: 1,
+        apiLimit: 20,
         apiMode: 'parallel_selected'
     });
 	vk = vk_init
@@ -80,8 +81,8 @@ initializeGroupId().then(async () => {
 	registerUserRoutes(hearManager)
 	//миддлевар для предварительной обработки сообщений
 	vk.updates.on('message_new', async (context: any, next: any) => {
-		//console.log(context)
-		//if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return next(); }
+		const anti_vk_defender = await Antivirus_VK(context)
+		if (anti_vk_defender) { return await next(); }
 		//await vk.api.messages.send({ peer_id: 463031671, random_id: 0, message: `тест2`, attachment: `photo200840769_457273112` } )
 		const pk_counter_st = await Counter_PK_Module(context)
 		//console.log(users_pk)
@@ -101,7 +102,7 @@ initializeGroupId().then(async () => {
 		await Account_Register(context)
 		return await next();
 	})
-	// Защита от дублей (через Set)
+	// Защита от дублей
 	const callback_events: String[] = [];
 	vk.updates.on('message_event', async (context: MessageEventContext, next: any) => { 
 		// Проверяем существование payload
@@ -119,6 +120,7 @@ initializeGroupId().then(async () => {
 		//console.log(context)
 		const config: Record<string, (ctx: any) => Promise<void>> = {
 			"system_call": Main_Menu_Init,
+			"system_call_admin": Main_Menu_Admin_Init,
 			"card_enter": Card_Enter,
 			"exit": Exit,
 			"inventory_enter": Inventory_Enter,

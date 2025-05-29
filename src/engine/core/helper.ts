@@ -1,4 +1,4 @@
-import { Keyboard, KeyboardBuilder, PhotoAttachment, VK } from "vk-io"
+import { Keyboard, KeyboardBuilder, MessageContext, PhotoAttachment, VK } from "vk-io"
 import { answerTimeLimit, chat_id, root, starting_date, timer_text, vk } from "../.."
 import { MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
@@ -465,4 +465,15 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number): P
     }
 
     return null;
+}
+
+const message_events: String[] = [];
+export async function Antivirus_VK(context: MessageContext) {
+    //if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+    if (message_events.includes(`${context.id}`)) {
+        await Logger(`🔁 Пропущено повторное сообщение [${message_events.length}]: ${context.peerId} --> ${context.id}`);
+        return true;
+    }
+    message_events.push(`${context.id}`);
+    return false
 }

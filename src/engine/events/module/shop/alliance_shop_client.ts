@@ -132,7 +132,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
         for await (const item of await Buyer_Item_Get(cursor, id_category)) {
             const coin = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin } })
             keyboard.textButton({
-                label: `🛒 ${item.name.slice(0, 30)} — ${item.price}${coin?.smile}`,
+                label: `🛒 ${item.name.slice(0, 30)}`,
                 payload: { command: 'buyershop_item_select', cursor, id_item: item.id },
                 color: 'secondary'
             }).row();

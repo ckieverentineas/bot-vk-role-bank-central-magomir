@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, vk } from '../index';
-import { Accessed, Keyboard_Index, Logger, Send_Message } from "./core/helper";
+import { Accessed, Antivirus_VK, Keyboard_Index, Logger, Send_Message } from "./core/helper";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, User } from "@prisma/client";
@@ -22,11 +22,12 @@ import { Operation_Group } from "./events/module/tranzaction/operation_group";
 import { AllianceShop_Printer } from "./events/module/shop/alliance_shop";
 import { AllianceShop_Selector } from "./events/module/shop/alliance_shop_client";
 import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_alliance";
+import { Keyboard_User_Main, Main_Menu_Init } from "./events/contoller";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             console.log(`Admin ${context.senderId} enter in shopping`)
@@ -141,8 +142,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 А может быть в косом переулке есть подполье?`)
     })
     hearManager.hear(/✏Тип/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction item type user is viewed by admin ${context.senderId}`)
@@ -173,8 +174,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Вот бы всегда безлимит, и редактировать бы ничего не пришлось?`)
     })
     hearManager.hear(/✏Имя/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction name item is viewed by admin ${context.senderId}`)
@@ -198,19 +199,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Может еще что-нибудь отредактировать?`)
     })
     hearManager.hear(/!опмасс/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         await Operation_Group(context)
     })                
     hearManager.hear(/!опсоло/, async (context) => {
-        //console.log(context)
-	    //if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         await Operation_Solo(context)
     })
     //Обработчики удаления инвентаря и артефактов
     hearManager.hear(/Удалить👜/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.messagePayload == null) {
             return
@@ -243,8 +244,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, '💡 Был товар, нееет товара!')
     })
     hearManager.hear(/!админка/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             const user: User | null = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
@@ -266,8 +267,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/!новая роль/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
@@ -297,8 +298,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
     hearManager.hear(/!права/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const user_adm: User | null | undefined = await Person_Get(context)
         if (await Accessed(context) == 1) { return }
@@ -417,8 +418,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
     })
     hearManager.hear(/!енотик/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await context.sendDocuments({ value: `./prisma/dev.db`, filename: `dev.db` }, { message: '💡 Открывать на сайте: https://sqliteonline.com/' } );
@@ -430,58 +431,36 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Logger(`In private chat, did backup database by admin ${context.senderId}`)
     })
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
-        //console.log(context)
-	    //if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Person_Detector(context)
         const user_check: User | null | undefined = await Person_Get(context)
         if (!user_check) { return }
-		if (await Accessed(context) == 1) {
-            await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_check.name}\n🔘 ${user_check.medal} \n\n`)
-		} else {
-            const user_count = await prisma.user.count()
-		    const sums: any = await prisma.user.aggregate({ _sum: { medal: true } })
-			await Keyboard_Index(context, `🏦 Центробанк Магомира Онлайн 0.41v:\n👥 ${user_count}\n🔘 ${sums._sum.medal}\n\n`)
-		}
-		const user_inf = await User_Info(context)
-        const keyboard = new KeyboardBuilder().callbackButton({
-            label: '✅ Подтвердить авторизацию',
-            payload: {
-                command: 'system_call',
-                item: 'coffee'
-            }
-        })
-        if (await prisma.user.count({ where: { idvk: user_check.idvk } }) > 1) {
-            keyboard.textButton({ label: '🔃👥', payload: { command: 'Согласиться' }, color: 'secondary' })
-        }
-        keyboard.inline()
-		await context.send(`${user_inf.first_name}, чтобы авторизоваться в Центробанк Магомира Онлайн 0.16v, под ${user_check.name} нажмите кнопку под этим сообщением!`, {
-			keyboard: keyboard
-		})
-        
+		await Main_Menu_Init(context)
         await Logger(`In private chat, invite enter in system is viewed by user ${context.senderId}`)
     })
     hearManager.hear(/➕👤/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Person_Register(context)
     })
     hearManager.hear(/➕🌐/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Alliance_Add(context)
     })
     hearManager.hear(/🔃👥/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Person_Selector(context)
     })
     hearManager.hear(/!отчет по ролкам/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const res: Array<{ name: String, count: number }> = []
@@ -506,50 +485,50 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
     })
     hearManager.hear(/!обновить ролки/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Updater(context)
     })
     hearManager.hear(/⚙ !настроить валюты/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Printer(context)
     })
     hearManager.hear(/⚙ !настроить конвертацию/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Facult_Printer(context)
     })
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Year_End_Printer(context)
     })
     hearManager.hear(/⚙ !подключить группу/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Monitor_Printer(context)
     })
     hearManager.hear(/🚫 !моники_off/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
@@ -562,8 +541,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( user_check.idvk, `🔧 Запрос на выключение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
     hearManager.hear(/🚀 !моники_on/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
@@ -576,20 +555,20 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( user_check.idvk, `🔧 Запрос на включение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
     hearManager.hear(/⚖ Конвертер/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Alliance_Coin_Converter_Printer(context)
     })
     hearManager.hear(/📊 Отчатор/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
     hearManager.hear(/🔔 Уведомления|!уведомления/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -603,8 +582,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 		await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
     })
     hearManager.hear(/!привязать финансы/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType != 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -619,8 +598,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по финансовым транзакциям\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
     })
     hearManager.hear(/!привязать мониторы/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType != 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -635,8 +614,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( alli_log_up.id_chat_monitor, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по программе вознаграждений\n💬 id_chat_monitor: ${alli_get.id_chat_monitor} --> ${alli_log_up.id_chat_monitor}`)
     })
     hearManager.hear(/⚙ !мониторы нафиг/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -651,8 +630,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/!помощь/, async (context) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         await context.send(`☠ Меню помощи Спектр-3001:
             \n👤 [!уведомления] - включить/выключить уведомления с мониторов
             \n👤 [📊 Отчатор] - меню получения информации внутри ролевого проекта
@@ -671,8 +650,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `⌛ 911, что у вас случилось?`)
     })
     hearManager.hear(/⚙ !магазины настроить/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -685,8 +664,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/🛍 Магазины/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -698,8 +677,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/🧳 Инвентарь ролевой/, async (context: any) => {
-        //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -712,7 +691,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     /*hearManager.hear(/фото/, async (context: any) => {
         //console.log(context)
-	    if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
+	    console.log(context)
         if (context.hasAttachments('photo')) {
             // Получаем информацию о вложенной фотографии
             const attachment = context.message.attachments[0];
