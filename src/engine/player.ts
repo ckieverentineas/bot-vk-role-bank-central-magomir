@@ -208,41 +208,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         await Operation_Solo(context)
     })
-    //Обработчики удаления инвентаря и артефактов
-    hearManager.hear(/Удалить👜/, async (context) => {
-        const anti_vk_defender = await Antivirus_VK(context)
-        if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
-        if (context.messagePayload == null) {
-            return
-        }
-        const art_get: any = await prisma.inventory.findFirst({ where: { id: Number(context.messagePayload.command) } })
-        const item: any = await prisma.item.findFirst({ where: { id: art_get.id_item } })
-        if (art_get) {
-            const art_del = await prisma.inventory.delete({ where: { id: Number(context.messagePayload.command) } })
-            await context.send(`⚙ Удален товар ${item.name}-${art_del.id}`)
-            const user_find = await prisma.user.findFirst({ where: { id: art_del.id_user } })
-            if (user_find) {
-                try {
-                    await vk?.api.messages.send({
-                        user_id: user_find.idvk,
-                        random_id: 0,
-                        message: `⚙ Ваш товар ${item.name} пожертвовали в АЗКАБАН!`
-                    })
-                    await context.send(`⚙ Удаление товара успешно завершено`)
-                } catch (error) {
-                    console.log(`User ${user_find.idvk} blocked chating with bank`)
-                }
-                await vk?.api.messages.send({
-                    peer_id: chat_id,
-                    random_id: 0,
-                    message: `⚙ @id${context.senderId}(Admin) > "🚫👜" > товар ${item.name} пожертвовали в Азкабан! у @id${user_find.idvk}(${user_find.name})`
-                })
-            }
-            await Logger(`In database deleted item ${item.name}-${art_del.id} for user ${user_find?.idvk}-${user_find?.id} by admin ${context.senderId}`)
-        }
-        await Keyboard_Index(context, '💡 Был товар, нееет товара!')
-    })
     hearManager.hear(/!админка/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -676,7 +641,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await AllianceShop_Selector(context, user_check.id_alliance!)
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
-    hearManager.hear(/🧳 Инвентарь ролевой/, async (context: any) => {
+    hearManager.hear(/👜 Инвентарь/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }

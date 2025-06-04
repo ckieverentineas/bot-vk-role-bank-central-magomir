@@ -7,6 +7,7 @@ import { Person_Get } from "../person/person";
 import { Facult_Rank_Printer } from "./facult_rank";
 import { Person_Coin_Printer } from "../person/person_coin";
 import { ico_list } from "../data_center/icons_lib";
+import { button_alliance_return } from "../data_center/standart";
 
 //контроллер управления валютами альянса
 async function Alliance_Facult_Get(cursor: number, alliance: Alliance) {
@@ -89,7 +90,7 @@ async function Alliance_Facult_Delete(context: any, data: any, alliance: Allianc
 
 async function Alliance_Facult_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`${ico_list['cancel'].ico} Отмена меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() })
+    await context.send(`${ico_list['cancel'].ico} Отмена меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 

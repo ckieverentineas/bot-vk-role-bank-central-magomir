@@ -3,6 +3,7 @@ import prisma from "../prisma_client";
 import { answerTimeLimit, timer_text } from "../../../..";
 import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
+import { button_alliance_return } from "../data_center/standart";
 
 export async function AllianceShop_Get(cursor: number, id_alliance: number) {
     const batchSize = 5;
@@ -173,7 +174,7 @@ async function AllianceShop_Delete(context: any, data: any) {
 
 async function AllianceShop_Return(context: any, data: any) {
     const res = { cursor: data.cursor, stop: true };
-    await context.send(`Вы отменили управление магазинами.`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() });
+    await context.send(`Вы отменили управление магазинами.`, { keyboard: button_alliance_return });
     return res;
 }
 

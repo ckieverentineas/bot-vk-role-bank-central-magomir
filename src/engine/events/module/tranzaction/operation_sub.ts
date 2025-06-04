@@ -12,7 +12,6 @@ import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
     const keyboard = new KeyboardBuilder()
     keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
-    .textButton({ label: '👁👜', payload: { command: 'inventory_show' }, color: 'secondary' })
     .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
@@ -22,7 +21,6 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
     if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${id} истекло!`) }
     const config: any = {
         'back': Back,
-        'inventory_show': Inventory_Show,
         'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
         'user_delete': User_delete,
         'user_drop': User_Drop,
@@ -146,23 +144,4 @@ async function User_delete(id: number, context: any, user_adm: User) {
     } else {
         await context.send(`⚙ Удаление ${user_get.name} отменено.`)
     }
-}
-
-async function Inventory_Show(id: number, context: any, user_adm: User) { 
-    const artefact = await prisma.inventory.findMany({ where: { id_user: id } })
-    if (artefact.length > 0) {
-        for(const element of artefact) {
-            const item: any = await prisma.item.findFirst({ where: { id: element.id_item }, include: { category: true } })
-            await context.send(`💬: ${item.name}-${element.id} \n 🔧: ${item.category.name}-${item.price}${ico_list.medal.ico}`,
-                {
-                    keyboard: Keyboard.builder()
-                    .textButton({ label: 'Удалить👜', payload: { command: `${element.id}` }, color: 'secondary' })
-                    .oneTime().inline()
-                }
-            )
-        }
-    } else {
-        await context.send(`✉ Товары отсутствуют =(`)
-    }
-    await Logger(`In private chat, the inventory user uid ${id} is viewed by admin ${context.senderId}`)
 }

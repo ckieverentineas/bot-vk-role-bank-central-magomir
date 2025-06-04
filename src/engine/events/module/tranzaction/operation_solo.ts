@@ -38,35 +38,6 @@ export async function Operation_Solo(context: any) {
                 const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
                 const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
                 await context.send(`🏦 Открыта следующая карточка: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n ${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`} \n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
-                const inventory = await prisma.inventory.findMany({ where: { id_user: get_user?.id } })
-                let cart = ''
-                const underwear = await prisma.trigger.count({ where: {    id_user: get_user.id, name:   'underwear', value:  false } })
-                if (underwear) { cart = '👜 Трусы Домашние;' }
-                if (inventory.length == 0) {
-                    await context.send(`✉ Покупки пока не совершались`)
-                } else {
-                    for (let i = 0; i < inventory.length; i++) {
-                        const element = inventory[i].id_item;
-                        const item = await prisma.item.findFirst({ where: { id: element } })
-                        cart += `👜 ${item?.name};`
-                    }
-                    const destructor = cart.split(';').filter(i => i)
-                    let compile = []
-                    for (let i = 0; i < destructor.length; i++) {
-                        let counter = 0
-                        for (let j = 0; j < destructor.length; j++) {
-                            if (destructor[i] != null) {
-                                if (destructor[i] == destructor[j]) {
-                                    counter++
-                                }
-                            }
-                        }
-                        compile.push(`${destructor[i]} x ${counter}\n`)
-                        counter = 0
-                    }
-                    let final: any = Array.from(new Set(compile));
-                    await context.send(`✉ Были совершены следующие покупки:: \n ${final.toString().replace(/,/g, '')}`)
-                }
                 //await context.send(`Рейтинги факультетов:\n\n ${info_facult_rank?.text}`)
             } else { 
                 if (user_adm?.id_alliance != get_user?.id_alliance) {

@@ -470,10 +470,11 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number): P
 const message_events: String[] = [];
 export async function Antivirus_VK(context: MessageContext) {
     //if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { return; }
-    if (message_events.includes(`${context.id}`)) {
-        await Logger(`🔁 Пропущено повторное сообщение [${message_events.length}]: ${context.peerId} --> ${context.id}`);
+    //console.log(context)
+    if (message_events.includes(`${context.conversationMessageId}_${context.senderId}`)) {
+        await Logger(`🔁 Пропущено повторное сообщение [${message_events.length}]: ${context.peerId} --> ${context.conversationMessageId}_${context.senderId}`);
         return true;
     }
-    message_events.push(`${context.id}`);
+    message_events.push(`${context.conversationMessageId}_${context.senderId}`);
     return false
 }

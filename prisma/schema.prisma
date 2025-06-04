@@ -97,7 +97,7 @@ model Inventory {
   id      Int  @id @default(autoincrement())
   id_user Int
   id_item Int
-  item    Item @relation(fields: [id_item], references: [id], onDelete: Cascade)
+  type    String @default("item_shop")
   user    User @relation(fields: [id_user], references: [id], onDelete: Cascade)
 }
 
@@ -110,7 +110,6 @@ model Item {
   id_category Int
   type        String
   category    Category    @relation(fields: [id_category], references: [id], onDelete: Cascade)
-  Inventory   Inventory[]
 }
 
 model Category {
@@ -223,7 +222,6 @@ model AllianceShopCategory {
   name             String
   id_alliance_shop Int
   Alliance_Shop    AllianceShop       @relation(fields: [id_alliance_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  Shop_item        AllianceShopItem[]
 }
 
 model AllianceShopItem {
@@ -236,7 +234,6 @@ model AllianceShopItem {
   limit                 Int
   limit_tr              Boolean
   hidden                Boolean @default(false)
-  shop                  AllianceShopCategory    @relation(fields: [id_shop], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_shop               Int
   InventoryAllianceShop InventoryAllianceShop[]
 }

@@ -6,6 +6,7 @@ import { Carusel_Selector, Keyboard_Index } from "../../../core/helper";
 import prisma from "../prisma_client";
 import { Person_Get } from "../person/person";
 import { answerTimeLimit } from "../../../..";
+import { button_alliance_return } from "../data_center/standart";
 
 
 //контроллер управления валютами альянса
@@ -115,7 +116,7 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
 
 async function Alliance_Coin_Rank_Admin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по факультетам`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() })
+    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по факультетам`, { keyboard: button_alliance_return })
     return res
 }
 

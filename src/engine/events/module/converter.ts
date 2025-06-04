@@ -4,6 +4,7 @@ import { Person_Get } from "./person/person";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, timer_text_oper } from "../../..";
 import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../core/helper";
+import { button_alliance_return } from "./data_center/standart";
 
 
 //контроллер управления валютами альянса
@@ -71,7 +72,7 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`⚠ Вы отменили меню конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() })
+    await context.send(`⚠ Вы отменили меню конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 

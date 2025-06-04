@@ -44,7 +44,7 @@ export async function Keyboard_User_Main(context: Context) {
     const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
     const keyboard_user = new KeyboardBuilder()
     .callbackButton({ label: '💳 Карта', payload: { command: 'card_enter' }, color: 'secondary' })
-    .callbackButton({ label: '👜 Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
+    .textButton({ label: '👜 Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
     if (alliance) {
         keyboard_user.callbackButton({ label: `${ico_list['statistics'].ico} Рейтинги`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' })
         .textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()

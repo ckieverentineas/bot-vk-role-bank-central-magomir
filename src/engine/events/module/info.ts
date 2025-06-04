@@ -45,49 +45,6 @@ export async function Card_Enter(context:any) {
     }
 }
 
-export async function Inventory_Enter(context: any) {
-    const get_user: User | null | undefined = await Person_Get(context)
-    if (!get_user) { return }
-    const inventory = await prisma.inventory.findMany({ where: { id_user: get_user.id }, include: { item: true } })
-    let cart = ''
-    for (const i in inventory) {
-        cart += `${inventory[i].item.name};`
-    }
-    const destructor = cart.split(';').filter(i => i)
-    let compile = []
-    let compile_rendered: any = []
-    for (const i in destructor) {
-        let counter = 0
-        for (const j in destructor) { if (destructor[i] != null) { if (destructor[i] == destructor[j]) { counter++ } } }
-        compile.push(`👜 ${destructor[i]} x ${counter}\n`)
-        compile_rendered.push({name: destructor[i], text:`x ${counter}`})
-        counter = 0
-    }
-    const fUArr: any = compile_rendered.filter( (li: ArrayLike<any> | { [s: string]: any; }, idx: any, self: ({ [s: string]: any; } | ArrayLike<any>)[]) => 
-        self.map( (itm: { [s: string]: any; } | ArrayLike<any>) => Object.values(itm).reduce((r, c) => r.concat(c), '') )
-        .indexOf( Object.values(li).reduce((r, c) => r.concat(c), '') ) === idx
-    )
-    let attached = null
-    //if ((fUArr && fUArr[0] != undefined) && fUArr.length <= 20) { attached = await Image_Interface_Inventory(fUArr, context) }
-    let final: any = Array.from(new Set(compile));
-    const text = final.length > 0 ? `✉ Вы приобрели следующее: \n${final.toString().replace(/,/g, '')}` : `✉ Вы еще ничего не приобрели:(`
-    await Logger(`In a private chat, the inventory is viewed by user ${get_user.idvk}`)
-    const keyboard = new KeyboardBuilder()
-    .textButton({ label: '🧳 Инвентарь ролевой', payload: { command: 'system_call' }, color: 'secondary' }).row()
-    .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' })
-    .inline().oneTime()
-    await Send_Message(context.peerId, text, keyboard, attached)
-    let ii = final.length > 0 ? 'А вы зажиточный клиент' : `Как можно было так лохануться?`
-    await vk?.api.messages.sendMessageEventAnswer({
-        event_id: context.eventId,
-        user_id: context.userId,
-        peer_id: context.peerId,
-        event_data: JSON.stringify({
-            type: "show_snackbar",
-            text: `🔔 ${ii}`
-        })
-    })
-}
 export async function Admin_Enter(context: any) {
     const attached = image_admin//await Image_Random(context, "admin")
     const user: User | null | undefined = await Person_Get(context)

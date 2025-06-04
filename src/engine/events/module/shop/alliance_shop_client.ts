@@ -3,6 +3,7 @@ import prisma from "../prisma_client";
 import { answerTimeLimit } from "../../../..";
 import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
+import { button_alliance_return, InventoryType } from "../data_center/standart";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -183,9 +184,27 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
 
 async function Buyer_Item_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
-    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item }, include: { shop: { include: { Alliance_Shop: true } } } });
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) { 
+        await context.send(`❌ Не удалось получить данные о товаре`);
+        return res;
+    }
+    const item_category_check = await prisma.allianceShopCategory.findFirst({ where: { id: item.id_shop } })
+    if (!item_category_check) { 
+        await context.send(`❌ Не удалось получить данные о категории товара`);
+        return res;
+    }
+    const item_shop_check = await prisma.allianceShop.findFirst({ where: { id: item_category_check?.id_alliance_shop } })
+    if (!item_shop_check) { 
+        await context.send(`❌ Не удалось получить данные о магазине товара`);
+        return res;
+    }
+    const item_alliance_check = await prisma.alliance.findFirst({ where: { id: item_shop_check?.id_alliance } })
+    if (!item_alliance_check) { 
+        await context.send(`❌ Не удалось получить данные об альянсе товара`);
+        return res;
+    }
     let answer_log = ''
-    let answer_chat_log = ''
     if (!item) {
         await context.send(`❌ Товар не найден.`);
         return res;
@@ -243,8 +262,8 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         }
     }
     // Выдача предмета
-    const save_item = await prisma.inventoryAllianceShop.create({
-        data: { id_user: user.id, id_item: item.id }
+    const save_item = await prisma.inventory.create({
+        data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE }
     });
 
     // Обновление лимита
@@ -259,7 +278,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     //модуль откатов
     let answer_owner_alliance_log = ''
-    const user_payed_check = await prisma.user.findFirst({ where: { id: item.shop.Alliance_Shop.id_user_owner } })
+    const user_payed_check = await prisma.user.findFirst({ where: { id: item_shop_check.id_user_owner} })
     if (!user_payed_check) { return res; }
     const user_payed_balance_check = await prisma.balanceCoin.findFirst({ where: { id_user: user_payed_check.id, id_coin: item.id_coin } })
     if (!user_payed_balance_check) { return res; }
@@ -273,7 +292,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
             answer_owner_alliance_log += `🌐 "+${coin_get?.smile}" > ${balance_facult_check_owner.amount} + ${item.price} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
         }
     }
-    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item.shop.Alliance_Shop.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
+    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
     return res;
 }
 
@@ -388,6 +407,6 @@ async function Buyershop_Back(context: any, data: any) {
 
 async function Buyershop_Return(context: any, data: any) {
     const res = { stop: true };
-    await context.send(`Вы вышли из магазина.`, { keyboard: Keyboard.builder().callbackButton({ label: '🌐 В ролевую', payload: { command: 'alliance_enter' }, color: 'primary' }).inline().oneTime() });
+    await context.send(`Вы вышли из магазина.`, { keyboard: button_alliance_return });
     return res;
 }

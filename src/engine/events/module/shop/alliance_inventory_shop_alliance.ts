@@ -1,24 +1,18 @@
-import { Prisma, User } from "@prisma/client";
+import { Inventory, Prisma, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { InventoryType } from "../data_center/standart";
 
-export type InventoryWithItem = Prisma.InventoryAllianceShopGetPayload<{
-    include: {
-        item: true;
-    };
-}>;
-
-async function Inventory_Get(cursor: number, user_id: number): Promise<InventoryWithItem[]> {
+async function Inventory_Get(cursor: number, user_id: number): Promise<Inventory[]> {
     const batchSize = 5;
     let counter = 0;
     let limiter = 0;
-    let res: InventoryWithItem[] = [];
+    let res: Inventory[] = [];
 
-    const items = await prisma.inventoryAllianceShop.findMany({
-        where: { id_user: user_id },
-        include: { item: true }, // теперь инклюд есть
+    const items = await prisma.inventory.findMany({
+        where: { id_user: user_id }
     });
 
     for (const item of items) {
@@ -43,29 +37,35 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
         const items = await Inventory_Get(cursor, user.id);
 
         for await (const inv of items) {
-            const item = inv.item;
+            let item = null
+            if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+                item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+            }
+            if (inv.type == InventoryType.ITEM_SHOP) {
+                item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+            }
 
             keyboard.textButton({
-                label: `🧳 ${item.name.slice(0, 30)} — ${inv.id}`,
+                label: `🧳 ${item?.name.slice(0, 30)} — ${inv.id}`,
                 payload: { command: 'inventory_select', cursor, id_item: inv.id },
                 color: 'secondary'
             })
-            if (user_adm) {
+            //if (user_adm) {
                 keyboard.textButton({
                     label: `⛔`,
                     payload: { command: 'inventory_delete', cursor, id_item: inv.id },
                     color: 'negative'
                 });
-            }
+            //}
             keyboard.row()
-            event_logger += `🧳 ${inv.id} - ${item.name}\n`;
+            event_logger += `🧳 ${inv.id} - ${item?.name}\n`;
         }
 
         if (cursor >= 5) {
             keyboard.textButton({ label: `←`, payload: { command: 'inventory_back', cursor }, color: 'secondary' });
         }
 
-        const totalItems = await prisma.inventoryAllianceShop.count({ where: { id_user: user.id } });
+        const totalItems = await prisma.inventory.count({ where: { id_user: user.id } });
         if (5 + cursor < totalItems) {
             keyboard.textButton({ label: `→`, payload: { command: 'inventory_next', cursor }, color: 'secondary' });
         }
@@ -106,21 +106,36 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
 
 async function Inventory_Select(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor };
-    const inv = await prisma.inventoryAllianceShop.findFirst({
+    const inv = await prisma.inventory.findFirst({
         where: { id: data.id_item },
-        include: { item: true }
     });
 
     if (!inv) {
         await context.send(`❌ Предмет не найден.`);
         return res;
     }
+    let item = null
+    let text = ''
+    if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине`;
+    }
+    if (inv.type == InventoryType.ITEM_SHOP) {
+        item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
+    }
 
-    const item = inv.item;
+    
 
-    let text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}`;
-
-    const attached = item.image ? item.image : null;
+    const attached = item?.image ? item?.image : null;
 
     const okKeyboard = new KeyboardBuilder()
         .textButton({ label: `✅ ОК`, payload: { command: 'inventory_return' }, color: 'positive' })
@@ -133,33 +148,46 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
 
 async function Inventory_Delete(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor };
-    const inv = await prisma.inventoryAllianceShop.findFirst({
+    const inv = await prisma.inventory.findFirst({
         where: { id: data.id_item },
-        include: { item: true }
     });
-
     if (!inv) {
         await context.send(`❌ Предмет не найден.`);
         return res;
     }
-
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить "${inv.item.name}" из инвентаря?`);
+    let item = null
+    if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        //text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине`;
+    }
+    if (inv.type == InventoryType.ITEM_SHOP) {
+        item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        //text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
+    }
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить "${item?.name}" из инвентаря?`);
 
     await context.send(confirm.text);
     if (!confirm.status) return res;
-
-    const deleted = await prisma.inventoryAllianceShop.delete({
-        where: { id: inv.id }, include: { item: true }
+    const deleted = await prisma.inventory.delete({
+        where: { id: inv.id }
     });
 
     if (deleted) {
-        await Logger(`Игрок @id${user_adm?.idvk} удалил "${deleted.item.name}" из инвентаря`);
-        await context.send(`Вы удалили "${deleted.item.name}" из инвентаря.`);
+        await Logger(`Игрок @id${user_adm?.idvk} удалил "${deleted.id}-${item?.name}" из инвентаря`);
+        await context.send(`Вы удалили "${deleted.id}-${item?.name}" из инвентаря.`);
         if(user_adm) {
-            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.item.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.item.name}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
+            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.id}-${item?.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
+            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${item?.name}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
         } else { 
-            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.item.name}" из инвентаря`);
+            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.id}-${item?.name}" из инвентаря`);
         }
     }
 

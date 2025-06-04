@@ -356,27 +356,28 @@ async function AllianceShopItem_Edit_Price(context: any, data: any) {
 
 async function AllianceShopItem_Edit_Coin(context: any, data: any) {
     const res = { cursor: data.cursor };
-    const item_check = await prisma.allianceShopItem.findFirst({
-        where: { id: data.id_item },
-        include: {
-            shop: {
-                include: {
-                    Alliance_Shop: {
-                        include: {
-                            Alliance: true
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    if (!item_check || !item_check.shop || !item_check.shop.Alliance_Shop || !item_check.shop.Alliance_Shop.Alliance) {
-        await context.send(`❌ Не удалось получить данные о магазине или альянсе`);
+    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item_check) { 
+        await context.send(`❌ Не удалось получить данные о товаре`);
+        return res;
+    }
+    const item_category_check = await prisma.allianceShopCategory.findFirst({ where: { id: item_check?.id_shop } })
+    if (!item_category_check) { 
+        await context.send(`❌ Не удалось получить данные о категории товара`);
+        return res;
+    }
+    const item_shop_check = await prisma.allianceShop.findFirst({ where: { id: item_category_check?.id_alliance_shop } })
+    if (!item_shop_check) { 
+        await context.send(`❌ Не удалось получить данные о магазине товара`);
+        return res;
+    }
+    const item_alliance_check = await prisma.alliance.findFirst({ where: { id: item_shop_check?.id_alliance } })
+    if (!item_alliance_check) { 
+        await context.send(`❌ Не удалось получить данные об альянсе товара`);
         return res;
     }
 
-    const id_alliance = item_check.shop.Alliance_Shop.Alliance.id;
+    const id_alliance = item_alliance_check.id;
 
     // Вызываем твою универсальную функцию выбора валюты
     const selectedCoinId = await Select_Alliance_Coin(context, id_alliance);

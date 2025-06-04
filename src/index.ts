@@ -6,7 +6,7 @@ import { InitGameRoutes } from './engine/init';
 import { Antivirus_VK, Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { Exit, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
-import { Admin_Enter, Card_Enter, Inventory_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
+import { Admin_Enter, Card_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
 import { Person_Detector } from './engine/events/module/person/person';
@@ -123,7 +123,6 @@ initializeGroupId().then(async () => {
 			"system_call_admin": Main_Menu_Admin_Init,
 			"card_enter": Card_Enter,
 			"exit": Exit,
-			"inventory_enter": Inventory_Enter,
 			"admin_enter": Admin_Enter,
 			"service_enter": Service_Enter,
 			"service_cancel": Service_Cancel,
