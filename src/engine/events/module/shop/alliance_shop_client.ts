@@ -251,7 +251,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price } } });
-    answer_log += `совершена покупка товара "${item.name}" за ${item.price}${coin_get.smile}. баланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
+    answer_log += `Совершена покупка товара "${item.name}" за ${item.price}${coin_get.smile}.\nБаланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
     // Списание баллов факультета
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })

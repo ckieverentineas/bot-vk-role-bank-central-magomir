@@ -18,7 +18,7 @@ export async function Main_Menu_Init(context: any) {
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
     } else {
         text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }
@@ -86,7 +86,7 @@ export async function Main_Menu_Admin_Init(context: any) {
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n Баланс: ${coin}\n\n Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n Баланс: ${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
     } else {
         text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }

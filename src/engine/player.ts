@@ -649,7 +649,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
 		if (!user_check) { return }
-        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        //if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const keyboard = new KeyboardBuilder()
         await Inventory_Printer(context, user_check);
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
