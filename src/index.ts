@@ -17,6 +17,7 @@ import { Counter_PK_Module } from './engine/events/module/counter_pk';
 import { Monitoring } from './monitring';
 import { Account_Register } from './engine/events/module/person/account';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter, Shop_Enter_Multi } from './engine/events/module/shop/engine';
+import { Auto_Backup_DB } from './engine/core/auto_backup';
 
 // Загрузка конфигурации
 const envConfig = dotenv.config();
@@ -164,6 +165,7 @@ initializeGroupId().then(async () => {
         await Logger('🚀 Бот успешно запущен');
         setInterval(Worker_Online_Setter.bind(null, group_id!), 3600000); // онлайн каждые 60 минут
         setInterval(Worker_Checker, 86400000); // раз в день
+		setInterval(Auto_Backup_DB, 86400000)
     })
     .catch((error) => {
         console.error('🛑 Ошибка запуска бота:', error);
