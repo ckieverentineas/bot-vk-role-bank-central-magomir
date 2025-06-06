@@ -53,8 +53,8 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
         keyboard.textButton({ label: `➕`, payload: { command: 'allianceshopitem_create', cursor }, color: 'positive' }).row()
 
         event_logger += `\n${1 + cursor} из ${item_counter}`;
-
-        const item_bt = await Send_Message_Question(context, `💎 Выберите товар для категории ${category?.name}:\n${event_logger}`, keyboard, undefined);
+        const attached = category?.image ? category?.image : null;
+        const item_bt = await Send_Message_Question(context, `💎 Выберите товар для категории ${category?.name}:\n${event_logger}`, keyboard, attached ?? undefined);
         if (item_bt.exit) { return; }
         const config: any = {
             'allianceshopitem_select': AllianceShopItem_Select,
@@ -182,7 +182,6 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
         .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' }).row()
         .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
     const attached = item_check.image ? item_check.image : null;
-
     const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
     if (item_bt.exit) { return res; }
     const config: any = {

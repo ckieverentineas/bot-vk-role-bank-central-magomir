@@ -305,9 +305,37 @@ export function Format_Number_Correction(num: any): number | string {
     }
 }
 
+/**
+ * Парсит VK-фото ID из разных форматов ссылок
+ * @param url Ссылка (чистая или в параметрах)
+ * @returns строка вида "photo-..._..." или null
+ */
 export function Get_Url_Picture(url: string): string | null {
-    const match = url.match(/photo-\d+_\d+/);
-    return match ? match[0] : null;
+    // Проверяем, есть ли в URL параметр z=...
+    const zMatch = /z=(photo-\d+_\d+)/.exec(url);
+    if (zMatch) {
+        return zMatch[1];
+    }
+
+    // Проверяем, является ли это прямой ссылкой на фото
+    const directMatch = /photo-\d+_\d+/.exec(url);
+    if (directMatch) {
+        return directMatch[0];
+    }
+
+    // Для альбомов и других форматов
+    const albumMatch = /z=(photo\d+_\d+)%2Falbum/.exec(url);
+    if (albumMatch) {
+        return `${albumMatch[1]}`;
+    }
+
+    // Если фото через feed или другую страницу
+    const feedMatch = /z=photo(\d+)_(\d+)/.exec(url);
+    if (feedMatch) {
+        return `photo${feedMatch[1]}_${feedMatch[2]}`;
+    }
+
+    return null;
 }
 
 /**

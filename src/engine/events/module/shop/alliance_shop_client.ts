@@ -50,8 +50,8 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_category_next', cursor }, color: 'secondary' });
         }
         event_logger += `\n${1 + cursor} из ${category_counter}`;
-
-        const bt = await Send_Message_Question(context, `📁 Выберите категорию:\n${event_logger}`, keyboard, undefined);
+        const attached = shop?.image ? shop?.image : null;
+        const bt = await Send_Message_Question(context, `📁 Выберите категорию:\n${event_logger}`, keyboard, attached ?? undefined);
         if (bt.exit) { return; }
         const config: any = {
             'buyershop_category_select': Buyer_Category_Select,
@@ -127,7 +127,8 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_item_next', cursor }, color: 'secondary' });
         }
         event_logger += `\n${1 + cursor} из ${item_counter}`;
-        const bt = await Send_Message_Question(context, `🛒 Выберите товар:\n${event_logger}`, keyboard, undefined);
+        const attached = category?.image ? category?.image : null;
+        const bt = await Send_Message_Question(context, `🛒 Выберите товар:\n${event_logger}`, keyboard, attached ?? undefined);
         if (bt.exit) { return; }
         const config: any = {
             'buyershop_item_select': Buyer_Item_Select,

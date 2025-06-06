@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Get_Url_Picture, Keyboard_Index, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 import { button_alliance_return } from "../data_center/standart";
 
@@ -118,14 +118,18 @@ async function AllianceShop_Edit(context: any, data: any) {
         await context.send(`💡 Название должно быть от 1 до 100 символов!`);
         return res;
     }
-
+    let image_url = ''
+    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${shop_check.image}]:`, timer_text);
+    if (imageUrl.isTimeout) return res;
+    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
     // Обновляем магазин
     const updatedShop = await prisma.allianceShop.update({
         where: { id: shop_check.id },
-        data: { name: name.text }
+        data: { name: name.text, image: image_url }
+
     });
 
-    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  изменено название магазина: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`, 'admin_solo') }
+    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  изменено название и картинка магазина: ${shop_check.id}-${shop_check.name}-${shop_check.image} -> ${updatedShop.id}-${updatedShop.name}-${updatedShop.image}`, 'admin_solo') }
 
     return res;
 }
@@ -184,11 +188,16 @@ async function AllianceShop_Create(context: any, data: any, id_alliance: number)
         }
     }
 
+    let image_url = ''
+    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"):`, timer_text);
+    if (imageUrl.isTimeout) return res;
+    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
     const allianceId = id_alliance;
     const shop_cr = await prisma.allianceShop.create({
         data: {
             name: name_loc,
-            id_alliance: allianceId
+            id_alliance: allianceId,
+            image: image_url
         }
     });
 
