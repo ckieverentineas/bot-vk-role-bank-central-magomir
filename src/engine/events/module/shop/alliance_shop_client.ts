@@ -192,7 +192,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
     
     // подготавливаем внешний вид товара
-    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
+    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
     const attached = item?.image?.includes('photo') ? item.image : null
     await Send_Message(context.senderId, `${text_item}`, undefined, attached)
     const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный товар?`);
@@ -222,10 +222,11 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         }
     }
     // Выдача предмета
-    const save_item = await prisma.inventory.create({
-        data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE }
-    });
-
+    if (item.inventory_tr) {
+        const save_item = await prisma.inventory.create({
+            data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE }
+        });
+    }
     // Обновление лимита
     if (item.limit_tr) {
         await prisma.allianceShopItem.update({

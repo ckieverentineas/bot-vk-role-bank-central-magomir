@@ -3,7 +3,7 @@ import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
-import { InventoryType } from "../data_center/standart";
+import { button_alliance_return, InventoryType } from "../data_center/standart";
 
 async function Inventory_Get(cursor: number, user_id: number): Promise<Inventory[]> {
     const batchSize = 5;
@@ -206,6 +206,6 @@ async function Inventory_Back(context: any, data: any, user: User, user_adm?: Us
 
 async function Inventory_Return(context: any, data: any, user: User, user_adm?: User) {
     const res = { stop: true };
-    await context.send(`Вы вышли из инвентаря.`);
+    await context.send(`Вы вышли из инвентаря.`, { keyboard: button_alliance_return });
     return res;
 }

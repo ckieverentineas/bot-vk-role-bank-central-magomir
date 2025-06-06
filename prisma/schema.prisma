@@ -235,6 +235,7 @@ model AllianceShopItem {
   id_coin               Int
   limit                 Int
   limit_tr              Boolean
+  inventory_tr          Boolean @default(true)
   hidden                Boolean @default(false)
   id_shop               Int
   InventoryAllianceShop InventoryAllianceShop[]

@@ -110,6 +110,9 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
         limit = parseInt(limitInput.text) || 0;
     }
 
+    const confirm1: { status: boolean, text: string } = await Confirm_User_Success(context, `добавлять товар в инвентарь пользователя при покупке покупателем?`);
+    await context.send(confirm1.text);
+    const inventory_tr = confirm1.status ? true : false
     if (name_loc) {
         const item_cr = await prisma.allianceShopItem.create({
             data: {
@@ -120,7 +123,8 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 id_shop: category.id,
                 id_coin: id_coin ?? 0,
                 limit: limit,
-                limit_tr: limit_tr
+                limit_tr: limit_tr,
+                inventory_tr: inventory_tr
             }
         });
         await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  добавлен новый товар: ${item_cr.id}-${item_cr.name}`, 'admin_solo')
@@ -170,7 +174,7 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
     const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
     if (!alli_shop) { return }
     const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
-    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n⚙ Выберите действие:`;
+    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n⚙ Выберите действие:`;
     const keyboard = new KeyboardBuilder()
         .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
         .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()
@@ -179,7 +183,8 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
         .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
         .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
         .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
-        .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' }).row()
+        .textButton({ label: '👜  Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
+        .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' })
         .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
     const attached = item_check.image ? item_check.image : null;
     const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
@@ -193,7 +198,8 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
         'allianceshopitem_hide': AllianceShopItem_Hide,
         'allianceshopitem_edit_description': AllianceShopItem_Edit_Description,
         'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,  
-        'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin
+        'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin,
+        'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put
     };
 
     const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
@@ -280,7 +286,17 @@ async function AllianceShopItem_Hide(context: any, data: any) {
 
     return res;
 }
-
+async function AllianceShopItem_Edit_Inventory_Put(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `добавлять товар "${item.name}" в инвентарь пользователя, сейчас [${item.inventory_tr ? 'добавляется' : 'не добавляется'}]?`);
+    await context.send(confirm.text);
+    const inventory_tr = confirm.status ? true : false
+    const item_inventory_tr = await prisma.allianceShopItem.update({ where: { id: item.id }, data: { inventory_tr: inventory_tr } });
+    if (item_inventory_tr) { await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  изменено добавление товара [${item_inventory_tr.id}-${item_inventory_tr.name}] в инвентарь покупателя: ${item.inventory_tr ? 'добавляется' : 'не добавляется'} --> ${item_inventory_tr.inventory_tr ? 'добавляется' : 'не добавляется'}`, 'admin_solo') }
+    return res;
+}
 async function AllianceShopItem_Edit_Description(context: any, data: any) {
     const res = { cursor: data.cursor };
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
