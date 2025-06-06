@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 
@@ -49,31 +49,14 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
         if (5 + cursor < category_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_category_next', cursor }, color: 'secondary' });
         }
-
-        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime().inline();
-
         event_logger += `\n${1 + cursor} из ${category_counter}`;
 
-        const bt = await context.question(
-            `📁 Выберите категорию:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (bt.isTimeout) {
-            await context.send(`⏰ Время истекло!`);
-            return;
-        }
-
-        if (!bt.payload || !bt.payload.command) {
-            await context.send(`💡 Жмите только на кнопки.`);
-            continue;
-        }
-
+        const bt = await Send_Message_Question(context, `📁 Выберите категорию:\n${event_logger}`, keyboard, undefined);
+        if (bt.exit) { return; }
         const config: any = {
             'buyershop_category_select': Buyer_Category_Select,
             'buyershop_category_next': Buyer_Category_Next,
             'buyershop_category_back': Buyer_Category_Back,
-            'buyershop_return': Buyer_Return
         };
 
         const ans = await config[bt.payload.command](context, bt.payload, shop);
@@ -95,12 +78,6 @@ async function Buyer_Category_Next(context: any, data: any, shop: any) {
 
 async function Buyer_Category_Back(context: any, data: any, shop: any) {
     const res = { cursor: data.cursor - 5 };
-    return res;
-}
-
-async function Buyer_Return(context: any, data: any, shop: any) {
-    const res = { stop: true };
-    await context.send(`Вы вышли из магазина.`);
     return res;
 }
 
@@ -149,31 +126,13 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
         if (5 + cursor < item_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_item_next', cursor }, color: 'secondary' });
         }
-
-        keyboard.textButton({ label: `🚫 Назад`, payload: { command: 'buyershop_item_return', cursor }, color: 'negative' }).oneTime().inline();
-
         event_logger += `\n${1 + cursor} из ${item_counter}`;
-
-        const bt = await context.question(
-            `🛒 Выберите товар:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (bt.isTimeout) {
-            await context.send(`⏰ Время истекло!`);
-            return;
-        }
-
-        if (!bt.payload || !bt.payload.command) {
-            await context.send(`💡 Жмите только на кнопки.`);
-            continue;
-        }
-
+        const bt = await Send_Message_Question(context, `🛒 Выберите товар:\n${event_logger}`, keyboard, undefined);
+        if (bt.exit) { return; }
         const config: any = {
             'buyershop_item_select': Buyer_Item_Select,
             'buyershop_item_next': Buyer_Item_Next,
             'buyershop_item_back': Buyer_Item_Back,
-            'buyershop_item_return': Buyer_Item_Return
         };
 
         const ans = await config[bt.payload.command](context, bt.payload, category);
@@ -234,7 +193,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     // подготавливаем внешний вид товара
     let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
     const attached = item?.image?.includes('photo') ? item.image : null
-    await context.send(`${text_item}`, { attachment: attached })
+    await Send_Message(context.senderId, `${text_item}`, undefined, attached)
     const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный товар?`);
         //await context.send(confirm.text);
     if (!confirm_ask.status) { return res }
@@ -306,12 +265,6 @@ async function Buyer_Item_Back(context: any, data: any, category: any) {
     return res;
 }
 
-async function Buyer_Item_Return(context: any, data: any, category: any) {
-    const res = { stop: true };
-    await context.send(`Вы вернулись в меню категорий.`);
-    return res;
-}
-
 async function Buyer_Shop_Get(cursor: number, id_alliance: number) {
     const batchSize = 5;
     let counter = 0;
@@ -355,38 +308,20 @@ export async function AllianceShop_Selector(context: any, id_alliance: number) {
         if (5 + cursor < shop_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_next', cursor }, color: 'secondary' });
         }
-
-        keyboard.textButton({ label: `🚫 Отмена`, payload: { command: 'buyershop_return' }, color: 'negative' }).oneTime().inline();
-
         event_logger += `\n${1 + cursor} из ${shop_counter}`;
-
-        const bt = await context.question(
-            `🛒 Выберите магазин:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (bt.isTimeout) {
-            await context.send(`⏰ Время истекло!`);
-            return;
-        }
-
-        if (!bt.payload || !bt.payload.command) {
-            await context.send(`💡 Жмите только на кнопки.`);
-            continue;
-        }
-
+        const bt = await Send_Message_Question(context, `🛒 Выберите магазин:\n${event_logger}`, keyboard, undefined);
+        if (bt.exit) { await context.send(`Вы вышли из магазина.`, { keyboard: button_alliance_return }); return await Keyboard_Index(context, `⌛ Приходите еще, вдруг новинки появятся, как на валдберисе?`); }
         const config: any = {
             'buyershop_select': Buyershop_Select,
             'buyershop_next': Buyershop_Next,
             'buyershop_back': Buyershop_Back,
-            'buyershop_return': Buyershop_Return
         };
 
         const ans = await config[bt.payload.command](context, bt.payload);
         cursor = ans?.cursor ?? cursor;
         shop_tr = ans.stop ?? false;
     }
-    await Keyboard_Index(context, `⌛ Приходите еще, вдруг новинки появятся как на валдберисе?`)
+    await Keyboard_Index(context, `⌛ Приходите еще, вдруг новинки появятся, как на валдберисе?`)
 }
 
 async function Buyershop_Select(context: any, data: any) {
@@ -402,11 +337,5 @@ async function Buyershop_Next(context: any, data: any) {
 
 async function Buyershop_Back(context: any, data: any) {
     const res = { cursor: data.cursor - 5 };
-    return res;
-}
-
-async function Buyershop_Return(context: any, data: any) {
-    const res = { stop: true };
-    await context.send(`Вы вышли из магазина.`, { keyboard: button_alliance_return });
     return res;
 }

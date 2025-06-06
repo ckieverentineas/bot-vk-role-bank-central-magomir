@@ -1,4 +1,4 @@
-import { Keyboard, KeyboardBuilder, MessageContext, PhotoAttachment, VK } from "vk-io"
+import { Context, Keyboard, KeyboardBuilder, MessageContext, PhotoAttachment, VK } from "vk-io"
 import { answerTimeLimit, chat_id, root, starting_date, timer_text, vk } from "../.."
 import { MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
@@ -96,7 +96,7 @@ export async function Logger(text: String) {
 }
 
 export async function Send_Message(idvk: number, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
-    message = message ? message : 'invalid message'
+    message = message ? message.slice(0, 3900) : 'invalid message'
     try {
         if (!attachment && !keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }
         if (attachment && !keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}`, attachment: attachment.toString() } ) }
@@ -477,4 +477,57 @@ export async function Antivirus_VK(context: MessageContext) {
     }
     message_events.push(`${context.conversationMessageId}_${context.senderId}`);
     return false
+}
+
+/**
+ * Универсальная функция для вопросов с кнопками
+ * @param context VK.IO контекст
+ * @param message Текст сообщения
+ * @param keyboard Клавиатура (опционально)
+ * @param attachment Вложение (опционально)
+ * @param timeoutTime Время ожидания ответа (по умолчанию 5 мин)
+ * @returns { timeout: boolean, notButton: boolean, payload: any }
+ */
+export async function Send_Message_Question(
+    context: Context,
+    message: string,
+    keyboard?: KeyboardBuilder,
+    attachment?: string,
+    timeoutTime: number = 300_000 // 5 минут по умолчанию
+): Promise<{ 
+    exit: boolean, 
+    payload?: any 
+}> {
+    let payload = null
+    let exit = false
+    try {
+        while (true) {
+            const response = await context.question(message.slice(0, 3900), {
+                ...(keyboard && { keyboard: keyboard.textButton({ label: '🚫', payload: { command: 'exit' }, color: 'positive' }).oneTime() }),
+                ...(attachment && { attachment }),
+                answerTimeLimit: timeoutTime
+            });
+    
+            if (response.isTimeout) {
+                await context.send('⏰ Время истекло');
+                exit = true
+                break
+            }
+            if (!response.payload) {
+                await context.send('💡 Жмите только по кнопкам!');
+                continue
+            }
+            if (response.payload.command === 'exit') {
+                await context.send('❌ Возвращаемся назад');
+                exit = true
+                break
+            }
+            payload = response.payload
+            break
+        }
+    } catch (error) {
+        await Logger(`⚠ Ошибка при отправке вопроса для ответа пользователю: ${error}`);
+        await context.send('⚠ Произошла ошибка. Повторите попытку.');
+    }
+    return { exit, payload };
 }

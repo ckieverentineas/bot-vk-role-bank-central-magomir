@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Get_Url_Picture, Select_Alliance_Coin, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Get_Url_Picture, Select_Alliance_Coin, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -51,27 +51,17 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
         }
 
         keyboard.textButton({ label: `➕`, payload: { command: 'allianceshopitem_create', cursor }, color: 'positive' }).row()
-        .textButton({ label: `🚫 Отмена`, payload: { command: 'allianceshopitem_return', cursor }, color: 'negative' }).oneTime();
 
         event_logger += `\n${1 + cursor} из ${item_counter}`;
 
-        const item_bt = await context.question(
-            `💎 Выберите товар для категории ${category?.name}:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (item_bt.isTimeout) { await context.send(`⏰ Время ожидания выбора истекло!`); return; }
-
-        if (!item_bt.payload) { await context.send(`💡 Жмите только по кнопкам!`); continue; }
-
+        const item_bt = await Send_Message_Question(context, `💎 Выберите товар для категории ${category?.name}:\n${event_logger}`, keyboard, undefined);
+        if (item_bt.exit) { return; }
         const config: any = {
             'allianceshopitem_select': AllianceShopItem_Select,
             'allianceshopitem_create': AllianceShopItem_Create,
             'allianceshopitem_next': AllianceShopItem_Next,
             'allianceshopitem_back': AllianceShopItem_Back,
-            'allianceshopitem_return': AllianceShopItem_Return,
         };
-
         const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
         cursor = ans?.cursor ?? cursor;
         item_tr = ans.stop ?? false;
@@ -161,12 +151,6 @@ async function AllianceShopItem_Delete(context: any, data: any, category: any) {
     return res;
 }
 
-async function AllianceShopItem_Return(context: any, data: any, category: any) {
-    const res = { cursor: data.cursor, stop: true };
-    await context.send(`Вы вышли из меню товаров.`);
-    return res;
-}
-
 async function AllianceShopItem_Next(context: any, data: any, category: any) {
     const res = { cursor: data.cursor + 5 };
     return res;
@@ -197,17 +181,11 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
         .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
         .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' }).row()
         .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
-        .textButton({ label: '✅ Готово', payload: { command: 'allianceshopitem_return', id_item: item_check.id }, color: 'positive' }).row().inline();
     const attached = item_check.image ? item_check.image : null;
 
-    const item_bt = await context.question(`${text}`, { keyboard, answerTimeLimit, attachment: attached });
-
-    if (item_bt.isTimeout) { await context.send(`⏰ Время ожидания выбора истекло!`); return res; }
-
-    if (!item_bt.payload) { await context.send(`💡 Жмите только по кнопкам!`); return res; }
-
+    const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
+    if (item_bt.exit) { return res; }
     const config: any = {
-        'allianceshopitem_return': AllianceShopItem_Return,
         'allianceshopitem_delete': AllianceShopItem_Delete,
         'allianceshopitem_edit_name': AllianceShopItem_Edit_Name,
         'allianceshopitem_edit_image': AllianceShopItem_Edit_Image,

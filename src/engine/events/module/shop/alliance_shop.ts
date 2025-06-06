@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { AllianceShopCategory_Printer } from "./alliance_shop_category";
 import { button_alliance_return } from "../data_center/standart";
 
@@ -73,35 +73,14 @@ export async function AllianceShop_Printer(context: any, id_alliance: number) {
             payload: { command: 'allianceshop_create', cursor },
             color: 'positive'
         }).row()
-        .textButton({
-            label: `🚫 Отмена`,
-            payload: { command: 'allianceshop_return', cursor },
-            color: 'negative'
-        }).oneTime();
-
         event_logger += `\n${1 + cursor} из ${shop_counter}`;
-
-        const shop_bt = await context.question(
-            `🛍 Выберите магазин:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (shop_bt.isTimeout) {
-            await context.send(`⏰ Время ожидания выбора истекло!`);
-            return;
-        }
-
-        if (!shop_bt.payload) {
-            await context.send(`💡 Жмите только по кнопкам!`);
-            continue;
-        }
-
+        const shop_bt = await Send_Message_Question(context, `🛍 Выберите магазин:\n${event_logger}`, keyboard, undefined);
+        if (shop_bt.exit) { await context.send(`Вы отменили управление магазинами.`, { keyboard: button_alliance_return }); return await Keyboard_Index(context, `⌛ Магазины уже здесь, как такое произошло?`); }
         const config: any = {
             'allianceshop_select': AllianceShop_Select,
             'allianceshop_create': AllianceShop_Create,
             'allianceshop_next': AllianceShop_Next,
             'allianceshop_back': AllianceShop_Back,
-            'allianceshop_return': AllianceShop_Return,
             'allianceshop_delete': AllianceShop_Delete,
             'allianceshop_edit': AllianceShop_Edit
         };
@@ -169,12 +148,6 @@ async function AllianceShop_Delete(context: any, data: any) {
         if (shop_del) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  удален магазин: ${shop_del.id}-${shop_del.name}`, 'admin_solo') }
     }
 
-    return res;
-}
-
-async function AllianceShop_Return(context: any, data: any) {
-    const res = { cursor: data.cursor, stop: true };
-    await context.send(`Вы отменили управление магазинами.`, { keyboard: button_alliance_return });
     return res;
 }
 

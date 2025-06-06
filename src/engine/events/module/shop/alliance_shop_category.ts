@@ -2,7 +2,7 @@ import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, timer_text } from "../../../..";
 import prisma from "../prisma_client";
 import { AllianceShopItem_Printer } from "./alliance_shop_item";
-import { Confirm_User_Success, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 
 async function AllianceShopCategory_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -60,31 +60,15 @@ export async function AllianceShopCategory_Printer(context: any, id_shop: number
         }
 
         keyboard.textButton({ label: `➕`, payload: { command: 'allianceshopcategory_create', cursor }, color: 'positive' }).row()
-        .textButton({ label: `🚫 Отмена`, payload: { command: 'allianceshopcategory_return', cursor }, color: 'negative' }).oneTime();
-
         event_logger += `\n${1 + cursor} из ${category_counter}`;
-
-        const category_bt = await context.question(
-            `📁 Выберите категорию для магазина ${shop?.name}:\n${event_logger}`,
-            { keyboard, answerTimeLimit }
-        );
-
-        if (category_bt.isTimeout) {
-            await context.send(`⏰ Время ожидания выбора истекло!`);
-            return;
-        }
-
-        if (!category_bt.payload) {
-            await context.send(`💡 Жмите только по кнопкам!`);
-            continue;
-        }
+        const category_bt = await Send_Message_Question(context, `📁 Выберите категорию для магазина ${shop?.name}:\n${event_logger}`, keyboard, undefined);
+        if (category_bt.exit) { return; }
 
         const config: any = {
             'allianceshopcategory_select': AllianceShopCategory_Select,
             'allianceshopcategory_create': AllianceShopCategory_Create,
             'allianceshopcategory_next': AllianceShopCategory_Next,
             'allianceshopcategory_back': AllianceShopCategory_Back,
-            'allianceshopcategory_return': AllianceShopCategory_Return,
             'allianceshopcategory_delete': AllianceShopCategory_Delete,
             'allianceshopcategory_edit': AllianceShopCategory_Edit
         };
@@ -194,12 +178,6 @@ async function AllianceShopCategory_Create(context: any, data: any, shop: any) {
         if (category_cr) { await Send_Message_Smart(context, `"Конфигурация категорий магазина" -->  добавлена новая категория магазину [${shop?.name}]: ${category_cr.id}-${category_cr.name}`, 'admin_solo') }
     }
 
-    return res;
-}
-
-async function AllianceShopCategory_Return(context: any, data: any, shop: any) {
-    const res = { cursor: data.cursor, stop: true };
-    await context.send(`Вы вышли из меню категорий.`);
     return res;
 }
 
