@@ -1,6 +1,5 @@
 import { Context, Keyboard, KeyboardBuilder, MessageContext, PhotoAttachment, VK } from "vk-io"
 import { answerTimeLimit, chat_id, root, starting_date, timer_text, vk } from "../.."
-import { MessagesSendResponse } from "vk-io/lib/api/schemas/responses"
 import prisma from "../events/module/prisma_client"
 import { AllianceCoin, User } from "@prisma/client"
 import { Person_Get } from "../events/module/person/person"
@@ -37,7 +36,7 @@ export async function Keyboard_Index(context: any, messa: any) {
     keyboard.textButton({ label: '!помощь', payload: { command: 'sliz' }, color: 'secondary' }).row()
     // Отправляем клавиатуру без сообщения
     await vk?.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
-    .then(async (response: MessagesSendResponse) => { 
+    .then(async (response: any) => { 
         await Sleep(1000)
         return await vk!.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
     .then(() => { Logger(`In a private chat, succes get keyboard is viewed by user ${context.senderId}`) })
