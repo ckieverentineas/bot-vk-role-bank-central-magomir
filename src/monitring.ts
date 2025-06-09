@@ -125,12 +125,14 @@ async function startMonitor(monitor: any) {
         })
         const commentEvents: String[] = [];
         vks.updates.on('wall_reply_new', async (context: CommentContext, next: any) => {
-            if (commentEvents.includes(`${context.fromId}_${context.objectId}`)) {
-                await Logger(`🔁 Событие снятия лайка уже обработано ${commentEvents.length}: ${context.fromId}_${context.objectId}`);
+            //console.log(context)
+            const pattern_def = `${context.fromId}_${context.objectId}_${context.id}`
+            if (commentEvents.includes(`${pattern_def}`)) {
+                await Logger(`🔁 Событие снятия лайка уже обработано ${commentEvents.length}: ${pattern_def}`);
                 return next();
             }
             //console.log(context)
-            commentEvents.push(`${context.fromId}_${context.objectId}`);
+            commentEvents.push(`${pattern_def}`);
             if (!monitor.comment_on) { return await next(); }
             //проверяем есть ли пользователь в базах данных
             //console.log(context)
@@ -156,12 +158,14 @@ async function startMonitor(monitor: any) {
         })
         const uncommentEvents: String[] = [];
         vks.updates.on('wall_reply_delete', async (context: CommentContext, next: any) => {
-            if (uncommentEvents.includes(`${context.deleterUserId}_${context.objectId}`)) {
-                await Logger(`🔁 Событие снятия лайка уже обработано ${uncommentEvents.length}: ${context.deleterUserId}_${context.objectId}`);
+            //console.log(context)
+            const pattern_def = `${context.deleterUserId}_${context.objectId}_${context.id}`
+            if (uncommentEvents.includes(`${pattern_def}`)) {
+                await Logger(`🔁 Событие снятия лайка уже обработано ${uncommentEvents.length}: ${pattern_def}`);
                 return next();
             }
             //console.log(context)
-            uncommentEvents.push(`${context.deleterUserId}_${context.objectId}`);
+            uncommentEvents.push(`${pattern_def}`);
             if (!monitor.comment_on) { return await next(); }
             await Calc_Bonus_Activity(
                 context.deleterUserId!, 

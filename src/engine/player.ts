@@ -654,6 +654,43 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Inventory_Printer(context, user_check);
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
+    hearManager.hear(/!gpt/, async (context: any) => {
+        /**
+         * Вызов LLM через fetch API (без axios)
+         * @param prompt Текстовый промпт
+         * @param model Имя модели (например, 'llama3', 'mistral')
+         * @returns Ответ от Ollama или null
+         */
+        await context.send(`${await callOllama(`${context.text}`, 'llama3.1:8b')}`)
+        async function callOllama(prompt: string, model: string = 'llama3.1:8b'): Promise<string | null> {
+            const OLLAMA_URL = 'http://localhost:11434/api/generate';
+        
+            try {
+                const response = await fetch(OLLAMA_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model,
+                        prompt,
+                        stream: false
+                    })
+                });
+            
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            
+                const data: any = await response.json();
+                return data.response || null;
+            
+            } catch (error) {
+                console.error('Ошибка при обращении к Ollama:', error);
+                return null;
+            }
+        }
+    })
     /*hearManager.hear(/фото/, async (context: any) => {
         //console.log(context)
 	    console.log(context)

@@ -1,15 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2015",                          
-    "module": "commonjs",                    
-    "lib": ["ES2022"],                     
+    "target": "ESNext",                          
+    "module": "NodeNext",                    
+    "lib": ["es2021", "es2022", "esnext", "DOM"],   
+    "moduleResolution": "NodeNext",                  
     "allowJs": true,
     "outDir": "../build",                          
     "rootDir": "../",
     "strict": true,         
     "noImplicitAny": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types", "./types"]
+    "skipLibCheck": true,
+    //"resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types", "./types"],
   }
 }
