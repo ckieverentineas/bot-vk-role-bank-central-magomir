@@ -2,7 +2,7 @@ import { Inventory, Prisma, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Input_Number, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 
 async function Inventory_Get(cursor: number, user_id: number): Promise<Inventory[]> {
@@ -51,11 +51,8 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
                 color: 'secondary'
             })
             //if (user_adm) {
-                keyboard.textButton({
-                    label: `⛔`,
-                    payload: { command: 'inventory_delete', cursor, id_item: inv.id },
-                    color: 'negative'
-                });
+            keyboard.textButton({ label: `🎁`, payload: { command: 'inventory_present', cursor, id_item: inv.id }, color: 'negative' })
+            .textButton({ label: `⛔`, payload: { command: 'inventory_delete', cursor, id_item: inv.id }, color: 'negative' });
             //}
             keyboard.row()
             event_logger += `🧳 ${inv.id} - ${item?.name}\n`;
@@ -92,6 +89,7 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
         const config: any = {
             'inventory_select': Inventory_Select,
             'inventory_delete': Inventory_Delete,
+            'inventory_present': Inventory_Present,
             'inventory_next': Inventory_Next,
             'inventory_back': Inventory_Back,
             'inventory_return': Inventory_Return
@@ -132,11 +130,7 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
         }
         text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
     }
-
-    
-
     const attached = item?.image ? item?.image : null;
-
     const okKeyboard = new KeyboardBuilder()
         .textButton({ label: `✅ ОК`, payload: { command: 'inventory_return' }, color: 'positive' })
         .inline().oneTime();
@@ -191,6 +185,52 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
         }
     }
 
+    return res;
+}
+async function Inventory_Present(context: any, data: any, user: User, user_adm?: User) {
+    const res = { cursor: data.cursor };
+    const inv = await prisma.inventory.findFirst({
+        where: { id: data.id_item },
+    });
+    if (!inv) {
+        await context.send(`❌ Предмет не найден.`);
+        return res;
+    }
+    let item = null
+    let text = ''
+    if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине`;
+    }
+    if (inv.type == InventoryType.ITEM_SHOP) {
+        item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
+    }
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить кому-то "${item?.name}" из своего инвентаря?`);
+    await context.send(confirm.text);
+    if (!confirm.status) return res;
+    const person_goten = await Input_Number(context, `Введите UID персонажа, которому будет подарено:\n ${text}`, true)
+    if (!person_goten) { await context.send(`Получатель не найден`); return res }
+    if (person_goten == user.id) { await context.send(`Самому себе вы можете подарить только через шопинг:)`); return res}
+    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } })
+    if (!person_goten_check) { await context.send(`Такого персонажа не числится!`); return res }
+    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить "${item?.name}" ${person_goten_check.name} из своего инвентаря?`);
+    //await context.send(confirm.text);
+    if (!confirm_gift.status) return res;
+    const item_update = await prisma.inventory.update({ where: { id: inv.id }, data: { id_user: person_goten_check.id } });
+    if (!item_update) { return res }
+    const notif = `"<🎁>" --> передача товара "${item?.name}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+    await Send_Message_Smart(context, notif, 'client_callback', person_goten_check)
+    if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+    await Send_Message(user.idvk, notif)
     return res;
 }
 

@@ -29,14 +29,15 @@ export async function Keyboard_Index(context: any, messa: any) {
     }
     if (await Accessed(context) != 1) {
         keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
-        keyboard.textButton({ label: '!опсоло', payload: { command: 'sliz' }, color: 'positive' }).row()
+        keyboard.textButton({ label: '!опсоло', payload: { command: 'sliz' }, color: 'positive' })
         keyboard.textButton({ label: '!опмасс', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
     keyboard.textButton({ label: '!помощь', payload: { command: 'sliz' }, color: 'secondary' }).row()
+    .textButton({ label: '!СБП', payload: { command: 'sliz' }, color: 'secondary' })
     // Отправляем клавиатуру без сообщения
     await vk?.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
-    .then(async (response: any) => { 
+    .then(async (response) => { 
         await Sleep(1000)
         return await vk!.api.messages.delete({ message_ids: [response], delete_for_all: 1 }) })
     .then(() => { Logger(`In a private chat, succes get keyboard is viewed by user ${context.senderId}`) })
@@ -224,9 +225,8 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
 		if (name.text.length <= limit && name.text.length > 0) {
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
 				keyboard: Keyboard.builder()
-				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' })
-				.textButton({ label: `${ico_list['cancel'].ico} Нет`, color: 'negative' }).row()
-                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'primary' })
+				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
+                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'negative' })
 				.oneTime().inline(), answerTimeLimit
 			})
 		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }
@@ -253,9 +253,8 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
 		if (name.text.length <= limit && name.text.length > 0) {
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
 				keyboard: Keyboard.builder()
-				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' })
-				.textButton({ label: `${ico_list['cancel'].ico} Нет`, color: 'negative' }).row()
-                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'primary' })
+				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
+                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'negative' })
 				.oneTime().inline(), answerTimeLimit
 			})
 		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }

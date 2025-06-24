@@ -23,6 +23,8 @@ import { AllianceShop_Printer } from "./events/module/shop/alliance_shop";
 import { AllianceShop_Selector } from "./events/module/shop/alliance_shop_client";
 import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_alliance";
 import { Keyboard_User_Main, Main_Menu_Init } from "./events/contoller";
+import { generateAllWeeks } from "./core/weather";
+import { Operation_SBP } from "./events/module/tranzaction/sbp";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
@@ -655,6 +657,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/!gpt/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
         /**
          * Вызов LLM через fetch API (без axios)
          * @param prompt Текстовый промпт
@@ -690,6 +694,33 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 return null;
             }
         }
+    })
+    hearManager.hear(/!погода/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        const fullForecast = generateAllWeeks(); // май
+        await sendLongMessage(context, fullForecast);
+        async function sendLongMessage(context: any, text: string, chunkSize = 4000) {
+            const chunks = [];
+        
+            // Разбиваем текст на чанки
+            for (let i = 0; i < text.length; i += chunkSize) {
+                chunks.push(text.slice(i, i + chunkSize));
+            }
+        
+            // Отправляем по одному сообщению
+            for (const chunk of chunks) {
+                await context.send(chunk);
+                // Задержка не обязательна, но может помочь избежать рейт-лимита
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    })
+    hearManager.hear(/!СБП|!сбп|!Сбп/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        await Operation_SBP(context)
+        await Keyboard_Index(context, `⌛ Как насчет пожертвовать свои накопления админу?`)
     })
     /*hearManager.hear(/фото/, async (context: any) => {
         //console.log(context)

@@ -231,7 +231,7 @@ model AllianceShopItem {
   name                  String
   description           String?
   image                 String?
-  price                 Int
+  price                 Float
   id_coin               Int
   limit                 Int
   limit_tr              Boolean

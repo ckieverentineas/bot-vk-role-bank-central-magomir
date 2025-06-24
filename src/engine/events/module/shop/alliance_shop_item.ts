@@ -1,7 +1,7 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, timer_text } from "../../../..";
-import { Confirm_User_Success, Get_Url_Picture, Select_Alliance_Coin, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Get_Url_Picture, Input_Number, Select_Alliance_Coin, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 
@@ -73,7 +73,6 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     let name_loc = null;
     let desc = '';
     let image_url = '';
-    let price = 0;
     let limit = 0;
     let limit_tr = false;
 
@@ -96,10 +95,8 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
     const selectedCoinId = await Select_Alliance_Coin(context, Number(alli_shop.id_alliance));
     const id_coin = selectedCoinId
-
-    const priceInput = await context.question(`💰 Введите цену товара:`, timer_text);
-    if (priceInput.isTimeout) return res;
-    price = parseInt(priceInput.text);
+    const newPrice = await Input_Number(context, `Введите цену для товара "${name}"`, true)
+    if (!newPrice) { return res }
 
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным?`);
     await context.send(confirm.text);
@@ -119,7 +116,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 name: name_loc,
                 description: desc,
                 image: image_url,
-                price,
+                price: newPrice,
                 id_shop: category.id,
                 id_coin: id_coin ?? 0,
                 limit: limit,
@@ -324,26 +321,13 @@ async function AllianceShopItem_Edit_Price(context: any, data: any) {
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
     if (!item) return res;
     const coin_get = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin } })
-    const newPrice = await context.question(
-        `💰 Введите новую цену для "${item.name}". Сейчас: ${item.price}${coin_get?.smile}`,
-        timer_text
-    );
-
-    if (newPrice.isTimeout) return res;
-
-    const priceValue = parseInt(newPrice.text);
-    if (isNaN(priceValue)) {
-        await context.send(`❌ Введите число!`);
-        return res;
-    }
-
+    const newPrice = await Input_Number(context, `Введите новую цену для "${item.name}". Cтарая цена: ${item.price}${coin_get?.smile}`, true)
+    if (!newPrice) { return res }
     const updated = await prisma.allianceShopItem.update({
         where: { id: item.id },
-        data: { price: priceValue }
+        data: { price: newPrice }
     });
-
     await Send_Message_Smart(context, `"Конфигурация товаров магазина" --> изменена цена товара: ${item.price} → ${updated.price} (${item.name})`, 'admin_solo');
-    
     return res;
 }
 
