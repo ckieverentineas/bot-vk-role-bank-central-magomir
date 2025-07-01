@@ -106,7 +106,9 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
     alliance_coin_check?.point == true ? await context.send(`${ico_list['config'].ico} Валюта ${coin_name} является рейтинговой`) : await context.send(`${ico_list['config'].ico} Валюта ${coin_name} не является рейтинговой`)
 	const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `сделать валюту ${coin_name} рейтинговой?`)
     await context.send(`${rank_check.text}`)
-    const coin_up = await prisma.allianceCoin.update({ where: { id: alliance_coin_check?.id }, data: { name: coin_name, smile: coin_smile, point: rank_check.status } })
+    const sbp_check: { status: boolean, text: String } = await Confirm_User_Success(context, `разрешить переводы валюты ${coin_name} между игроками (СБП)?`)
+    await context.send(`${rank_check.text}`)
+    const coin_up = await prisma.allianceCoin.update({ where: { id: alliance_coin_check?.id }, data: { name: coin_name, smile: coin_smile, point: rank_check.status, sbp_on: sbp_check.status } })
     if (coin_up) {
         await Logger(`In database, updated alliance coin: ${coin_up.id}-${coin_up.name} by admin ${context.senderId}`)
         await context.send(`${ico_list['reconfig'].ico} Вы скорректировали валюту:\n Название: ${alliance_coin_check?.id}-${alliance_coin_check?.name} --> ${coin_up.id}-${coin_up.name}\n Смайлик: ${alliance_coin_check?.smile} --> ${coin_up.smile}\n Рейтинговая валюта: ${alliance_coin_check?.point == true ? "✅" : "⛔"} --> ${coin_up.point == true ? "✅" : "⛔"}`)
@@ -135,7 +137,9 @@ async function Alliance_Coin_Create(context: any, data: any, alliance: Alliance,
     if (!coin_smile) { return res}
 	const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `сделать валюту ${coin_name} рейтинговой?`)
     await context.send(`${rank_check.text}`)
-    const loc_cr = await prisma.allianceCoin.create({ data: { name: coin_name, smile: coin_smile, id_alliance: alliance.id, point: rank_check.status } })
+    const sbp_check: { status: boolean, text: String } = await Confirm_User_Success(context, `разрешить переводы валюты ${coin_name} между игроками (СБП)?`)
+    await context.send(`${rank_check.text}`)
+    const loc_cr = await prisma.allianceCoin.create({ data: { name: coin_name, smile: coin_smile, id_alliance: alliance.id, point: rank_check.status, sbp_on: sbp_check.status } })
     if (loc_cr) {
         await Logger(`In database, created alliance coin: ${loc_cr.id}-${loc_cr.name} by admin ${context.senderId}`)
         await context.send(`${ico_list['save'].ico} Добавлена новая ролевая валюта ${loc_cr.id}-${loc_cr.name} для ролевой ${alliance.name}`)

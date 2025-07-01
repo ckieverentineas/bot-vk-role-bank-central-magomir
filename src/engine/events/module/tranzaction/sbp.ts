@@ -24,6 +24,8 @@ export async function Operation_SBP(context: Context) {
     }
     const coin = await prisma.allianceCoin.findFirst({ where: { id: selectedCoinId } })
     if (!coin) { return await context.send(`Валюта не найдена`)}
+    if (coin.point) { return await context.send(`Рейтинговую валюту перевести нельзя`) }
+    if (coin.sbp_on == false) { return await context.send(`Для валюты не разрешено СБП администраторами вашей ролевой`) }
     // проверяем баланс
     const coin_me = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user_check.id } })
     if (!coin_me) { return await context.send(`У вас не открыт счет по данной валюте`) }
