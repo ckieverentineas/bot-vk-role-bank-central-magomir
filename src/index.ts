@@ -18,6 +18,7 @@ import { Monitoring } from './monitring';
 import { Account_Register } from './engine/events/module/person/account';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter, Shop_Enter_Multi } from './engine/events/module/shop/engine';
 import { Auto_Backup_DB } from './engine/core/auto_backup';
+import { Start_Worker_API_Bot } from './engine/api';
 
 // Загрузка конфигурации
 const envConfig = dotenv.config();
@@ -163,6 +164,7 @@ initializeGroupId().then(async () => {
     vk.updates.start()
     .then(async () => {
         await Logger('🚀 Бот успешно запущен');
+		await Start_Worker_API_Bot()
         setInterval(Worker_Online_Setter.bind(null, group_id!), 3600000); // онлайн каждые 60 минут
         setInterval(Worker_Checker, 86400000); // раз в день
 		setInterval(Auto_Backup_DB, 86400000)
