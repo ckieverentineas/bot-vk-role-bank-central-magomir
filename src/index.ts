@@ -69,7 +69,8 @@ initializeGroupId().then(async () => {
         token,
         pollingGroupId: group_id!,
         apiLimit: 20,
-        apiMode: 'parallel_selected'
+        apiMode: 'parallel_selected',
+		//apiTimeout: 10000, // увеличиваем до 10 секунд
     });
 	vk = vk_init
 	//инициализация

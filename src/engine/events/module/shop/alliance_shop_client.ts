@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Input_Number, Input_Text, Keyboard_Index, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 
@@ -198,40 +198,54 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный товар?`);
         //await context.send(confirm.text);
     if (!confirm_ask.status) { return res }
-    if (balance.amount < item.price) {
-        await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки [${item.name}].`);
+    // задаем количество товара
+    const item_count = await Input_Number(context, `Введите желаемое количество товаров ${item.name} к покупке, в наличии есть ${item.limit_tr ? item.limit : 'дофига' }:`, false, 2)
+    if (!item_count) { return res }
+    if (item_count == 0) {
+        await context.send(`💸 Увы, но воздух купить можно только у межгалактических корпораций.`);
         return res;
     }
-
     // Проверяем наличие лимита
     if (item.limit_tr && item.limit <= 0) {
         await context.send(`⚠️ Этот товар закончился.`);
         return res;
     }
-
+     // Проверяем наличие лимита
+     if (item.limit_tr && item.limit - item_count < 0) {
+        await context.send(`⚠️ На складе магазина нет столько товаров.`);
+        return res;
+    }
+    // Проверяем наличие денег
+    if (balance.amount < item.price*item_count) {
+        await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки [${item.name}].`);
+        return res;
+    }
+    // Добавление комментария к покупке
+    const item_comment = await Input_Text(context, `Введите комментарий к покупке`)
+    if (!item_comment) { return res }
     // Списание средств
-    const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price } } });
-    answer_log += `Совершена покупка товара "${item.name}" за ${item.price}${coin_get.smile}.\nБаланс изменился: ${balance.amount}-${item.price}=${buying_act.amount}`
+    const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price*item_count } } });
+    answer_log += `Совершена покупка товара "${item.name}"x${item_count} за ${item.price*item_count}${coin_get.smile}.\n${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price*item_count}=${buying_act.amount}\n💬 Комментарий: ${item_comment}`
     // Списание баллов факультета
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
     if (coin_get?.point == true && balance_facult_check) {
-        const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price } } })
+        const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price*item_count } } })
         if (balance_facult_plus) {
-            answer_log += `\n🌐 "-${coin_get?.smile}" > ${balance_facult_check.amount} - ${item.price} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price*item_count} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
         }
     }
     // Выдача предмета
     if (item.inventory_tr) {
-        const save_item = await prisma.inventory.create({
-            data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE }
-        });
+        for (let i=0; i<item_count; i++) {
+            const save_item = await prisma.inventory.create({ data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE, comment: item_comment } });
+        }
     }
     // Обновление лимита
     if (item.limit_tr) {
         await prisma.allianceShopItem.update({
             where: { id: item.id },
-            data: { limit: { decrement: 1 } }
+            data: { limit: { decrement: item_count } }
         });
     }
     // Логирование
@@ -243,17 +257,17 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (!user_payed_check) { return res; }
     const user_payed_balance_check = await prisma.balanceCoin.findFirst({ where: { id_user: user_payed_check.id, id_coin: item.id_coin } })
     if (!user_payed_balance_check) { return res; }
-    const user_paying = await prisma.balanceCoin.update({ where: { id: user_payed_balance_check.id }, data: { amount: { increment: item.price } } })
+    const user_paying = await prisma.balanceCoin.update({ where: { id: user_payed_balance_check.id }, data: { amount: { increment: item.price*item_count } } })
     if (!user_paying) { return res; }
     const alli_fac_owner = await prisma.allianceFacult.findFirst({ where: { id: user_payed_check.id_facult ?? 0 } })
     const balance_facult_check_owner = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user_payed_check.id_facult ?? 0 } })
     if (coin_get?.point == true && balance_facult_check_owner) {
-        const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price } } })
+        const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price*item_count } } })
         if (balance_facult_plus_owner) {
-            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}" > ${balance_facult_check_owner.amount} + ${item.price} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
+            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price*item_count} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
         }
     }
-    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
+    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
     return res;
 }
 

@@ -12,7 +12,7 @@ app.get('/ping', async (req: any, res: any) => {
 });
 
 export async function Start_Worker_API_Bot() {
-    app.listen(PORT, () => {
-      Logger(`Worker бот слушает на http://${domen}:${PORT}`);
+    app.listen(PORT, async () => {
+      await Logger(`Worker бот слушает на http://${domen}:${PORT}`);
     });
 }
