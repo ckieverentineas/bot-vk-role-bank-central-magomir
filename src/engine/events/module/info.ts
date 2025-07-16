@@ -19,13 +19,12 @@ export async function Card_Enter(context:any) {
         const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
         const text = `✉ Вы достали свою карточку: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`}\n${coin}`
         const keyboard = new KeyboardBuilder()
-        //.callbackButton({ label: '🎁', payload: { command: 'birthday_enter' }, color: 'secondary' })
-        //.callbackButton({ label: '📊', payload: { command: 'statistics_enter' }, color: 'secondary' })
-        .textButton({ label: '➕👤', payload: { command: 'Согласиться' }, color: 'secondary' })
+        .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
         if (await prisma.user.count({ where: { idvk: get_user.idvk } }) > 1) {
-            keyboard.textButton({ label: '🔃👥', payload: { command: 'Согласиться' }, color: 'secondary' })
+            keyboard.textButton({ label: '🔃👥 Сменить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
         }
-        keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' }).row()
+        keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
+        .callbackButton({ label: '💬', payload: { command: 'comment_person_enter' }, color: 'secondary' }).row()
         .textButton({ label: '🔔 Уведомления', payload: { command: 'notification_controller' }, color: 'secondary' })
         .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
@@ -86,7 +85,17 @@ export async function Statistics_Enter(context: any) {
     keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
     await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, /*attachment: attached?.toString()*/}) 
 }
-
+export async function Comment_Person_Enter(context: any) {
+    //let attached = await Image_Random(context, "birthday")
+    const user: User | null | undefined = await Person_Get(context)
+    if (!user) { return }
+    const stats = await prisma.analyzer.findFirst({ where: { id_user: user.id }})
+    let text = ''
+    const keyboard = new KeyboardBuilder()
+    text = `⚙ Комментарий к вашему персонажу:\n\n ${user.comment ? user.comment : 'Пока что для вашего персонажа дополнительной информации нет...'}`
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
+    await Send_Message(context.peerId,`${text}`, keyboard, /*attachment: attached?.toString()*/) 
+}
 export async function Rank_Enter(context: any) {
     //let attached = await Image_Random(context, "birthday")
     const user: User | null | undefined = await Person_Get(context)

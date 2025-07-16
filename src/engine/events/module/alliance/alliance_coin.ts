@@ -43,7 +43,7 @@ export async function Alliance_Coin_Printer(context: any) {
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
         if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
         keyboard.textButton({ label: `${ico_list['add'].ico}`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
-        .textButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
+        .textButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
         const allicoin_bt: any = await context.question(`${ico_list['attach'].ico} Выберите валюту ${alliance?.name}:\n\n${event_logger}`,
             {	
@@ -90,7 +90,7 @@ async function Alliance_Coin_Delete(context: any, data: any, alliance: Alliance,
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`${ico_list['cancel'].ico} Отмена меню управления валютами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
+    await context.send(`${ico_list['stop'].ico} Отмена меню управления валютами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 

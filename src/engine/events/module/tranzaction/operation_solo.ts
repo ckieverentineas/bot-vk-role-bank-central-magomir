@@ -1,6 +1,6 @@
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, ItemStorage, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper"
+import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -22,7 +22,7 @@ export async function Operation_Solo(context: any) {
 		const uid: any = await context.question( `🧷 Введите 💳UID банковского счета получателя:`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: '🚫Отмена', payload: { command: 'limited' }, color: 'secondary' })
+                .textButton({ label: `${ico_list['stop'].ico} ${ico_list['stop'].name}`, payload: { command: 'limited' }, color: 'secondary' })
                 .oneTime().inline(),
                 timer_text
             }
@@ -48,7 +48,7 @@ export async function Operation_Solo(context: any) {
                 }
             }
 		} else {
-            if (uid.text == "🚫Отмена") { 
+            if (uid.text == `${ico_list['stop'].ico} ${ico_list['stop'].name}`) { 
                 await context.send(`💡 Операции прерваны пользователем!`) 
                 return await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
             }
@@ -66,6 +66,7 @@ export async function Operation_Solo(context: any) {
     .textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
     .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
     .textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' })
+    .textButton({ label: '💬', payload: { command: 'comment_person' }, color: 'secondary' })
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .oneTime().inline()
     const ans: any = await context.question(`✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard, answerTimeLimit })
@@ -78,6 +79,7 @@ export async function Operation_Solo(context: any) {
         'coin_engine': Coin_Engine,
         'coin_engine_infinity': Coin_Engine_Infinity,
         'coin_engine_multi': Coin_Engine_Multi,
+        'comment_person': Comment_Person,
         'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector,
         'storage_engine': Storage_Engine
     }
@@ -90,6 +92,24 @@ export async function Operation_Solo(context: any) {
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
 }
 
+async function Comment_Person(id: number, context: any, user_adm: User) {
+    const user_get: User | null = await prisma.user.findFirst({ where: { id } });
+    if (!user_get) {
+        return await context.send("❌ Пользователь не найден.");
+    }
+    const alliance = await prisma.alliance.findFirst({
+        where: { id: user_get.id_alliance ?? 0 }
+    });
+
+    if (!alliance) {
+        return await context.send("❌ Союз не найден.");
+    }
+    const comment = await Input_Text(context, `Текущий комментарий к персонажу [${user_get.name}]: [${user_get.comment}]\n Введите для изменения или отмените`, 3000)
+    if (!comment) { return }
+    const update_com = await prisma.user.update({ where: { id: user_get.id }, data: { comment: comment ?? '' } })
+    if (!update_com) { return }
+    await Send_Message_Smart(context, `"🔊" --> изменение комментария к персонажу ${user_get.name}\n🧷 Комментарий: ${update_com.comment}`, 'admin_and_client', user_get)
+}
 async function Storage_Engine(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
     if (!user_get) {
@@ -493,7 +513,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                     facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
                 }
                 const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${ui.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_plus.amount}\n Уведомление: ${messa}\n${facult_income}`)
-                const ans_log = `🗿 @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const ans_log = `🚀 @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                 await Logger(`User ${pers.idvk} ${person.operation} ${ui.amount} gold. Him/Her bank now unknown`)
@@ -521,7 +541,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                     }
                 }
                 const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${ui.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_minus.amount}\n Уведомление: ${messa}\n${facult_income}`)
-                const ans_log = `🗿 @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const ans_log = `🚀 @id${context.senderId}(${user_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                 await Logger(`User ${pers.idvk} ${person.operation} ${ui.amount} gold. Him/Her bank now unknown`)
@@ -798,7 +818,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
         );
         if (answer.isTimeout) { infinity_pay = true; return await context.send(`⏰ Время ожидания подтверждения согласия истекло!`) }
         if (!/да|yes|Согласиться|конечно|✏|Полностью|полностью/i.test(answer.text|| '{}')) {
-            await context.send(`${ico_list['cancel'].ico} Вы отменили режим повторных операций!`)
+            await context.send(`${ico_list['stop'].ico} Вы отменили режим повторных операций!`)
             infinity_pay = true; 
         }
     }

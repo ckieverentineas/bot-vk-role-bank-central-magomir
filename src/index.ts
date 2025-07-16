@@ -6,7 +6,7 @@ import { InitGameRoutes } from './engine/init';
 import { Antivirus_VK, Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { Exit, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
-import { Admin_Enter, Card_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
+import { Admin_Enter, Card_Enter, Comment_Person_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
 import { Person_Detector } from './engine/events/module/person/person';
@@ -146,7 +146,8 @@ initializeGroupId().then(async () => {
 			'alliance_enter': Alliance_Enter,
 			'alliance_enter_admin': Alliance_Enter_Admin,
 			'alliance_rank_enter': Alliance_Rank_Enter,
-			'alliance_rank_coin_enter': Alliance_Rank_Coin_Enter
+			'alliance_rank_coin_enter': Alliance_Rank_Coin_Enter,
+			'comment_person_enter': Comment_Person_Enter
 		}
 		const cmd = context.eventPayload.command;
 		if (config[cmd]) {

@@ -47,7 +47,7 @@ export async function Alliance_Facult_Printer(context: any) {
         const alliance_facult_counter = await prisma.allianceFacult.count({ where: { id_alliance: alliance?.id } })
         if (5+cursor < alliance_facult_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_facult_next', cursor: cursor }, color: 'secondary' }) }
         keyboard.textButton({ label: `${ico_list['add'].ico}`, payload: { command: 'alliance_facult_create', cursor: cursor }, color: 'secondary' }).row()
-        .textButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_facult_return', cursor: cursor }, color: 'secondary' }).oneTime()
+        .textButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_facult_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_facult_counter}`
         const allifacult_bt: any = await context.question(`${ico_list['attach'].ico} Выберите факультет ролевой ${alliance?.name}:\n\n ${event_logger}`, { keyboard: keyboard, answerTimeLimit })
         if (allifacult_bt.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора факультета ролевой ${alliance?.name} истекло!`) }
@@ -90,7 +90,7 @@ async function Alliance_Facult_Delete(context: any, data: any, alliance: Allianc
 
 async function Alliance_Facult_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`${ico_list['cancel'].ico} Отмена меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
+    await context.send(`${ico_list['stop'].ico} Отмена меню управления факультетами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 

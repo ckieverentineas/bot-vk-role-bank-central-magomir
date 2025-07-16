@@ -62,6 +62,7 @@ model User {
   role                  Role                    @relation(fields: [id_role], references: [id], onDelete: Cascade)
   id_account            Int                     @default(1)
   account               Account                 @relation(fields: [id_account], references: [id], onDelete: Cascade)
+  comment               String?
   Artefact              Artefact[]
   Inventory             Inventory[]
   Trigger               Trigger[]

@@ -42,7 +42,7 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
         if (cursor >= 5) { keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
         if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
-        keyboard.textButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
+        keyboard.textButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
         const allicoin_bt: any = await context.question(`${ico_list['attach'].ico} Выберите валюту ${alliance?.name} для изменения курса:\n\n ${event_logger}`,
             {	
@@ -71,7 +71,7 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
 
 async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`${ico_list['cancel'].ico} Отмена меню управления курсами конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
+    await context.send(`${ico_list['stop'].ico} Отмена меню управления курсами конвертации валют ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 
@@ -84,7 +84,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
 		const name = await context.question( `${ico_list['attach'].ico} Вы редактируете курс валюты: ${alliance_coin_check?.name}. Сейчас установлена ценность жетонов ${alliance_coin_check?.course_medal}🔘, введите новую:`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: `${ico_list['cancel'].ico} Отмена`, payload: { command: 'limited' }, color: 'secondary' })
+                .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'limited' }, color: 'secondary' })
                 .oneTime().inline(),
                 timer_text
             }
@@ -94,8 +94,8 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
             course_change.course_medal = Number(name.text)
             spec_check = true
         } else {
-            if (name.text == `${ico_list['cancel'].ico} Отмена`) { 
-                await context.send(`${ico_list['cancel'].ico} Редактирование курса прерваны пользователем!`) 
+            if (name.text == `${ico_list['stop'].ico} Отмена`) { 
+                await context.send(`${ico_list['stop'].ico} Редактирование курса прерваны пользователем!`) 
                 return res
             }
             await context.send(`${ico_list['help'].ico} Необходимо ввести корректное число для нового курса!`)
@@ -106,7 +106,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
 		const name = await context.question( `${ico_list['attach'].ico} Вы редактируете курс валюты: ${alliance_coin_check?.name}. Сейчас установлена ценность ролевой валюты ${alliance_coin_check?.course_coin}${alliance_coin_check?.smile}, введите новую:`,
             {   
                 keyboard: Keyboard.builder()
-                .textButton({ label: `${ico_list['cancel'].ico} Отмена`, payload: { command: 'limited' }, color: 'secondary' })
+                .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'limited' }, color: 'secondary' })
                 .oneTime().inline(),
                 timer_text
             }
@@ -116,8 +116,8 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
             course_change.course_coin = Number(name.text)
             coin_course_checker = true
         } else {
-            if (name.text == `${ico_list['cancel'].ico} Отмена`) { 
-                await context.send(`${ico_list['cancel'].ico} Редактирование курса прерваны пользователем!`) 
+            if (name.text == `${ico_list['stop'].ico} Отмена`) { 
+                await context.send(`${ico_list['stop'].ico} Редактирование курса прерваны пользователем!`) 
                 return res
             }
             await context.send(`${ico_list['help'].ico} Необходимо ввести корректное число для нового курса!`)

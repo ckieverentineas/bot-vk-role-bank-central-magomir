@@ -226,7 +226,7 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
 				keyboard: Keyboard.builder()
 				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
-                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'negative' })
+                .textButton({ label: `${ico_list['stop'].ico} Назад`, color: 'negative' })
 				.oneTime().inline(), answerTimeLimit
 			})
 		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }
@@ -234,7 +234,7 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
                 input = `${name.text}`
                 input_tr = true
             } else {
-                if (confirma.text == `${ico_list['cancel'].ico} Назад`) { await context.send(`${ico_list['cancel'].ico} Ввод прерван пользователем`); return false }
+                if (confirma.text == `${ico_list['stop'].ico} Назад`) { await context.send(`${ico_list['stop'].ico} Ввод прерван пользователем`); return false }
                 continue
             }
 		} else { 
@@ -254,7 +254,7 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
 				keyboard: Keyboard.builder()
 				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
-                .textButton({ label: `${ico_list['cancel'].ico} Назад`, color: 'negative' })
+                .textButton({ label: `${ico_list['stop'].ico} Назад`, color: 'negative' })
 				.oneTime().inline(), answerTimeLimit
 			})
 		    if (confirma.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания подтверждения ввода истекло!`); return false }
@@ -277,7 +277,7 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
                 }
                 
             } else {
-                if (confirma.text == `${ico_list['cancel'].ico} Назад`) { await context.send(`${ico_list['cancel'].ico} Ввод прерван пользователем`); return false }
+                if (confirma.text == `${ico_list['stop'].ico} Назад`) { await context.send(`${ico_list['stop'].ico} Ввод прерван пользователем`); return false }
                 continue
             }
 		} else { 
