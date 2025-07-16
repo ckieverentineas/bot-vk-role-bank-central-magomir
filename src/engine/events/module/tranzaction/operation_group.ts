@@ -238,7 +238,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
         );
         if (answer.isTimeout) { infinity_pay = true; return await context.send(`⏰ Время ожидания подтверждения согласия истекло!`) }
         if (!/да|yes|Согласиться|конечно|✏|Полностью|полностью/i.test(answer.text|| '{}')) {
-            await context.send(`${ico_list['cancel'].ico} Вы отменили режим повторных операций!`)
+            await context.send(`${ico_list['stop'].ico} Вы отменили режим повторных операций!`)
             infinity_pay = true; 
         }
     }
