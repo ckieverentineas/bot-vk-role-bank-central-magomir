@@ -1,6 +1,6 @@
-import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, User } from "@prisma/client"
+import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, ItemStorage, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper"
+import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -102,19 +102,30 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         return await context.send("❌ Союз не найден.");
     }
 
-    let page = 0;
+    let cursor = 0;
     const limit = 5;
 
     while (true) {
-        const items_storage = await prisma.itemStorage.findMany({
+        const batchSize = 5;
+        let counter = 0;
+        let limiter = 0;
+        let items_storage: ItemStorage[] = [];
+
+        const items= await prisma.itemStorage.findMany({
             where: {
                 id_alliance: user_get.id_alliance ?? 0,
                 hidden: false
             },
-            take: limit,
-            skip: page * limit,
             orderBy: { id: "desc" }
         });
+
+        for (const item of items) {
+            if ((cursor <= counter && batchSize + cursor >= counter) && limiter < batchSize) {
+                items_storage.push(item);
+                limiter++;
+            }
+            counter++;
+        }
 
         if (items_storage.length === 0) {
             await context.send("📦 В хранилище пока нет доступных предметов.");
@@ -132,25 +143,25 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         }
 
         // Навигация
-        if (page > 0) {
+        if (cursor >= 5) {
             keyboard.textButton({
-                label: '⬅️ Назад',
-                payload: { command: 'navigate', page: page - 1 },
+                label: '<',
+                payload: { command: 'navigate', cursor: cursor - 5 },
                 color: 'secondary'
             });
         }
 
-        if (items_storage.length >= limit) {
+        if (5 + cursor < items.length) {
             keyboard.textButton({
-                label: '➡️ Вперед',
-                payload: { command: 'navigate', page: page + 1 },
+                label: '>',
+                payload: { command: 'navigate', cursor: cursor + 5 },
                 color: 'secondary'
             });
         }
 
-        keyboard.row()
+        keyboard
             .textButton({
-                label: '🆕 Создать предмет',
+                label: '🆕 Создать',
                 payload: { command: 'create_item' },
                 color: 'positive'
             })
@@ -159,7 +170,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 payload: { command: 'exit' },
                 color: 'negative'
             });
-
+            //console.log(keyboard)
         const answer = await context.question("📦 Выберите предмет для выдачи:", {
             keyboard: keyboard.inline(),
             answerTimeLimit
@@ -171,7 +182,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         }
 
         if (answer.payload?.command === 'navigate') {
-            page = answer.payload.page;
+            cursor = answer.payload.cursor;
             continue;
         }
 
@@ -186,7 +197,9 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 await context.send("⚠ Предмет не найден.");
                 continue;
             }
-
+            const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `выдать предмет "${item?.name}" игроку ${user_get.name}?`);
+            //await context.send(confirm.text);
+            if (!confirm.status) return;
             // Выдача предмета
             await prisma.inventory.create({
                 data: {
@@ -196,8 +209,10 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     comment: `Получено от ${user_adm.name}`
                 }
             });
-
-            await context.send(`🎁 Предмет "${item.name}" успешно выдан игроку ${user_get.name}.`);
+            const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+            await Send_Message_Smart(context, notif, 'client_callback', user_get)
+            if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+            //await context.send(`🎁 Предмет "${item.name}" успешно выдан игроку ${user_get.name}.`);
             continue;
         }
 
@@ -213,13 +228,16 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 await context.send("⏰ Время ввода истекло.");
                 continue;
             }
-
+            const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"):`, timer_text);
+            if (imageUrl.isTimeout) return;
+            const image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
             const newItem = await prisma.itemStorage.create({
                 data: {
                     name: name_answer.text.trim(),
                     description: desc_answer.text.trim(),
                     id_alliance: user_get.id_alliance,
-                    hidden: false
+                    hidden: false,
+                    image: image_url
                 }
             });
 
@@ -246,8 +264,10 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                         comment: `Выдан админом @id${context.senderId}`
                     }
                 });
-
-                await context.send(`🎁 Предмет "${newItem.name}" выдан игроку.`);
+                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+                await Send_Message_Smart(context, notif, 'client_callback', user_get)
+                if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+                //await context.send(`🎁 Предмет "${newItem.name}" выдан игроку.`);
             }
 
             continue;
