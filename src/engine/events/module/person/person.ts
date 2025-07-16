@@ -21,8 +21,8 @@ export async function Person_Register(context: any) {
 	);
 	if (answer.isTimeout) { return await context.send(`⏰ Время ожидания подтверждения согласия истекло!`) }
 	if (!/да|yes|Согласиться|конечно|✏|Полностью|полностью/i.test(answer.text|| '{}')) {
-        await context.send(`${ico_list['cancel'].ico} Вы отменили создание персонажа!`)
-        await Keyboard_Index(context, `${ico_list['cancel'].ico} Отменяем алгоритмы...`)
+        await context.send(`${ico_list['stop'].ico} Вы отменили создание персонажа!`)
+        await Keyboard_Index(context, `${ico_list['stop'].ico} Отменяем алгоритмы...`)
 		return;
 	}
     // ввод имени и фамилии нового персонажа
@@ -190,7 +190,7 @@ export async function Person_Selector(context: any) {
     const person_get = await prisma.user.findFirst({ where: { id: person_sel, id_account: account?.id } })
     const person_was = await prisma.user.findFirst({ where: { id: account?.select_user } })
     const person_sel_up = await prisma.account.update({ where: { id: account?.id }, data: { select_user: person_sel } })
-    await context.send(`${ico_list['change'].ico} Вы сменили персонажа:\n${ico_list['cancel'].ico} ${person_was?.id}${ico_list['card'].ico} ${person_was?.name}${ico_list['person'].ico}\n${ico_list['success'].ico} ${person_get?.id}${ico_list['card'].ico} ${person_get?.name}${ico_list['person'].ico}`,
+    await context.send(`${ico_list['change'].ico} Вы сменили персонажа:\n${ico_list['stop'].ico} ${person_was?.id}${ico_list['card'].ico} ${person_was?.name}${ico_list['person'].ico}\n${ico_list['success'].ico} ${person_get?.id}${ico_list['card'].ico} ${person_get?.name}${ico_list['person'].ico}`,
         {   
             keyboard: Keyboard.builder()
             .callbackButton({ label: `${ico_list['card'].ico} Карта`, payload: { command: 'card_enter' }, color: 'secondary' })

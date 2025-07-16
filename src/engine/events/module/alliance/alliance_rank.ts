@@ -63,7 +63,7 @@ export async function Alliance_Rank_Enter(context:any) {
     if (10+counter_init < stat.length) {
         keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init, facult: facult_tr }, color: 'secondary', })
     }
-    keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await Send_Message(context.peerId, text, keyboard)
 }
 
@@ -134,6 +134,6 @@ export async function Alliance_Rank_Coin_Enter(context:any) {
     if (10+counter_init < stat.length) {
         keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary', })
     }
-    keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await Send_Message(context.peerId, text, keyboard)
 }

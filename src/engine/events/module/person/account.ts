@@ -22,7 +22,7 @@ export async function Account_Register(context: any) {
 		);
 		if (answer.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания подтверждения согласия истекло!`) }
 		if (!/да|yes|Согласиться|конечно|✏/i.test(answer.text|| '{}')) {
-			await context.send(`${ico_list['cancel'].ico} Вы отказались дать свое согласие, а живым отсюда никто не уходил, вас упаковали!`);
+			await context.send(`${ico_list['stop'].ico} Вы отказались дать свое согласие, а живым отсюда никто не уходил, вас упаковали!`);
 			return;
 		}
 		//приветствие игрока

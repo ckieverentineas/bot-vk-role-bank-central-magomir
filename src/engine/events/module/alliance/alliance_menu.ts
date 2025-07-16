@@ -26,7 +26,7 @@ export async function Alliance_Enter(context:any) {
     if (await Accessed(context) != 1) {
         keyboard.callbackButton({ label: `${ico_list['config'].ico} Админам`, payload: { command: 'alliance_enter_admin' }, color: 'secondary' }).row()
     }
-    keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
     await Send_Message(context.peerId, text, keyboard)
 }
@@ -47,7 +47,7 @@ export async function Alliance_Enter_Admin(context:any) {
             keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы нафиг`, color: 'positive' }).row()
         }
-        keyboard.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: "system_call_admin" }, color: 'secondary' }).inline().oneTime()
+        keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: "system_call_admin" }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
         await Send_Message(context.peerId, text, keyboard)
     }

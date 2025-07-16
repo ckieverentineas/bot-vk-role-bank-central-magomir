@@ -12,7 +12,7 @@ export async function Alliance_Year_End_Printer(context: any) {
     
     const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `хотите закончить учебный/рейтинговый год в [${alliance.name}]?\n ⚠ Все рейтинговые валюты факультетов и ролевиков будут обнулены!`)
     await context.send(`${rank_check.text}`)
-    if (!rank_check.status) { return await context.send(`${ico_list['cancel'].ico} Вы отменили конец учебного года, Дамблдор в восторге, десять очков Гриффиндору!`) }
+    if (!rank_check.status) { return await context.send(`${ico_list['stop'].ico} Вы отменили конец учебного года, Дамблдор в восторге, десять очков Гриффиндору!`) }
     const ans: { count_person: number, count_facult: number, count_person_all: number, count_facult_all: number } = { count_person: 0, count_facult: 0, count_person_all: 0, count_facult_all: 0 }
     await context.send(`${ico_list['run'].ico} Запускается процесс окончания учебного семестра, ожидайте завершаюшего сообщения!`)
     for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: alliance.id } })) {

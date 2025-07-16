@@ -73,7 +73,7 @@ async function Keyboard_Admin_Main(context: Context) {
     if (await Accessed(context) == 3) {
         keyboard_admin.callbackButton({ label: '⚙ Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
     }
-    keyboard_admin.callbackButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).oneTime().inline()
+    keyboard_admin.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).oneTime().inline()
     return keyboard_admin
 }
 

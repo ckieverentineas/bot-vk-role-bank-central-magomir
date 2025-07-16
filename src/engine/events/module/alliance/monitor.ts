@@ -45,7 +45,7 @@ export async function Alliance_Monitor_Printer(context: any) {
         const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
         if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
         keyboard.textButton({ label: `${ico_list['add'].ico}`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
-        .textButton({ label: `${ico_list['cancel'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
+        .textButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
         event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
         const allicoin_bt: any = await context.question(`${ico_list['monitor'].ico} Выберите подключенную группу к ${alliance?.name}:\n\n ${event_logger}`,
             {	
@@ -93,7 +93,7 @@ async function Alliance_Monitor_Delete(context: any, data: any, alliance: Allian
 
 async function Alliance_Monitor_Return(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`${ico_list['cancel'].ico} Вы отменили меню управления мониторами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
+    await context.send(`${ico_list['stop'].ico} Вы отменили меню управления мониторами ролевого проекта ${alliance.id}-${alliance.name}`, { keyboard: button_alliance_return })
     return res
 }
 
@@ -190,7 +190,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
     const monitor_up = await prisma.monitor.update({ where: { id: monitora.id }, data: { id_coin: monik.id_coin, cost_like: monik.cost_like, cost_comment: monik.cost_comment, cost_post: monik.cost_post, lim_like: monik.lim_like, lim_comment: monik.lim_comment, starting: monik.starting, wall_on: monik.wall_on, like_on: monik.like_on, comment_on: monik.comment_on } })
     if (!monitor_up) { return res }
     await Logger(`In database, updated monitor: ${monitor_up.id}-${monitor_up.name} by admin ${context.senderId}`)
-    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['cancel'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
+    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
     await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_up.id}-${monitor_up.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
     return res
 }
