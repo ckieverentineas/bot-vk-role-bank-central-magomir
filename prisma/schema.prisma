@@ -113,6 +113,15 @@ model Item {
   category    Category    @relation(fields: [id_category], references: [id], onDelete: Cascade)
 }
 
+model ItemStorage {
+  id                    Int                     @id @default(autoincrement())
+  name                  String
+  description           String?
+  image                 String?
+  hidden                Boolean @default(false)
+  id_alliance           Int?
+}
+
 model Category {
   id   Int    @id @default(autoincrement())
   name String

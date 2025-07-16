@@ -44,7 +44,9 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             if (inv.type == InventoryType.ITEM_SHOP) {
                 item = await prisma.item.findFirst({ where: { id: inv.id_item } })
             }
-
+            if (inv.type == InventoryType.ITEM_STORAGE) {
+                item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })
+            }
             keyboard.textButton({
                 label: `🧳 ${item?.name.slice(0, 30)} — ${inv.id}`,
                 payload: { command: 'inventory_select', cursor, id_item: inv.id },
@@ -67,7 +69,8 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             keyboard.textButton({ label: `→`, payload: { command: 'inventory_next', cursor }, color: 'secondary' });
         }
 
-        keyboard.textButton({ label: `🚫 Выход`, payload: { command: 'inventory_return', cursor }, color: 'negative' }).oneTime();
+        keyboard.textButton({ label: `<🔎>`, payload: { command: 'inventory_target', cursor }, color: 'secondary' })
+        .textButton({ label: `🚫 Выход`, payload: { command: 'inventory_return', cursor }, color: 'negative' }).oneTime();
 
         event_logger += `\n${1 + cursor} из ${totalItems}`;
 
@@ -91,6 +94,7 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             'inventory_delete': Inventory_Delete,
             'inventory_present': Inventory_Present,
             'inventory_next': Inventory_Next,
+            'inventory_target': Inventory_Target,
             'inventory_back': Inventory_Back,
             'inventory_return': Inventory_Return
         };
@@ -121,6 +125,14 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
             return res;
         }
         text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}`;
+    }
+    if (inv.type == InventoryType.ITEM_STORAGE) {
+        item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })
+        if (!item) {
+            await context.send(`❌ Предмет не найден.`);
+            return res;
+        }
+        text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n🧲 Как получено: Артефакт\n💬 Комментарий: ${inv.comment}`;
     }
     if (inv.type == InventoryType.ITEM_SHOP) {
         item = await prisma.item.findFirst({ where: { id: inv.id_item } })
@@ -236,6 +248,12 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
 
 async function Inventory_Next(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor + 5 };
+    return res;
+}
+
+async function Inventory_Target(context: any, data: any, user: User, user_adm?: User) {
+    const cursor_change = await Input_Number(context, `Введите позицию, сейчас [${data.cursor}]:`, false)
+    const res = { cursor: cursor_change };
     return res;
 }
 

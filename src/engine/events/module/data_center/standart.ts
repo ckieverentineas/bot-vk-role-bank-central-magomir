@@ -3,6 +3,7 @@ import { Keyboard } from "vk-io";
 export enum InventoryType {
     ITEM_SHOP = "item_shop",
     ITEM_SHOP_ALLIANCE = "item_shop_alliance",
+    ITEM_STORAGE = "item_storage",
     // ... другие допустимые значения
 }
 

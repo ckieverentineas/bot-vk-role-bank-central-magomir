@@ -9,6 +9,7 @@ import prisma from "../prisma_client"
 import { Back, Ipnut_Gold, Ipnut_Message } from "./operation_global"
 import { Sub_Menu } from "./operation_sub"
 import { ico_list } from "../data_center/icons_lib"
+import { InventoryType } from "../data_center/standart"
 
 export async function Operation_Solo(context: any) {
     if (context.peerType == 'chat') { return }
@@ -59,9 +60,10 @@ export async function Operation_Solo(context: any) {
         keyboard.textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
         .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
     }
-    keyboard.textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
-    .textButton({ label: `♾️${info_coin?.smile}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' }).row()
-    .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' })
+    keyboard.textButton({ label: `➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
+    .textButton({ label: `♾️${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' }).row()
+    .textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
+    .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
     .textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' })
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .oneTime().inline()
@@ -74,7 +76,8 @@ export async function Operation_Solo(context: any) {
         'medal_down': Medal_Down,
         'coin_engine': Coin_Engine,
         'coin_engine_infinity': Coin_Engine_Infinity,
-        'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector
+        'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector,
+        'storage_engine': Storage_Engine
     }
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
@@ -83,6 +86,180 @@ export async function Operation_Solo(context: any) {
         await context.send(`⚙ Операция отменена пользователем.`)
     }
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
+}
+
+async function Storage_Engine(id: number, context: any, user_adm: User) {
+    const user_get: User | null = await prisma.user.findFirst({ where: { id } });
+    if (!user_get) {
+        return await context.send("❌ Пользователь не найден.");
+    }
+
+    const alliance = await prisma.alliance.findFirst({
+        where: { id: user_get.id_alliance ?? 0 }
+    });
+
+    if (!alliance) {
+        return await context.send("❌ Союз не найден.");
+    }
+
+    let page = 0;
+    const limit = 5;
+
+    while (true) {
+        const items_storage = await prisma.itemStorage.findMany({
+            where: {
+                id_alliance: user_get.id_alliance ?? 0,
+                hidden: false
+            },
+            take: limit,
+            skip: page * limit,
+            orderBy: { id: "desc" }
+        });
+
+        if (items_storage.length === 0) {
+            await context.send("📦 В хранилище пока нет доступных предметов.");
+            //break;
+        }
+
+        const keyboard = new KeyboardBuilder();
+
+        for (const item of items_storage) {
+            keyboard.textButton({
+                label: `${item.name} (${item.id})`,
+                payload: { command: 'give_item', item_id: item.id },
+                color: 'secondary'
+            }).row();
+        }
+
+        // Навигация
+        if (page > 0) {
+            keyboard.textButton({
+                label: '⬅️ Назад',
+                payload: { command: 'navigate', page: page - 1 },
+                color: 'secondary'
+            });
+        }
+
+        if (items_storage.length >= limit) {
+            keyboard.textButton({
+                label: '➡️ Вперед',
+                payload: { command: 'navigate', page: page + 1 },
+                color: 'secondary'
+            });
+        }
+
+        keyboard.row()
+            .textButton({
+                label: '🆕 Создать предмет',
+                payload: { command: 'create_item' },
+                color: 'positive'
+            })
+            .textButton({
+                label: '❌ Выход',
+                payload: { command: 'exit' },
+                color: 'negative'
+            });
+
+        const answer = await context.question("📦 Выберите предмет для выдачи:", {
+            keyboard: keyboard.inline(),
+            answerTimeLimit
+        });
+
+        if (answer.isTimeout) {
+            await context.send("⏰ Время ожидания истекло.");
+            break;
+        }
+
+        if (answer.payload?.command === 'navigate') {
+            page = answer.payload.page;
+            continue;
+        }
+
+        if (answer.payload?.command === 'give_item') {
+            const itemId = answer.payload.item_id;
+
+            const item = await prisma.itemStorage.findFirst({
+                where: { id: itemId }
+            });
+
+            if (!item) {
+                await context.send("⚠ Предмет не найден.");
+                continue;
+            }
+
+            // Выдача предмета
+            await prisma.inventory.create({
+                data: {
+                    id_user: user_get.id,
+                    id_item: item.id,
+                    type: InventoryType.ITEM_STORAGE,
+                    comment: `Получено от ${user_adm.name}`
+                }
+            });
+
+            await context.send(`🎁 Предмет "${item.name}" успешно выдан игроку ${user_get.name}.`);
+            continue;
+        }
+
+        if (answer.payload?.command === 'create_item') {
+            const name_answer = await context.question("✏ Введите название нового предмета:");
+            if (name_answer.isTimeout) {
+                await context.send("⏰ Время ввода истекло.");
+                continue;
+            }
+
+            const desc_answer = await context.question("✏ Введите описание предмета:");
+            if (desc_answer.isTimeout) {
+                await context.send("⏰ Время ввода истекло.");
+                continue;
+            }
+
+            const newItem = await prisma.itemStorage.create({
+                data: {
+                    name: name_answer.text.trim(),
+                    description: desc_answer.text.trim(),
+                    id_alliance: user_get.id_alliance,
+                    hidden: false
+                }
+            });
+
+            await context.send(`🆕 Предмет "${newItem.name}" создан и добавлен в хранилище.`);
+
+            // Автоматически выдать этот предмет пользователю?
+            const confirm_answer = await context.question(
+                `❓ Выдать этот предмет игроку ${user_get.name}?`,
+                {
+                    keyboard: Keyboard.builder()
+                        .textButton({ label: 'Да', payload: { command: 'give_created' }, color: 'positive' })
+                        .textButton({ label: 'Нет', payload: { command: 'skip_give' }, color: 'negative' })
+                        .oneTime().inline(),
+                    answerTimeLimit
+                }
+            );
+
+            if (confirm_answer.payload?.command === 'give_created') {
+                await prisma.inventory.create({
+                    data: {
+                        id_user: user_get.id,
+                        id_item: newItem.id,
+                        type: "item_shop",
+                        comment: `Выдан админом @id${context.senderId}`
+                    }
+                });
+
+                await context.send(`🎁 Предмет "${newItem.name}" выдан игроку.`);
+            }
+
+            continue;
+        }
+
+        if (answer.payload?.command === 'exit') {
+            await context.send("🚪 Операция завершена.");
+            break;
+        }
+    }
+
+    await Keyboard_Index(context, "💡 Как насчет еще одной операции?");
 }
 
 async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: User) {
