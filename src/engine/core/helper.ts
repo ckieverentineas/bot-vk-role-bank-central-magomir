@@ -363,18 +363,18 @@ export async function Send_Message_Smart(
             const admin: User | null | undefined = await Person_Get(context)
             const alliance_admin = await prisma.alliance.findFirst({ where: { id: admin?.id_alliance ?? 0 } })
             await context.send(`✅ ${message}`)
-            const notif_ans_chat = await Send_Message(alliance_admin?.id_chat ?? 0, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`)
-            if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`) }
-            await Logger(`🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name})\n🔧 ${message}`);
+            const notif_ans_chat = await Send_Message(alliance_admin?.id_chat ?? 0, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`)
+            if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`) }
+            await Logger(`🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`);
             break;
 
         case 'client_callback':
             // Для целевого пользователя
             const alliance_user_target = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
-            await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name}\n💬 ${message}`)
-            const notif_ans_chat1 = await Send_Message(alliance_user_target?.id_chat ?? 0, `👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`)
-            if (!notif_ans_chat1 ) { await Send_Message(chat_id, `👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`) }
-            await Logger(`👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n🔧 ${message}`);
+            await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name} (UID: ${user_target?.id})\n💬 ${message}`)
+            const notif_ans_chat1 = await Send_Message(alliance_user_target?.id_chat ?? 0, `👤 Клиент @id${user_target?.idvk}(${user_target?.name}) (UID: ${user_target?.id})\n🔧 ${message}`)
+            if (!notif_ans_chat1 ) { await Send_Message(chat_id, `👤 Клиент @id${user_target?.idvk}(${user_target?.name}) (UID: ${user_target?.id})\n🔧 ${message}`) }
+            await Logger(`👤 Клиент @id${user_target?.idvk}(${user_target?.name}) (UID: ${user_target?.id})\n🔧 ${message}`);
             break;
         
         case 'client_solo':
@@ -382,19 +382,19 @@ export async function Send_Message_Smart(
             const client: User | null | undefined = await Person_Get(context)
             const alliance_client = await prisma.alliance.findFirst({ where: { id: client?.id_alliance ?? 0 } })
             await Send_Message(client?.idvk ?? 0, `💬 ${message}`)
-            const notif_ans_chat2 = await Send_Message(alliance_client?.id_chat ?? 0, `👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`)
-            if (!notif_ans_chat2 ) { await Send_Message(chat_id, `👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`) }
-            await Logger(`👤 Клиент @id${client?.idvk}(${client?.name})\n🔧 ${message}`);
+            const notif_ans_chat2 = await Send_Message(alliance_client?.id_chat ?? 0, `👤 Клиент @id${client?.idvk}(${client?.name}) (UID:${client?.id})\n🔧 ${message}`)
+            if (!notif_ans_chat2 ) { await Send_Message(chat_id, `👤 Клиент @id${client?.idvk}(${client?.name}) (UID:${client?.id})\n🔧 ${message}`) }
+            await Logger(`👤 Клиент @id${client?.idvk}(${client?.name}) (UID:${client?.id})\n🔧 ${message}`);
             break;
 
         case 'admin_and_client':
             // Общий тип: отправка и пользователю, и в чат
             const alliance = await prisma.alliance.findFirst({ where: { id: user_target?.id_alliance ?? 0 } })
             const user_adm: User | null | undefined = await Person_Get(context)
-            const notif_ans = await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name}\n💬 ${message}`)
-            !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user_target?.name} не доставлено\n💬 ${message}`) : await context.send(`⚙ Операция завершена успешно для ${user_target?.name}\n💬 ${message}`)
-            const notif_ans_chat3 = await Send_Message(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n💬 ${message}`)
-            if (!notif_ans_chat3 ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name})\n💬 ${message}`) }
+            const notif_ans = await Send_Message(user_target?.idvk ?? 0, `🔔 Уведомление для ${user_target?.name} (UID: ${user_target?.id})\n💬 ${message}`)
+            !notif_ans ? await context.send(`⚠ Сообщение пользователю ${user_target?.name} (UID: ${user_target?.id}) не доставлено\n💬 ${message}`) : await context.send(`⚙ Операция завершена успешно для ${user_target?.name} (UID: ${user_target?.id})\n💬 ${message}`)
+            const notif_ans_chat3 = await Send_Message(alliance?.id_chat ?? 0, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name}) (UID: ${user_adm?.id})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name}) (UID: ${user_target?.id})\n💬 ${message}`)
+            if (!notif_ans_chat3 ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${context.senderId}(${user_adm?.name}) (UID: ${user_adm?.id})\n👤 Клиент @id${user_target?.idvk}(${user_target?.name}) (UID: ${user_target?.id})\n💬 ${message}`) }
             break;
         default:
             //
@@ -556,4 +556,31 @@ export async function Send_Message_Question(
         await context.send('⚠ Произошла ошибка. Повторите попытку.');
     }
     return { exit, payload };
+}
+
+/**
+ * Универсальная функция отправки уведомлений о денежных операциях
+ * @param user_target Целевой пользователь
+ * @param operation Операция (+ или -)
+ * @param amount Сумма операции
+ * @param coin_smile Смайл валюты
+ * @param old_balance Старый баланс
+ * @param new_balance Новый баланс
+ * @param message Сообщение для пользователя
+ * @param facult_income Дополнительная информация о факультете
+ * @returns Promise<boolean> Успешность отправки
+ */
+export async function Send_Coin_Operation_Notification(
+    user_target: User,
+    operation: string,
+    amount: number,
+    coin_smile: string,
+    old_balance: number,
+    new_balance: number,
+    message: string,
+    facult_income: string = ''
+): Promise<boolean> {
+    const notification = `🔔 Уведомление для ${user_target.name} (UID: ${user_target.id})\n💬 "${operation} ${amount}${coin_smile}" --> ${old_balance} ${operation} ${amount} = ${new_balance}\n🧷 Сообщение: ${message}${facult_income ? `\n${facult_income}` : ''}`;
+    
+    return await Send_Message(user_target.idvk, notification);
 }
