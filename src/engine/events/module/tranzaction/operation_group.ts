@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -87,7 +87,7 @@ export async function Operation_Group(context: any) {
 //Модуль мульти начислений в цикле
 async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: uids[0] } })
-    const person: { coin: AllianceCoin | null, operation: String | null, amount: number } = { coin: null, operation: null, amount: 0 }
+    const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
     const alli_get = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(user?.id_alliance) } })
@@ -99,7 +99,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
         while (!coin_check) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
-            let event_logger = `❄ Выберите валюту с которой будем делать отчисления:\n\n`
+            let event_logger = `❄ Выберите валюту, с которой будем делать отчисления:\n\n`
             const builder_list: AllianceCoin[] = coin_pass
             if (builder_list.length > 0) {
                 const limiter = 5
@@ -107,10 +107,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                 for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
                     keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
-                    //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                     event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                    /*
-                    const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                     counter++
                 }
                 event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
@@ -150,12 +147,6 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                     keyboard: Keyboard.builder()
                     .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
                     .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
-                    //.textButton({ label: '/', payload: { command: 'citizen' }, color: 'secondary' })
-                    //.textButton({ label: '*', payload: { command: 'citizen' }, color: 'secondary' }).row()
-                    //.textButton({ label: '!', payload: { command: 'citizen' }, color: 'secondary' })
-                    //.textButton({ label: '√', payload: { command: 'citizen' }, color: 'secondary' })
-                    //.textButton({ label: 'log', payload: { command: 'citizen' }, color: 'secondary' })
-                    //.textButton({ label: 'log10', payload: { command: 'citizen' }, color: 'secondary' })
                     .oneTime().inline(), answerTimeLimit
                 }
             )
@@ -187,7 +178,18 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } }) : null
                         facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
                     }
-                    const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount}\n Уведомление: ${messa}\n${facult_income}`)
+                    
+                    const notif_ans = await Send_Coin_Operation_Notification(
+                        pers,
+                        person.operation!,
+                        person.amount,
+                        person.coin?.smile ?? '',
+                        pers_bal_coin.amount,
+                        money_put_plus.amount,
+                        messa,
+                        facult_income
+                    )
+                    
                     const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
@@ -215,12 +217,23 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                             }
                         }
                     }
-                    const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount}\n Уведомление: ${messa}\n${facult_income}`)
+                    
+                    const notif_ans = await Send_Coin_Operation_Notification(
+                        pers,
+                        person.operation!,
+                        person.amount,
+                        person.coin?.smile ?? '',
+                        pers_bal_coin.amount,
+                        money_put_minus.amount,
+                        messa,
+                        facult_income
+                    )
+                    
                     const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                     await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
-                    !notif_ans ? await context.send(`⚙ Сообщение для UID ${ui} не доставлено`) : await context.send(`✅ Успешное начисление для UID ${ui}`)
+                    !notif_ans ? await context.send(`⚙ Сообщение для UID ${ui} не доставлено`) : await context.send(`✅ Успешное снятие для UID ${ui}`)
                 }
                 break;
             default:
@@ -243,10 +256,11 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
         }
     }
 }
+
 //Модуль мульти начислений
 async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: uids[0] } })
-    const person: { coin: AllianceCoin | null, operation: String | null, amount: number } = { coin: null, operation: null, amount: 0 }
+    const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
     const alli_get = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(user?.id_alliance) } })
@@ -256,7 +270,7 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
     while (!coin_check) {
         const keyboard = new KeyboardBuilder()
         id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
-        let event_logger = `❄ Выберите валюту с которой будем делать отчисления:\n\n`
+        let event_logger = `❄ Выберите валюту, с которой будем делать отчисления:\n\n`
         const builder_list: AllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
@@ -264,10 +278,7 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
             for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                 const builder = builder_list[i]
                 keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
-                //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
                 event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                /*
-                const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                 counter++
             }
             event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
@@ -307,12 +318,6 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
                 keyboard: Keyboard.builder()
                 .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
                 .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
-                //.textButton({ label: '/', payload: { command: 'citizen' }, color: 'secondary' })
-                //.textButton({ label: '*', payload: { command: 'citizen' }, color: 'secondary' }).row()
-                //.textButton({ label: '!', payload: { command: 'citizen' }, color: 'secondary' })
-                //.textButton({ label: '√', payload: { command: 'citizen' }, color: 'secondary' })
-                //.textButton({ label: 'log', payload: { command: 'citizen' }, color: 'secondary' })
-                //.textButton({ label: 'log10', payload: { command: 'citizen' }, color: 'secondary' })
                 .oneTime().inline(), answerTimeLimit
             }
         )
@@ -344,7 +349,18 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
                     const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } }) : null
                     facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
                 }
-                const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount}\n Уведомление: ${messa}\n${facult_income}`)
+                
+                const notif_ans = await Send_Coin_Operation_Notification(
+                    pers,
+                    person.operation!,
+                    person.amount,
+                    person.coin?.smile ?? '',
+                    pers_bal_coin.amount,
+                    money_put_plus.amount,
+                    messa,
+                    facult_income
+                )
+                
                 const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
@@ -372,7 +388,18 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
                         }
                     }
                 }
-                const notif_ans = await Send_Message(pers.idvk, `⚙ Вам ${person.operation} ${person.amount}${person.coin?.smile}. \nВаш счёт изменяется магическим образом: ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount}\n Уведомление: ${messa}\n${facult_income}`)
+                
+                const notif_ans = await Send_Coin_Operation_Notification(
+                    pers,
+                    person.operation!,
+                    person.amount,
+                    person.coin?.smile ?? '',
+                    pers_bal_coin.amount,
+                    money_put_minus.amount,
+                    messa,
+                    facult_income
+                )
+                
                 const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
@@ -396,7 +423,7 @@ async function Medal_Up_Many(uids: number[], context: any, person_adm: User) {
         const user_get: any = await prisma.user.findFirst({ where: { id } })
         if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
         const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
-        const notif_ans = await Send_Message(user_get.idvk, `⚙ Вам начислено ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+        const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "+ ${count}🔘" --> ${user_get.medal} + ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
         const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
         await Send_Message(chat_id, ans_log)
@@ -412,7 +439,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
         if (!user_get) { await context.send(`⛔ Банковская карточка с 💳UID ${id} не найдена`); continue }
         if (user_get.medal-count >= 0) {
             const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-            const notif_ans = await Send_Message(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+            const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "- ${count}🔘" --> ${user_get.medal} - ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
             const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
             await Send_Message(chat_id, ans_log)
@@ -430,7 +457,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
             if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на снятие жетонов с ${user_get.name} истекло!`) }
             if (confirmq.payload.command === 'confirm') {
                 const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
-                const notif_ans = await Send_Message(user_get.idvk, `⚙ С вас снято ${count}🔘, ${money_put.name}. \nВаш счёт ${user_get.name}: ${money_put.medal}🔘 \n Уведомление: ${messa}`)
+                const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "- ${count}🔘" --> ${user_get.medal} - ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
                 const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
                 await Send_Message(chat_id, ans_log)
