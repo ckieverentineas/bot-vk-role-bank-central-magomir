@@ -61,7 +61,7 @@ export async function Operation_Solo(context: any) {
     }
     keyboard.textButton({ label: `➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
     .textButton({ label: `♾️${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' })
-    .textButton({ label: `👥➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_multi' }, color: 'secondary' }).row()
+    //.textButton({ label: `👥➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_multi' }, color: 'secondary' }).row()
     .textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
     .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
     .textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' })
