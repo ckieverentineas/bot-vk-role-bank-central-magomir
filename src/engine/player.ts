@@ -580,6 +580,28 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_log_up) { return }
         await Send_Message( alli_log_up.id_chat_monitor, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по программе вознаграждений\n💬 id_chat_monitor: ${alli_get.id_chat_monitor} --> ${alli_log_up.id_chat_monitor}`)
     })
+    hearManager.hear(/!привязать покупки/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType != 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
+        if (!alli_get) { return }
+        const alli_log_up = await prisma.alliance.update({ 
+            where: { id: alli_get.id }, 
+            data: { id_chat_shop: context.peerId }
+        })
+        if (!alli_log_up) { return }
+        await Send_Message( 
+            alli_log_up.id_chat_shop, 
+            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по покупкам из ролевых магазинов\n💬 id_chat_shop: ${alli_get.id_chat_shop} --> ${alli_log_up.id_chat_shop}`
+        )
+    })
     hearManager.hear(/⚙ !мониторы нафиг/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -608,6 +630,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             \n⭐ [⚙ !мониторы нафиг] - вызов меню конфигурации мониторов
             \n⭐ [!привязать мониторы] - пишется в чате с ботом, чтобы привязать чат для логов с мониторов ролевого проекта
             \n⭐ [!привязать финансы] - пишется в чате с ботом, чтобы привязать чат для логов внутрифинансовых операций ролевого проекта
+            \n⭐ [!привязать покупки] - пишется в чате с ботом, чтобы привязать чат для логов о покупках из ролевых магазинов
             \n⭐ [🚀 !моники_on] - запуск мониторов ролевого проекта
             \n⭐ [🚫 !моники_off] - остановка мониторов ролевого проекта
             \n⭐ [!обновить ролки] - синхронизация названий ролевых проектов с базой данных
