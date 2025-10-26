@@ -26,6 +26,7 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
     const shop = await prisma.allianceShop.findFirst({ where: { id: id_shop } });
     let category_tr = false;
     let cursor = 0;
+    const category_counter = await prisma.allianceShopCategory.count({ where: { id_alliance_shop: id_shop } });
 
     while (!category_tr) {
         const keyboard = new KeyboardBuilder();
@@ -41,14 +42,21 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
             event_logger += `📁 ${category.id} - ${category.name}\n`;
         }
 
+        // Навигация для категорий
         if (cursor >= 5) {
+            keyboard.textButton({ label: `↞`, payload: { command: 'buyershop_category_first', cursor }, color: 'secondary' });
             keyboard.textButton({ label: `←`, payload: { command: 'buyershop_category_back', cursor }, color: 'secondary' });
         }
 
-        const category_counter = await prisma.allianceShopCategory.count({ where: { id_alliance_shop: id_shop } });
         if (5 + cursor < category_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_category_next', cursor }, color: 'secondary' });
+            keyboard.textButton({ label: `↠`, payload: { command: 'buyershop_category_last', cursor }, color: 'secondary' });
         }
+
+        if (cursor >= 5 || 5 + cursor < category_counter) {
+            keyboard.row();
+        }
+
         event_logger += `\n${1 + cursor} из ${category_counter}`;
         const attached = shop?.image ? shop?.image : null;
         const bt = await Send_Message_Question(context, `📁 Выберите категорию:\n${event_logger}`, keyboard, attached ?? undefined);
@@ -57,9 +65,11 @@ export async function Buyer_Category_Printer(context: any, id_shop: number) {
             'buyershop_category_select': Buyer_Category_Select,
             'buyershop_category_next': Buyer_Category_Next,
             'buyershop_category_back': Buyer_Category_Back,
+            'buyershop_category_first': Buyer_Category_First,
+            'buyershop_category_last': Buyer_Category_Last,
         };
 
-        const ans = await config[bt.payload.command](context, bt.payload, shop);
+        const ans = await config[bt.payload.command](context, bt.payload, shop, category_counter);
         cursor = ans?.cursor ?? cursor;
         category_tr = ans.stop ?? false;
     }
@@ -78,6 +88,17 @@ async function Buyer_Category_Next(context: any, data: any, shop: any) {
 
 async function Buyer_Category_Back(context: any, data: any, shop: any) {
     const res = { cursor: data.cursor - 5 };
+    return res;
+}
+
+async function Buyer_Category_First(context: any, data: any, shop: any) {
+    const res = { cursor: 0 };
+    return res;
+}
+
+async function Buyer_Category_Last(context: any, data: any, shop: any, category_counter: number) {
+    const lastCursor = Math.floor((category_counter - 1) / 5) * 5;
+    const res = { cursor: lastCursor };
     return res;
 }
 
@@ -102,6 +123,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
     const category = await prisma.allianceShopCategory.findFirst({ where: { id: id_category } });
     let item_tr = false;
     let cursor = 0;
+    const item_counter = await prisma.allianceShopItem.count({ where: { id_shop: id_category, hidden: false } });
 
     while (!item_tr) {
         const keyboard = new KeyboardBuilder();
@@ -118,14 +140,21 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
             event_logger += `🛒 ${item.id} - ${item.name} — ${item.price}${coin?.smile}\n`;
         }
 
+        // Навигация для товаров
         if (cursor >= 5) {
+            keyboard.textButton({ label: `↞`, payload: { command: 'buyershop_item_first', cursor }, color: 'secondary' });
             keyboard.textButton({ label: `←`, payload: { command: 'buyershop_item_back', cursor }, color: 'secondary' });
         }
 
-        const item_counter = await prisma.allianceShopItem.count({ where: { id_shop: id_category } });
         if (5 + cursor < item_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_item_next', cursor }, color: 'secondary' });
+            keyboard.textButton({ label: `↠`, payload: { command: 'buyershop_item_last', cursor }, color: 'secondary' });
         }
+
+        if (cursor >= 5 || 5 + cursor < item_counter) {
+            keyboard.row();
+        }
+
         event_logger += `\n${1 + cursor} из ${item_counter}`;
         const attached = category?.image ? category?.image : null;
         const bt = await Send_Message_Question(context, `🛒 Выберите товар:\n${event_logger}`, keyboard, attached ?? undefined);
@@ -134,9 +163,11 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
             'buyershop_item_select': Buyer_Item_Select,
             'buyershop_item_next': Buyer_Item_Next,
             'buyershop_item_back': Buyer_Item_Back,
+            'buyershop_item_first': Buyer_Item_First,
+            'buyershop_item_last': Buyer_Item_Last,
         };
 
-        const ans = await config[bt.payload.command](context, bt.payload, category);
+        const ans = await config[bt.payload.command](context, bt.payload, category, item_counter);
         cursor = ans?.cursor ?? cursor;
         item_tr = ans.stop ?? false;
     }
@@ -241,15 +272,43 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
             const save_item = await prisma.inventory.create({ data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE, comment: item_comment } });
         }
     }
-    // Обновление лимита
+    
+    // Получаем обновленную информацию о товаре (после списания лимита)
+    let remaining_items = '♾️ Безлимит';
+    let item_finished = false;
+    
     if (item.limit_tr) {
-        await prisma.allianceShopItem.update({
+        const updated_item = await prisma.allianceShopItem.update({
             where: { id: item.id },
             data: { limit: { decrement: item_count } }
         });
+        remaining_items = `${updated_item.limit}`;
+        
+        // Проверяем, закончился ли товар после покупки
+        if (updated_item.limit <= 0) {
+            item_finished = true;
+        }
     }
-    // Логирование
-    await Send_Message_Smart(context, answer_log, 'client_solo')
+
+    // 1. Отправляем короткое сообщение пользователю (как раньше)
+    const userMessage = `🛒 Покупка в магазине "${item_shop_check.name}":\nСовершена покупка товара "${item.name}"x${item_count} за ${item.price*item_count}${coin_get.smile}.\n${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price*item_count}=${buying_act.amount}\n💬 Комментарий: ${item_comment}`;
+    await Send_Message(context.senderId, userMessage);
+
+    // 2. Отправляем полное сообщение в лог-чат покупок, если настроен
+    const allianceForPurchase = await prisma.alliance.findFirst({ 
+        where: { id: item_alliance_check.id } 
+    })
+    
+    let logMessage = `👤 Клиент @id${user.idvk}(${user.name}) (UID: ${user.id})\n🔧 ${answer_log}\n📦 Осталось товара в магазине: ${remaining_items}`;
+    
+    // Добавляем предупреждение о том, что товар закончился
+    if (item_finished) {
+        logMessage += `\n\n⚠️ ТОВАР ЗАКОНЧИЛСЯ!\n🛍 Товар: "${item.name}"\n📁 Категория: "${item_category_check.name}"\n🏪 Магазин: "${item_shop_check.name}"\n🚨 Админы, пополните запасы!`;
+    }
+    
+    if (allianceForPurchase?.id_chat_shop && allianceForPurchase.id_chat_shop > 0) {
+        await Send_Message(allianceForPurchase.id_chat_shop, logMessage);
+    }
 
     //модуль откатов
     let answer_owner_alliance_log = ''
@@ -267,7 +326,17 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
             answer_owner_alliance_log += `🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price*item_count} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
         }
     }
-    await Send_Message_Smart(context, `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`, 'client_callback', user_payed_check)
+    const allianceForSale = await prisma.alliance.findFirst({ 
+        where: { id: item_alliance_check.id } 
+    })
+    const notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`
+
+    if (allianceForSale?.id_chat_shop && allianceForSale.id_chat_shop > 0) {
+        await Send_Message(allianceForSale.id_chat_shop, notificationMessage)
+    } else {
+        await Send_Message_Smart(context, notificationMessage, 'client_callback', user_payed_check)
+    }
+    
     return res;
 }
 
@@ -278,6 +347,17 @@ async function Buyer_Item_Next(context: any, data: any, category: any) {
 
 async function Buyer_Item_Back(context: any, data: any, category: any) {
     const res = { cursor: data.cursor - 5 };
+    return res;
+}
+
+async function Buyer_Item_First(context: any, data: any, category: any) {
+    const res = { cursor: 0 };
+    return res;
+}
+
+async function Buyer_Item_Last(context: any, data: any, category: any, item_counter: number) {
+    const lastCursor = Math.floor((item_counter - 1) / 5) * 5;
+    const res = { cursor: lastCursor };
     return res;
 }
 
@@ -301,6 +381,7 @@ async function Buyer_Shop_Get(cursor: number, id_alliance: number) {
 export async function AllianceShop_Selector(context: any, id_alliance: number) {
     let shop_tr = false;
     let cursor = 0;
+    const shop_counter = await prisma.allianceShop.count({ where: { id_alliance: id_alliance } });
 
     while (!shop_tr) {
         const keyboard = new KeyboardBuilder();
@@ -316,24 +397,33 @@ export async function AllianceShop_Selector(context: any, id_alliance: number) {
             event_logger += `🛍 ${shop.id} - ${shop.name}\n`;
         }
 
+        // Навигация для магазинов
         if (cursor >= 5) {
+            keyboard.textButton({ label: `↞`, payload: { command: 'buyershop_first', cursor }, color: 'secondary' });
             keyboard.textButton({ label: `←`, payload: { command: 'buyershop_back', cursor }, color: 'secondary' });
         }
 
-        const shop_counter = await prisma.allianceShop.count({ where: { id_alliance: id_alliance } });
         if (5 + cursor < shop_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'buyershop_next', cursor }, color: 'secondary' });
+            keyboard.textButton({ label: `↠`, payload: { command: 'buyershop_last', cursor }, color: 'secondary' });
         }
+
+        if (cursor >= 5 || 5 + cursor < shop_counter) {
+            keyboard.row();
+        }
+
         event_logger += `\n${1 + cursor} из ${shop_counter}`;
         const bt = await Send_Message_Question(context, `🛒 Выберите магазин:\n${event_logger}`, keyboard, undefined);
-        if (bt.exit) { await context.send(`Вы вышли из магазина.`, { keyboard: button_alliance_return }); return await Keyboard_Index(context, `⌛ Приходите еще, вдруг новинки появятся, как на валдберисе?`); }
+        if (bt.exit) { await context.send(`✅ Вы вышли из магазина.`, { keyboard: button_alliance_return }); return await Keyboard_Index(context, `⌛ Приходите еще, вдруг новинки появятся, как на валдберисе?`); }
         const config: any = {
             'buyershop_select': Buyershop_Select,
             'buyershop_next': Buyershop_Next,
             'buyershop_back': Buyershop_Back,
+            'buyershop_first': Buyershop_First,
+            'buyershop_last': Buyershop_Last,
         };
 
-        const ans = await config[bt.payload.command](context, bt.payload);
+        const ans = await config[bt.payload.command](context, bt.payload, shop_counter);
         cursor = ans?.cursor ?? cursor;
         shop_tr = ans.stop ?? false;
     }
@@ -353,5 +443,16 @@ async function Buyershop_Next(context: any, data: any) {
 
 async function Buyershop_Back(context: any, data: any) {
     const res = { cursor: data.cursor - 5 };
+    return res;
+}
+
+async function Buyershop_First(context: any, data: any) {
+    const res = { cursor: 0 };
+    return res;
+}
+
+async function Buyershop_Last(context: any, data: any, shop_counter: number) {
+    const lastCursor = Math.floor((shop_counter - 1) / 5) * 5;
+    const res = { cursor: lastCursor };
     return res;
 }
