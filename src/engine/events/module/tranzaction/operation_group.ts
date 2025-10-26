@@ -8,6 +8,7 @@ import { AllianceCoin, BalanceCoin, BalanceFacult, User } from "@prisma/client"
 import { Facult_Coin_Printer_Self } from "../alliance/facult_rank"
 import { ico_list } from "../data_center/icons_lib"
 
+// В функции Operation_Group добавляем новую кнопку
 export async function Operation_Group(context: any) {
     if (context.peerType == 'chat') { return }
     if (await Accessed(context) == 1) { return }
@@ -60,7 +61,8 @@ export async function Operation_Group(context: any) {
         {   
             keyboard: keyboard
             .textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine_many' }, color: 'secondary' }).row()
-            .textButton({ label: `♾️${info_coin?.smile}`, payload: { command: 'coin_engine_many_infinity' }, color: 'secondary' }).row()
+            .textButton({ label: `♾️${info_coin?.smile}`, payload: { command: 'coin_engine_many_infinity' }, color: 'secondary' })
+            .textButton({ label: `🎯${info_coin?.smile}`, payload: { command: 'coin_engine_many_custom' }, color: 'secondary' }).row() // НОВАЯ КНОПКА
             .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
             .oneTime().inline(),
             answerTimeLimit                                                                       
@@ -71,6 +73,7 @@ export async function Operation_Group(context: any) {
         'back': Back,
         'coin_engine_many': Coin_Engine_Many,
         'coin_engine_many_infinity': Coin_Engine_Many_Infinity,
+        'coin_engine_many_custom': Coin_Engine_Many_Custom, // НОВАЯ ФУНКЦИЯ
         'medal_up_many': Medal_Up_Many,
         'medal_down_many': Medal_Down_Many
     }
@@ -82,6 +85,208 @@ export async function Operation_Group(context: any) {
     }
     await context.send(`✅ Процедура массовых операций под названием операция "Ы" успешно завершена!`)
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
+}
+
+// НОВАЯ ФУНКЦИЯ: Массовые операции с разными суммами
+async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm: User) {
+    const user: User | null | undefined = await prisma.user.findFirst({ where: { id: uids[0] } })
+    const person: { coin: AllianceCoin | null, operation: string | null } = { coin: null, operation: null }
+    if (!user) { return }
+    const alli_get = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(user?.id_alliance) } })
+    if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
+    
+    // Выбор валюты
+    let coin_check = false
+    let id_builder_sent = 0
+    while (!coin_check) {
+        const keyboard = new KeyboardBuilder()
+        id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
+        let event_logger = `❄ Выберите валюту для массовых операций:\n\n`
+        const builder_list: AllianceCoin[] = coin_pass
+        if (builder_list.length > 0) {
+            const limiter = 5
+            let counter = 0
+            for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                const builder = builder_list[i]
+                keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
+                event_logger += `\n\n💬 ${builder.smile} -> ${builder.id} - ${builder.name}\n`
+                counter++
+            }
+            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+            //предыдущий офис
+            if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
+                keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+            }
+            //следующий офис
+            if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
+                keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
+            }
+        } else {
+            event_logger = `💬 Админы ролевой еще не создали ролевые валюты`
+            return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
+        }
+        const answer1: any = await context.question(`${event_logger}`,
+            {	
+                keyboard: keyboard.inline(), answerTimeLimit
+            }
+        )
+        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора валюты истекло!`) }
+        if (!answer1.payload) {
+            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+        } else {
+            if (answer1.text == '→' || answer1.text =='←') {
+                id_builder_sent = answer1.payload.id_builder_sent
+            } else {
+                person.coin = answer1.payload.target
+                coin_check = true
+            }
+        }
+    }
+    
+    // Выбор операции
+    let answer_check = false
+    while (answer_check == false) {
+        const answer_selector = await context.question(`🧷 Укажите вариант операции:`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
+                .oneTime().inline(), answerTimeLimit
+            }
+        )
+        if (answer_selector.isTimeout) { return await context.send(`⏰ Время ожидания выбора операции истекло!`) }
+        if (!answer_selector.payload) {
+            await context.send(`💡 Жмите только по кнопкам с иконками!`)
+        } else {
+            person.operation = answer_selector.text
+            answer_check = true
+        }
+    }
+    
+    // Ввод данных в формате UID-СУММА
+    const messa: string = await Ipnut_Message(context, `[массовая ${person.operation}${person.coin?.smile} с разными суммами]`)
+    const users_target = await context.question(`📊 Введите список UID и сумм в формате:\nUID1-СУММА1\nUID2-СУММА2\nUID3-СУММА3\n...\n\nПример:\n5-3402\n6-23.4\n7-53`, 
+        { answerTimeLimit }
+    )
+    
+    if (users_target.isTimeout) { return await context.send(`⏰ Время ожидания ввода данных истекло!`) }
+
+    const lines = users_target.text.split('\n').map((line: string) => line.trim());
+    const uid_res: Array<{ id: number, amount: number }> = []
+
+    for (const line of lines) {
+        if (!line.includes('-')) {
+            await context.send(`⚠ Неверный формат: ${line}`);
+            continue;
+        }
+
+        const [uidStr, amountStr] = line.split('-').map((s: string) => s.trim());
+        const uid = parseInt(uidStr);
+        const amount = parseFloat(amountStr);
+
+        if (isNaN(uid) || isNaN(amount)) {
+            await context.send(`⚠ Неверный формат: ${line}`);
+            continue;
+        }
+
+        // Проверяем, что UID есть в исходном списке
+        if (!uids.includes(uid)) {
+            await context.send(`⚠ UID ${uid} не был в исходном списке получателей`);
+            continue;
+        }
+
+        const user = await prisma.user.findFirst({ where: { id: uid } });
+        if (!user) {
+            await context.send(`❌ Пользователь с UID ${uid} не найден.`);
+            continue;
+        }
+
+        uid_res.push({ id: uid, amount: amount });
+    }
+
+    if (uid_res.length === 0) {
+        return await context.send(`❌ Не удалось обработать ни одной записи. Операция отменена.`);
+    }
+
+    // Выполнение операций
+    let passer = true
+    switch (person.operation) {
+        case '+':
+            for (const ui of uid_res) {
+                const pers = await prisma.user.findFirst({ where: { id: ui.id } })
+                if (!pers) { await context.send(`UID ${ui.id} не найдено`); continue }
+                const pers_bal_coin: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: pers.id }})
+                if (!pers_bal_coin) { await context.send(`UID ${ui.id} не открыт валютный счет`); continue }
+                const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: pers.id_facult ?? 0 } })
+                const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: pers_bal_coin?.id }, data: { amount: { increment: ui.amount } } })
+                let facult_income = ''
+                if (person.coin?.point == true && alli_fac) {
+                    const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
+                    const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: ui.amount } } }) : null
+                    facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
+                }
+                
+                const notif_ans = await Send_Coin_Operation_Notification(
+                    pers,
+                    person.operation!,
+                    ui.amount,
+                    person.coin?.smile ?? '',
+                    pers_bal_coin.amount,
+                    money_put_plus.amount,
+                    messa,
+                    facult_income
+                )
+                
+                const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
+                await Logger(`User ${pers.idvk} ${person.operation} ${ui.amount} gold. Him/Her bank now unknown`)
+                !notif_ans ? await context.send(`⚙ Сообщение для UID ${ui.id} не доставлено`) : await context.send(`✅ Успешное начисление для UID ${ui.id}: +${ui.amount}${person.coin?.smile}`)
+            }
+            break;
+        case '-':
+            for (const ui of uid_res) {
+                const pers = await prisma.user.findFirst({ where: { id: ui.id } })
+                if (!pers) { await context.send(`UID ${ui.id} не найдено`); continue }
+                const pers_bal_coin: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: pers.id }})
+                if (!pers_bal_coin) { await context.send(`UID ${ui.id} не открыт валютный счет`); continue }
+                const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: pers.id_facult ?? 0 } })
+                const money_put_minus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: pers_bal_coin.id }, data: { amount: { decrement: ui.amount } } })
+                let facult_income = ''
+                if (person.coin?.point == true && alli_fac) {
+                    const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
+                    if (rank_put_plus_check) {
+                        const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: ui.amount } } })
+                        if (rank_put_plus) {
+                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                        }
+                    }
+                }
+                
+                const notif_ans = await Send_Coin_Operation_Notification(
+                    pers,
+                    person.operation!,
+                    ui.amount,
+                    person.coin?.smile ?? '',
+                    pers_bal_coin.amount,
+                    money_put_minus.amount,
+                    messa,
+                    facult_income
+                )
+                
+                const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${ui.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
+                if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
+                await Logger(`User ${pers.idvk} ${person.operation} ${ui.amount} gold. Him/Her bank now unknown`)
+                !notif_ans ? await context.send(`⚙ Сообщение для UID ${ui.id} не доставлено`) : await context.send(`✅ Успешное снятие для UID ${ui.id}: -${ui.amount}${person.coin?.smile}`)
+            }
+            break;
+        default:
+            passer = false
+            break;
+    }
+    if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
 }
 
 //Модуль мульти начислений в цикле
@@ -465,6 +670,9 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
             } else {
                 await context.send(`💡 Нужно быть жестче! Греби жетоны`)
             }
+        }
+    }
+}
         }
     }
 }
