@@ -69,7 +69,9 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             keyboard.textButton({ label: `→`, payload: { command: 'inventory_next', cursor }, color: 'secondary' });
         }
 
-        keyboard.textButton({ label: `<🔎>`, payload: { command: 'inventory_target', cursor }, color: 'secondary' })
+        keyboard.row()
+        .textButton({ label: `<🔎>`, payload: { command: 'inventory_target', cursor }, color: 'secondary' })
+        .textButton({ label: `🎁 ∞`, payload: { command: 'inventory_mass_present', cursor }, color: 'positive' }) // НОВАЯ КНОПКА
         .textButton({ label: `🚫 Выход`, payload: { command: 'inventory_return', cursor }, color: 'negative' }).oneTime();
 
         event_logger += `\n${1 + cursor} из ${totalItems}`;
@@ -93,6 +95,7 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             'inventory_select': Inventory_Select,
             'inventory_delete': Inventory_Delete,
             'inventory_present': Inventory_Present,
+            'inventory_mass_present': Inventory_Mass_Present, // НОВАЯ ФУНКЦИЯ
             'inventory_next': Inventory_Next,
             'inventory_target': Inventory_Target,
             'inventory_back': Inventory_Back,
@@ -104,6 +107,144 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
         inventory_tr = ans.stop ?? false;
     }
     await Keyboard_Index(context, `⌛ Вместимость неограничена, это маготехнологии министерства?`)
+}
+
+// НОВАЯ ФУНКЦИЯ: Массовое дарение
+async function Inventory_Mass_Present(context: any, data: any, user: User, user_adm?: User) {
+    const res = { cursor: data.cursor };
+    
+    // Подтверждение массового дарения
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `массово раздарить свои предметы? Это действие нельзя отменить!`
+    );
+    
+    if (!confirm.status) {
+        await context.send(`❌ Массовое дарение отменено.`);
+        return res;
+    }
+
+    // Получаем UID получателя
+    const person_goten = await Input_Number(context, `Введите UID персонажа, которому будут подарены предметы:`, true);
+    if (!person_goten) { 
+        await context.send(`❌ Получатель не указан.`); 
+        return res; 
+    }
+    
+    if (person_goten == user.id) { 
+        await context.send(`❌ Нельзя дарить предметы самому себе!`); 
+        return res;
+    }
+    
+    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } });
+    if (!person_goten_check) { 
+        await context.send(`❌ Персонаж с UID ${person_goten} не найден!`); 
+        return res; 
+    }
+
+    // Запрашиваем список ID предметов для дарения
+    const instructionMessage = `📝 Введите ID предметов для дарения через пробел:\nПример: 14 374 85 92\n\n💡 ID предметов указаны в вашем инвентаре перед названием предмета`;
+    
+    const items_input = await context.question(instructionMessage, { answerTimeLimit });
+    if (items_input.isTimeout) {
+        await context.send(`⏰ Время ввода истекло!`);
+        return res;
+    }
+
+    const item_ids = items_input.text.trim().split(/\s+/).map(id => parseInt(id)).filter(id => !isNaN(id));
+    
+    if (item_ids.length === 0) {
+        await context.send(`❌ Не указаны ID предметов для дарения.`);
+        return res;
+    }
+
+    // Подтверждение финальное
+    const final_confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `подарить ${item_ids.length} предметов игроку ${person_goten_check.name}?`
+    );
+    
+    if (!final_confirm.status) {
+        await context.send(`❌ Массовое дарение отменено.`);
+        return res;
+    }
+
+    // Выполняем массовое дарение
+    let success_count = 0;
+    let failed_count = 0;
+    let gifted_items_info = '';
+
+    for (const item_id of item_ids) {
+        try {
+            // Проверяем, что предмет принадлежит текущему пользователю
+            const inv = await prisma.inventory.findFirst({
+                where: { 
+                    id: item_id,
+                    id_user: user.id 
+                }
+            });
+
+            if (!inv) {
+                await context.send(`⚠ Предмет с ID ${item_id} не найден в вашем инвентаре.`);
+                failed_count++;
+                continue;
+            }
+
+            // Получаем информацию о предмете для логов
+            let item_info = null;
+            if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+                item_info = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } });
+            } else if (inv.type == InventoryType.ITEM_SHOP) {
+                item_info = await prisma.item.findFirst({ where: { id: inv.id_item } });
+            } else if (inv.type == InventoryType.ITEM_STORAGE) {
+                item_info = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
+            }
+
+            // Передаем предмет
+            const updated_item = await prisma.inventory.update({
+                where: { id: inv.id },
+                data: { 
+                    id_user: person_goten_check.id,
+                    comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
+                }
+            });
+
+            if (updated_item) {
+                success_count++;
+                gifted_items_info += `\n🎁 ${item_info?.name || `Предмет ${inv.id}`} (ID: ${inv.id})`;
+                
+                await Logger(`Массовое дарение: ${user.name} -> ${person_goten_check.name}, предмет: ${item_info?.name || inv.id}`);
+            } else {
+                failed_count++;
+            }
+
+        } catch (error) {
+            await context.send(`⚠ Ошибка при передаче предмета ID ${item_id}`);
+            failed_count++;
+        }
+    }
+
+    // Отправляем уведомления
+    const result_message = `🎁 Массовое дарение завершено!\n\n✅ Успешно передано: ${success_count} предметов\n❌ Не удалось передать: ${failed_count} предметов\n\n📦 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id})${gifted_items_info}`;
+
+    await context.send(result_message);
+
+    // Уведомление получателю
+    const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n\nБыло передано ${success_count} предметов:${gifted_items_info}`;
+
+    await Send_Message(person_goten_check.idvk, receiver_message);
+
+    // Уведомление в чат
+    const log_message = `🎁 Массовое дарение предметов
+
+👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})
+🎯 Получатель: @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})
+📦 Передано предметов: ${success_count}
+    ${gifted_items_info}`;
+
+    await Send_Message(chat_id, log_message);
+
+    return res;
 }
 
 async function Inventory_Select(context: any, data: any, user: User, user_adm?: User) {
@@ -168,7 +309,6 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
             await context.send(`❌ Предмет не найден.`);
             return res;
         }
-        //text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине`;
     }
     if (inv.type == InventoryType.ITEM_SHOP) {
         item = await prisma.item.findFirst({ where: { id: inv.id_item } })
@@ -176,7 +316,6 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
             await context.send(`❌ Предмет не найден.`);
             return res;
         }
-        //text = `🛍 Предмет: **${item.name}**\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
     }
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить "${item?.name}" из инвентаря?`);
 
@@ -199,6 +338,7 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
 
     return res;
 }
+
 async function Inventory_Present(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor };
     const inv = await prisma.inventory.findFirst({
@@ -235,7 +375,6 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
     const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } })
     if (!person_goten_check) { await context.send(`Такого персонажа не числится!`); return res }
     const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить "${item?.name}" ${person_goten_check.name} из своего инвентаря?`);
-    //await context.send(confirm.text);
     if (!confirm_gift.status) return res;
     const item_update = await prisma.inventory.update({ where: { id: inv.id }, data: { id_user: person_goten_check.id } });
     if (!item_update) { return res }
@@ -264,6 +403,6 @@ async function Inventory_Back(context: any, data: any, user: User, user_adm?: Us
 
 async function Inventory_Return(context: any, data: any, user: User, user_adm?: User) {
     const res = { stop: true };
-    await context.send(`Вы вышли из инвентаря.`, { keyboard: button_alliance_return });
+    await context.send(`✅ Вы вышли из инвентаря.`, { keyboard: button_alliance_return });
     return res;
 }
