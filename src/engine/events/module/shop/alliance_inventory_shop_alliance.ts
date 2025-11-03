@@ -799,7 +799,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
             return res;
         }
 
-        item_ids = items_input.text.trim().split(/\s+/).map(id => parseInt(id)).filter(id => !isNaN(id));
+        item_ids = items_input.text.trim().split(/\s+/).map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
         
         if (item_ids.length === 0) {
             await context.send(`❌ Не указаны ID предметов для дарения.`);
