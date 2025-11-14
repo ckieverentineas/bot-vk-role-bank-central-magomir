@@ -140,10 +140,10 @@ async function AllianceShop_Delete(context: any, data: any) {
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}?`);
     //await context.send(confirm.text);
     if (!confirm.status) return res;
-    const confirm2: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}, все категории магазина и их товары исчезнут?`);
+    const confirm2: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}, все категории магазина и их товары?`);
     //await context.send(confirm.text);
     if (!confirm2.status) return res;
-    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить магазин ${shop_check?.id}-${shop_check?.name}, все покупки из данного магазина в инвентарях игроков пропадут?`);
+    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `ТОЧНО удалить магазин ${shop_check?.id}-${shop_check?.name}? (Все покупки из данного магазина в инвентарях игроков останутся, не пропадут)`);
     //await context.send(confirm.text);
     if (!confirm3.status) return res;
 
