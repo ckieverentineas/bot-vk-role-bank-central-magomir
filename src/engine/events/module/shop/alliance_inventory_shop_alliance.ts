@@ -262,17 +262,19 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             { keyboard, answerTimeLimit }
         );
 
-        // Остальной код обработки без изменений...
+        // Обработка таймаута
         if (inv_bt.isTimeout) {
             await context.send(`⏰ Время истекло!`);
             return;
         }
 
+        // Проверка наличия payload и команды
         if (!inv_bt.payload || !inv_bt.payload.command) {
             await context.send(`💡 Жмите только на кнопки.`);
             continue;
         }
 
+        // Конфигурация обработчиков команд
         const config: any = {
             'inventory_select': Inventory_Select,
             'inventory_group_select': Inventory_Group_Select,
@@ -290,15 +292,148 @@ export async function Inventory_Printer(context: any, user: User, user_adm?: Use
             'mass_present_mode': Mass_Present_Mode,
             'mass_present_prev_page': Mass_Present_Prev_Page,
             'mass_present_next_page': Mass_Present_Next_Page,
-            'mass_present_cancel': Mass_Present_Cancel
+            'mass_present_cancel': Mass_Present_Cancel,
+            // Новые обработчики для массового дарения нескольким персонажам
+            'mass_present_single': Mass_Present_Single,
+            'mass_present_multiple': Mass_Present_Multiple,
+            'mass_present_select_item_multi': Mass_Present_Select_Item_Multi,
+            'mass_present_prev_page_multi': Mass_Present_Prev_Page_Multi,
+            'mass_present_next_page_multi': Mass_Present_Next_Page_Multi
         };
 
-        const ans = await config[inv_bt.payload.command](context, inv_bt.payload, user, user_adm);
-        cursor = ans?.cursor ?? cursor;
-        group_mode = ans?.group_mode ?? group_mode;
-        inventory_tr = ans.stop ?? false;
+        // Выполнение команды
+        if (config[inv_bt.payload.command]) {
+            const ans = await config[inv_bt.payload.command](context, inv_bt.payload, user, user_adm);
+            cursor = ans?.cursor ?? cursor;
+            group_mode = ans?.group_mode ?? group_mode;
+            inventory_tr = ans.stop ?? false;
+        } else {
+            await context.send(`❌ Неизвестная команда: ${inv_bt.payload.command}`);
+        }
     }
     await Keyboard_Index(context, `⌛ Вместимость неограничена, это маготехнологии министерства?`);
+}
+
+// Новые вспомогательные функции для массового дарения нескольким персонажам
+async function Mass_Present_Single(context: any, data: any, user: User, user_adm?: User) {
+    return { cursor: data.cursor, group_mode: data.group_mode };
+}
+
+async function Mass_Present_Multiple(context: any, data: any, user: User, user_adm?: User) {
+    return { cursor: data.cursor, group_mode: data.group_mode };
+}
+
+// Исправленная функция выбора предмета для массового дарения нескольким персонажам
+async function Mass_Present_Select_Item_Multi(context: any, data: any, user: User, user_adm?: User) {
+    // Используем переданный курсор из payload
+    let item_cursor = data.item_cursor || 0;
+    
+    const groupedItems = await groupInventoryItems(user.id);
+    const multipleItems = groupedItems.filter(group => group.count > 1);
+    
+    const selectedGroup = multipleItems.find(g => 
+        g.type === data.type && 
+        g.id_item === data.id_item
+    );
+
+    if (!selectedGroup) {
+        await context.send(`❌ Выбранный предмет не найден.`);
+        return { cursor: data.cursor, group_mode: data.group_mode, item_cursor };
+    }
+
+    // Запрашиваем общее количество для распределения
+    const countMessage = `🔢 У вас есть ${selectedGroup.count} предметов "${selectedGroup.name}"\n\n` +
+        `Сколько всего штук вы хотите раздать? (введите число от 1 до ${selectedGroup.count})`;
+
+    const countResponse = await context.question(countMessage, { answerTimeLimit });
+    
+    if (countResponse.isTimeout) {
+        await context.send(`⏰ Время ввода истекло!`);
+        return { cursor: data.cursor, group_mode: data.group_mode, item_cursor };
+    }
+
+    const giftCount = parseInt(countResponse.text.trim());
+    
+    if (isNaN(giftCount) || giftCount < 1 || giftCount > selectedGroup.count) {
+        await context.send(`❌ Неверное количество! Введите число от 1 до ${selectedGroup.count}`);
+        return { cursor: data.cursor, group_mode: data.group_mode, item_cursor };
+    }
+
+    // Ввод распределения по получателям
+    const distributionMessage = `📊 Распределите ${giftCount} предметов "${selectedGroup.name}" между получателями:\n\n` +
+        `Введите данные в формате:\n` +
+        `UID_получателя-Количество\n\n` +
+        `Пример:\n` +
+        `44-3\n` +
+        `65-2\n\n` +
+        `💡 Сумма количеств должна равняться ${giftCount}`;
+
+    const distributionResponse = await context.question(distributionMessage, { answerTimeLimit });
+    
+    if (distributionResponse.isTimeout) {
+        await context.send(`⏰ Время ввода истекло!`);
+        return { cursor: data.cursor, group_mode: data.group_mode, item_cursor };
+    }
+
+    const lines = distributionResponse.text.trim().split('\n');
+    let totalDistributed = 0;
+    const operations = [];
+    
+    for (const line of lines) {
+        const parts = line.split('-').map((part: string) => part.trim());
+        if (parts.length === 2) {
+            const [recipientId, quantity] = parts.map((part: string) => parseInt(part));
+            if (!isNaN(recipientId) && !isNaN(quantity) && quantity > 0) {
+                operations.push({
+                    recipient_id: recipientId,
+                    quantity: quantity
+                });
+                totalDistributed += quantity;
+            }
+        }
+    }
+
+    if (totalDistributed !== giftCount) {
+        await context.send(`❌ Сумма количеств (${totalDistributed}) не равна общему количеству (${giftCount}). Операция отменена.`);
+        return { cursor: data.cursor, group_mode: data.group_mode, item_cursor };
+    }
+
+    // Сохраняем операции в контексте для дальнейшей обработки
+    return { 
+        cursor: data.cursor, 
+        group_mode: data.group_mode, 
+        item_cursor, // Возвращаем текущий курсор
+        selected_group: selectedGroup,
+        operations: operations,
+        gift_count: giftCount,
+        item_selection_complete: true
+    };
+}
+
+// Исправленные функции пагинации для массового дарения
+async function Mass_Present_Prev_Page(context: any, data: any, user: User, user_adm?: User) {
+    const itemsPerPage = 6;
+    const newCursor = Math.max(0, data.item_cursor - itemsPerPage);
+    return { cursor: data.cursor, group_mode: data.group_mode, item_cursor: newCursor };
+}
+
+async function Mass_Present_Next_Page(context: any, data: any, user: User, user_adm?: User) {
+    const itemsPerPage = 6;
+    const newCursor = data.item_cursor + itemsPerPage;
+    return { cursor: data.cursor, group_mode: data.group_mode, item_cursor: newCursor };
+}
+
+// Исправленные функции пагинации для массового дарения
+async function Mass_Present_Prev_Page_Multi(context: any, data: any, user: User, user_adm?: User) {
+    const itemsPerPage = 6;
+    const newCursor = Math.max(0, (data.item_cursor || 0) - itemsPerPage);
+    return { cursor: data.cursor, group_mode: data.group_mode, item_cursor: newCursor };
+}
+
+async function Mass_Present_Next_Page_Multi(context: any, data: any, user: User, user_adm?: User) {
+    const itemsPerPage = 6;
+    const newCursor = (data.item_cursor || 0) + itemsPerPage;
+    return { cursor: data.cursor, group_mode: data.group_mode, item_cursor: newCursor };
 }
 
 // Функция информации о странице
@@ -723,7 +858,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
     // Подтверждение массового дарения
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(
         context, 
-        `массово раздарить свои предметы? Это действие нельзя отменить!`
+        `массово раздарить свои выбранные предметы? Это действие нельзя отменить!\n\n`
     );
     
     if (!confirm.status) {
@@ -731,34 +866,57 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
         return res;
     }
 
-    // Получаем UID получателя
-    const person_goten = await Input_Number(context, `Введите UID персонажа, которому будут подарены предметы:`, true);
-    if (!person_goten) { 
-        await context.send(`❌ Получатель не указан.`); 
-        return res; 
-    }
+    // Выбор типа дарения: одному или нескольким персонажам
+    const recipientTypeKeyboard = new KeyboardBuilder()
+        .textButton({ 
+            label: `👤 Одному персонажу`, 
+            payload: { command: 'mass_present_single' }, 
+            color: 'primary' 
+        })
+        .textButton({ 
+            label: `👥 Нескольким персонажам`, 
+            payload: { command: 'mass_present_multiple' }, 
+            color: 'primary' 
+        })
+        .row()
+        .textButton({ 
+            label: `❌ Отмена`, 
+            payload: { command: 'mass_present_cancel' }, 
+            color: 'negative' 
+        })
+        .oneTime();
+
+    const recipientTypeMessage = `🎁 Выберите тип дарения:\n\n` +
+        `👤 Одному персонажу — все выбранные предметы будут подарены одному получателю\n` +
+        `👥 Нескольким персонажам — предметы можно распределить между разными получателями`;
+
+    const recipientTypeResponse = await context.question(recipientTypeMessage, { 
+        keyboard: recipientTypeKeyboard, 
+        answerTimeLimit 
+    });
     
-    if (person_goten == user.id) { 
-        await context.send(`❌ Нельзя дарить предметы самому себе!`); 
+    if (recipientTypeResponse.isTimeout) {
+        await context.send(`⏰ Время выбора истекло!`);
         return res;
     }
-    
-    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } });
-    if (!person_goten_check) { 
-        await context.send(`❌ Персонаж с UID ${person_goten} не найден!`); 
-        return res; 
+
+    if (!recipientTypeResponse.payload || recipientTypeResponse.payload.command === 'mass_present_cancel') {
+        await context.send(`❌ Массовое дарение отменено.`);
+        return res;
     }
+
+    const isMultipleRecipients = recipientTypeResponse.payload.command === 'mass_present_multiple';
 
     // Выбор режима дарения
     const modeKeyboard = new KeyboardBuilder()
         .textButton({ 
             label: `📋 По ID предметов`, 
-            payload: { command: 'mass_present_mode', mode: 'by_ids' }, 
+            payload: { command: 'mass_present_mode', mode: 'by_ids', multiple: isMultipleRecipients }, 
             color: 'primary' 
         })
         .textButton({ 
             label: `📦 По типу и количеству`, 
-            payload: { command: 'mass_present_mode', mode: 'by_type' }, 
+            payload: { command: 'mass_present_mode', mode: 'by_type', multiple: isMultipleRecipients }, 
             color: 'primary' 
         })
         .row()
@@ -770,7 +928,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
         .oneTime();
 
     const modeMessage = `🎁 Выберите режим массового дарения:\n\n` +
-        `📋 По ID предметов — введите ID предметов через пробел\n` +
+        `📋 По ID предметов — укажите ID предметов\n` +
         `📦 По типу и количеству — выберите предмет и укажите, сколько штук подарить`;
 
     const modeResponse = await context.question(modeMessage, { keyboard: modeKeyboard, answerTimeLimit });
@@ -786,160 +944,439 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
     }
 
     const mode = modeResponse.payload.mode;
-    let item_ids: number[] = [];
+    const isMultipleMode = modeResponse.payload.multiple;
+    
+    let operations: any[] = [];
     let gifted_items_info = '';
 
     if (mode === 'by_ids') {
-        // Режим по ID предметов
-        const instructionMessage = `📝 Введите ID предметов для дарения через пробел:\nПример: 14 374 85 92\n\n💡 ID предметов указаны в вашем инвентаре перед названием предмета`;
-        
-        const items_input = await context.question(instructionMessage, { answerTimeLimit });
-        if (items_input.isTimeout) {
-            await context.send(`⏰ Время ввода истекло!`);
-            return res;
-        }
-
-        item_ids = items_input.text.trim().split(/\s+/).map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
-        
-        if (item_ids.length === 0) {
-            await context.send(`❌ Не указаны ID предметов для дарения.`);
-            return res;
-        }
-
-    } else if (mode === 'by_type') {
-        // Новый режим: выбор предмета по типу и количеству
-        let item_cursor = 0;
-        let item_selection_complete = false;
-        
-        while (!item_selection_complete) {
-            const groupedItems = await groupInventoryItems(user.id);
+        if (isMultipleMode) {
+            // Режим по ID предметов для нескольких получателей
+            const instructionMessage = `📝 Введите данные в формате:\n` +
+                `UID_получателя-ID_предмета\n\n` +
+                `Пример:\n` +
+                `334-23\n` +
+                `445-15\n` +
+                `556-23\n\n` +
+                `💡 Каждая операция на новой строке\n` +
+                `💡 ID предметов уникальны, каждый предмет можно подарить только одному получателю\n` +
+                `💡 ID предметов указаны в вашем инвентаре перед названием предмета`;
             
-            // Фильтруем только предметы, которых больше 1 штуки
-            const multipleItems = groupedItems.filter(group => group.count > 1);
-            
-            if (multipleItems.length === 0) {
-                await context.send(`❌ В вашем инвентаре нет предметов, которых больше 1 штуки.\nИспользуйте режим "По ID предметов" для дарения одиночных предметов.`);
+            const items_input = await context.question(instructionMessage, { answerTimeLimit });
+            if (items_input.isTimeout) {
+                await context.send(`⏰ Время ввода истекло!`);
                 return res;
             }
 
-            // Создаем клавиатуру для выбора предмета с пагинацией
-            const itemKeyboard = new KeyboardBuilder();
-            
-            // Показываем предметы для текущей страницы (по 6 на страницу)
-            const itemsPerPage = 6;
-            const startIndex = item_cursor;
-            const endIndex = Math.min(startIndex + itemsPerPage, multipleItems.length);
-            const currentPageItems = multipleItems.slice(startIndex, endIndex);
-
-            for (const group of currentPageItems) {
-                const itemName = group.name.length > 20 ? group.name.slice(0, 20) + '...' : group.name;
-                const buttonLabel = `${itemName} × ${group.count}`;
-                
-                itemKeyboard.textButton({
-                    label: buttonLabel,
-                    payload: { 
-                        command: 'mass_present_select_item', 
-                        type: group.type, 
-                        id_item: group.id_item,
-                        max_count: group.count,
-                        item_cursor: item_cursor
-                    },
-                    color: 'secondary'
-                });
-                itemKeyboard.row();
-            }
-
-            // Добавляем навигацию
-            if (item_cursor > 0) {
-                itemKeyboard.textButton({ 
-                    label: `←`, 
-                    payload: { command: 'mass_present_prev_page', item_cursor }, 
-                    color: 'secondary' 
-                });
-            }
-
-            if (endIndex < multipleItems.length) {
-                itemKeyboard.textButton({ 
-                    label: `→`, 
-                    payload: { command: 'mass_present_next_page', item_cursor }, 
-                    color: 'secondary' 
-                });
-            }
-
-            if (item_cursor > 0 || endIndex < multipleItems.length) {
-                itemKeyboard.row();
-            }
-
-            itemKeyboard.textButton({ 
-                label: `❌ Отмена`, 
-                payload: { command: 'mass_present_cancel' }, 
-                color: 'negative' 
-            });
-            itemKeyboard.oneTime();
-
-            const currentPage = Math.floor(item_cursor / itemsPerPage) + 1;
-            const totalPages = Math.ceil(multipleItems.length / itemsPerPage);
-            
-            const itemMessage = `📦 Выберите предмет для дарения (страница ${currentPage} из ${totalPages}):\n\n` +
-                `💡 Показаны только предметы, которых у вас больше 1 штуки\n` +
-                `📊 Найдено предметов: ${multipleItems.length}`;
-
-            const itemResponse = await context.question(itemMessage, { keyboard: itemKeyboard, answerTimeLimit });
-            
-            if (itemResponse.isTimeout || !itemResponse.payload) {
-                await context.send(`⏰ Время выбора истекло!`);
-                return res;
-            }
-
-            if (itemResponse.payload.command === 'mass_present_cancel') {
-                await context.send(`❌ Массовое дарение отменено.`);
-                return res;
-            }
-
-            // Обработка навигации
-            if (itemResponse.payload.command === 'mass_present_prev_page') {
-                item_cursor = Math.max(0, item_cursor - itemsPerPage);
-                continue;
-            }
-
-            if (itemResponse.payload.command === 'mass_present_next_page') {
-                item_cursor = item_cursor + itemsPerPage;
-                continue;
-            }
-
-            if (itemResponse.payload.command === 'mass_present_select_item') {
-                const selectedGroup = multipleItems.find(g => 
-                    g.type === itemResponse.payload.type && 
-                    g.id_item === itemResponse.payload.id_item
-                );
-
-                if (!selectedGroup) {
-                    await context.send(`❌ Выбранный предмет не найден.`);
-                    continue;
+            const lines = items_input.text.trim().split('\n');
+            for (const line of lines) {
+                const parts = line.split('-').map((part: string) => part.trim());
+                if (parts.length === 2) {
+                    const [recipientId, itemId] = parts.map((part: string) => parseInt(part));
+                    if (!isNaN(recipientId) && !isNaN(itemId)) {
+                        operations.push({
+                            recipient_id: recipientId,
+                            item_id: itemId,
+                            quantity: 1, // Всегда 1, так как ID уникальные
+                            type: 'by_id'
+                        });
+                    }
                 }
+            }
+            
+            if (operations.length === 0) {
+                await context.send(`❌ Не указаны корректные данные для дарения.`);
+                return res;
+            }
 
-                // Запрашиваем количество
-                const countMessage = `🔢 У вас есть ${selectedGroup.count} предметов "${selectedGroup.name}"\n\n` +
-                    `Сколько штук вы хотите подарить? (введите число от 1 до ${selectedGroup.count})`;
+        } else {
+            // Режим по ID предметов для одного получателя (старая логика)
+            const person_goten = await Input_Number(context, `Введите UID персонажа, которому будут подарены предметы:`, true);
+            if (!person_goten) { 
+                await context.send(`❌ Получатель не указан.`); 
+                return res; 
+            }
+            
+            if (person_goten == user.id) { 
+                await context.send(`❌ Нельзя дарить предметы самому себе!`); 
+                return res;
+            }
+            
+            const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } });
+            if (!person_goten_check) { 
+                await context.send(`❌ Персонаж с UID ${person_goten} не найден!`); 
+                return res; 
+            }
 
-                const countResponse = await context.question(countMessage, { answerTimeLimit });
+            const instructionMessage = `📝 Введите ID предметов для дарения через пробел:\nПример: 14 374 85 92\n\n💡 ID предметов указаны в вашем инвентаре перед названием предмета`;
+            
+            const items_input = await context.question(instructionMessage, { answerTimeLimit });
+            if (items_input.isTimeout) {
+                await context.send(`⏰ Время ввода истекло!`);
+                return res;
+            }
+
+            const item_ids = items_input.text.trim().split(/\s+/).map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+            
+            if (item_ids.length === 0) {
+                await context.send(`❌ Не указаны ID предметов для дарения.`);
+                return res;
+            }
+
+            operations = item_ids.map((item_id: any) => ({
+                recipient_id: person_goten,
+                item_id: item_id,
+                quantity: 1,
+                type: 'by_id'
+            }));
+        }
+    } else if (mode === 'by_type') {
+        if (isMultipleMode) {
+            // Новый режим: выбор предмета по типу и количеству для нескольких получателей
+            let item_selection_complete = false;
+            let selectedGroup: any = null;
+            let giftCount = 0;
+            let item_cursor = 0; // Инициализация курсора
+            
+            // Выбор предмета (аналогично существующей логике)
+            while (!item_selection_complete) {
+                const groupedItems = await groupInventoryItems(user.id);
                 
-                if (countResponse.isTimeout) {
-                    await context.send(`⏰ Время ввода истекло!`);
+                // Фильтруем только предметы, которых больше 1 штуки
+                const multipleItems = groupedItems.filter(group => group.count > 1);
+                
+                if (multipleItems.length === 0) {
+                    await context.send(`❌ В вашем инвентаре нет предметов, которых больше 1 штуки.\nИспользуйте режим "По ID предметов" для дарения одиночных предметов.`);
                     return res;
                 }
 
-                const giftCount = parseInt(countResponse.text.trim());
+                // Создаем клавиатуру для выбора предмета с пагинацией
+                // УДАЛЕНО: let item_cursor = 0; // ЭТА СТРОКА ПЕРЕЗАПИСЫВАЛА ВНЕШНЮЮ ПЕРЕМЕННУЮ
+                const itemKeyboard = new KeyboardBuilder();
                 
-                if (isNaN(giftCount) || giftCount < 1 || giftCount > selectedGroup.count) {
-                    await context.send(`❌ Неверное количество! Введите число от 1 до ${selectedGroup.count}`);
+                // Показываем предметы для текущей страницы (по 6 на страницу)
+                const itemsPerPage = 6;
+                const startIndex = item_cursor;
+                const endIndex = Math.min(startIndex + itemsPerPage, multipleItems.length);
+                const currentPageItems = multipleItems.slice(startIndex, endIndex);
+
+                for (const group of currentPageItems) {
+                    const itemName = group.name.length > 20 ? group.name.slice(0, 20) + '...' : group.name;
+                    const buttonLabel = `${itemName} × ${group.count}`;
+                    
+                    itemKeyboard.textButton({
+                        label: buttonLabel,
+                        payload: { 
+                            command: 'mass_present_select_item_multi', 
+                            type: group.type, 
+                            id_item: group.id_item,
+                            max_count: group.count,
+                            item_cursor: item_cursor // Используем внешнюю переменную
+                        },
+                        color: 'secondary'
+                    });
+                    itemKeyboard.row();
+                }
+
+                // Добавляем навигацию
+                if (item_cursor > 0) {
+                    itemKeyboard.textButton({ 
+                        label: `←`, 
+                        payload: { command: 'mass_present_prev_page_multi', item_cursor }, 
+                        color: 'secondary' 
+                    });
+                }
+
+                if (endIndex < multipleItems.length) {
+                    itemKeyboard.textButton({ 
+                        label: `→`, 
+                        payload: { command: 'mass_present_next_page_multi', item_cursor }, 
+                        color: 'secondary' 
+                    });
+                }
+
+                if (item_cursor > 0 || endIndex < multipleItems.length) {
+                    itemKeyboard.row();
+                }
+
+                itemKeyboard.textButton({ 
+                    label: `❌ Отмена`, 
+                    payload: { command: 'mass_present_cancel' }, 
+                    color: 'negative' 
+                });
+                itemKeyboard.oneTime();
+
+                const currentPage = Math.floor(item_cursor / itemsPerPage) + 1;
+                const totalPages = Math.ceil(multipleItems.length / itemsPerPage);
+                
+                const itemMessage = `📦 Выберите предмет для дарения (страница ${currentPage} из ${totalPages}):\n\n` +
+                    `💡 Показаны только предметы, которых у вас больше 1 штуки\n` +
+                    `📊 Найдено предметов: ${multipleItems.length}`;
+
+                const itemResponse = await context.question(itemMessage, { keyboard: itemKeyboard, answerTimeLimit });
+                
+                if (itemResponse.isTimeout || !itemResponse.payload) {
+                    await context.send(`⏰ Время выбора истекло!`);
+                    return res;
+                }
+
+                if (itemResponse.payload.command === 'mass_present_cancel') {
+                    await context.send(`❌ Массовое дарение отменено.`);
+                    return res;
+                }
+            
+                // Обработка навигации
+                if (itemResponse.payload.command === 'mass_present_prev_page_multi') {
+                    const result = await Mass_Present_Prev_Page_Multi(context, itemResponse.payload, user, user_adm);
+                    item_cursor = result.item_cursor; // Обновляем внешнюю переменную
                     continue;
                 }
 
-                // Берем первые N предметов из группы
-                item_ids = selectedGroup.inventory_ids.slice(0, giftCount);
-                gifted_items_info = `\n🎁 ${selectedGroup.name} × ${giftCount}`;
-                item_selection_complete = true;
+                if (itemResponse.payload.command === 'mass_present_next_page_multi') {
+                    const result = await Mass_Present_Next_Page_Multi(context, itemResponse.payload, user, user_adm);
+                    item_cursor = result.item_cursor; // Обновляем внешнюю переменную
+                    continue;
+                }
+
+                // Исправленная функция выбора предмета для массового дарения нескольким персонажам
+                if (itemResponse.payload.command === 'mass_present_select_item_multi') {
+                    selectedGroup = multipleItems.find(g => 
+                        g.type === itemResponse.payload.type && 
+                        g.id_item === itemResponse.payload.id_item
+                    );
+
+                    if (!selectedGroup) {
+                        await context.send(`❌ Выбранный предмет не найден.`);
+                        continue;
+                    }
+
+                    // Запрашиваем общее количество для распределения
+                    const countMessage = `🔢 У вас есть ${selectedGroup.count} предметов "${selectedGroup.name}"\n\n` +
+                        `Сколько всего штук вы хотите раздать? (введите число от 1 до ${selectedGroup.count})`;
+
+                    const countResponse = await context.question(countMessage, { answerTimeLimit });
+                    
+                    if (countResponse.isTimeout) {
+                        await context.send(`⏰ Время ввода истекло!`);
+                        return res;
+                    }
+
+                    giftCount = parseInt(countResponse.text.trim());
+                    
+                    if (isNaN(giftCount) || giftCount < 1 || giftCount > selectedGroup.count) {
+                        await context.send(`❌ Неверное количество! Введите число от 1 до ${selectedGroup.count}`);
+                        continue;
+                    }
+
+                    item_selection_complete = true;
+                }
+            }
+
+            // Ввод распределения по получателям
+            const distributionMessage = `📊 Распределите ${giftCount} предметов "${selectedGroup.name}" между получателями:\n\n` +
+                `Введите данные в формате:\n` +
+                `UID_получателя-Количество\n\n` +
+                `Пример:\n` +
+                `44-3\n` +
+                `65-2\n\n` +
+                `💡 Сумма количеств должна равняться ${giftCount}`;
+
+            const distributionResponse = await context.question(distributionMessage, { answerTimeLimit });
+            
+            if (distributionResponse.isTimeout) {
+                await context.send(`⏰ Время ввода истекло!`);
+                return res;
+            }
+
+            const lines = distributionResponse.text.trim().split('\n');
+            let totalDistributed = 0;
+            
+            for (const line of lines) {
+                const parts = line.split('-').map((part: string) => part.trim());
+                if (parts.length === 2) {
+                    const [recipientId, quantity] = parts.map((part: string) => parseInt(part));
+                    if (!isNaN(recipientId) && !isNaN(quantity) && quantity > 0) {
+                        operations.push({
+                            recipient_id: recipientId,
+                            item_ids: selectedGroup.inventory_ids.slice(totalDistributed, totalDistributed + quantity),
+                            quantity: quantity,
+                            type: 'by_type',
+                            item_name: selectedGroup.name
+                        });
+                        totalDistributed += quantity;
+                    }
+                }
+            }
+
+            if (totalDistributed !== giftCount) {
+                await context.send(`❌ Сумма количеств (${totalDistributed}) не равна общему количеству (${giftCount}). Операция отменена.`);
+                return res;
+            }
+
+            gifted_items_info = `\n🎁 ${selectedGroup.name} × ${giftCount}`;
+
+        } else {
+            // Старый режим: выбор предмета по типу и количеству для одного получателя
+            let item_cursor = 0;
+            let item_selection_complete = false;
+            
+            while (!item_selection_complete) {
+                const groupedItems = await groupInventoryItems(user.id);
+                
+                // Фильтруем только предметы, которых больше 1 штуки
+                const multipleItems = groupedItems.filter(group => group.count > 1);
+                
+                if (multipleItems.length === 0) {
+                    await context.send(`❌ В вашем инвентаре нет предметов, которых больше 1 штуки.\nИспользуйте режим "По ID предметов" для дарения одиночных предметов.`);
+                    return res;
+                }
+
+                // Создаем клавиатуру для выбора предмета с пагинацией
+                const itemKeyboard = new KeyboardBuilder();
+                
+                // Показываем предметы для текущей страницы (по 6 на страницу)
+                const itemsPerPage = 6;
+                const startIndex = item_cursor;
+                const endIndex = Math.min(startIndex + itemsPerPage, multipleItems.length);
+                const currentPageItems = multipleItems.slice(startIndex, endIndex);
+
+                for (const group of currentPageItems) {
+                    const itemName = group.name.length > 20 ? group.name.slice(0, 20) + '...' : group.name;
+                    const buttonLabel = `${itemName} × ${group.count}`;
+                    
+                    itemKeyboard.textButton({
+                        label: buttonLabel,
+                        payload: { 
+                            command: 'mass_present_select_item', 
+                            type: group.type, 
+                            id_item: group.id_item,
+                            max_count: group.count,
+                            item_cursor: item_cursor
+                        },
+                        color: 'secondary'
+                    });
+                    itemKeyboard.row();
+                }
+
+                // Добавляем навигацию
+                if (item_cursor > 0) {
+                    itemKeyboard.textButton({ 
+                        label: `←`, 
+                        payload: { command: 'mass_present_prev_page', item_cursor }, 
+                        color: 'secondary' 
+                    });
+                }
+
+                if (endIndex < multipleItems.length) {
+                    itemKeyboard.textButton({ 
+                        label: `→`, 
+                        payload: { command: 'mass_present_next_page', item_cursor }, 
+                        color: 'secondary' 
+                    });
+                }
+
+                if (item_cursor > 0 || endIndex < multipleItems.length) {
+                    itemKeyboard.row();
+                }
+
+                itemKeyboard.textButton({ 
+                    label: `❌ Отмена`, 
+                    payload: { command: 'mass_present_cancel' }, 
+                    color: 'negative' 
+                });
+                itemKeyboard.oneTime();
+
+                const currentPage = Math.floor(item_cursor / itemsPerPage) + 1;
+                const totalPages = Math.ceil(multipleItems.length / itemsPerPage);
+                
+                const itemMessage = `📦 Выберите предмет для дарения (страница ${currentPage} из ${totalPages}):\n\n` +
+                    `💡 Показаны только предметы, которых у вас больше 1 штуки\n` +
+                    `📊 Найдено предметов: ${multipleItems.length}`;
+
+                const itemResponse = await context.question(itemMessage, { keyboard: itemKeyboard, answerTimeLimit });
+                
+                if (itemResponse.isTimeout || !itemResponse.payload) {
+                    await context.send(`⏰ Время выбора истекло!`);
+                    return res;
+                }
+
+                if (itemResponse.payload.command === 'mass_present_cancel') {
+                    await context.send(`❌ Массовое дарение отменено.`);
+                    return res;
+                }
+
+                // Обработка навигации
+                if (itemResponse.payload.command === 'mass_present_prev_page') {
+                    const result = await Mass_Present_Prev_Page(context, itemResponse.payload, user, user_adm);
+                    item_cursor = result.item_cursor;
+                    continue;
+                }
+
+                if (itemResponse.payload.command === 'mass_present_next_page') {
+                    const result = await Mass_Present_Next_Page(context, itemResponse.payload, user, user_adm);
+                    item_cursor = result.item_cursor;
+                    continue;
+                }
+
+                if (itemResponse.payload.command === 'mass_present_select_item') {
+                    const selectedGroup = multipleItems.find(g => 
+                        g.type === itemResponse.payload.type && 
+                        g.id_item === itemResponse.payload.id_item
+                    );
+
+                    if (!selectedGroup) {
+                        await context.send(`❌ Выбранный предмет не найден.`);
+                        continue;
+                    }
+
+                    // Получаем UID получателя
+                    const person_goten = await Input_Number(context, `Введите UID персонажа, которому будут подарены предметы:`, true);
+                    if (!person_goten) { 
+                        await context.send(`❌ Получатель не указан.`); 
+                        return res; 
+                    }
+                    
+                    if (person_goten == user.id) { 
+                        await context.send(`❌ Нельзя дарить предметы самому себе!`); 
+                        return res;
+                    }
+                    
+                    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } });
+                    if (!person_goten_check) { 
+                        await context.send(`❌ Персонаж с UID ${person_goten} не найден!`); 
+                        return res; 
+                    }
+
+                    // Запрашиваем количество
+                    const countMessage = `🔢 У вас есть ${selectedGroup.count} предметов "${selectedGroup.name}"\n\n` +
+                        `Сколько штук вы хотите подарить? (введите число от 1 до ${selectedGroup.count})`;
+
+                    const countResponse = await context.question(countMessage, { answerTimeLimit });
+                    
+                    if (countResponse.isTimeout) {
+                        await context.send(`⏰ Время ввода истекло!`);
+                        return res;
+                    }
+
+                    const giftCount = parseInt(countResponse.text.trim());
+                    
+                    if (isNaN(giftCount) || giftCount < 1 || giftCount > selectedGroup.count) {
+                        await context.send(`❌ Неверное количество! Введите число от 1 до ${selectedGroup.count}`);
+                        continue;
+                    }
+
+                    // Берем первые N предметов из группы
+                    operations.push({
+                        recipient_id: person_goten,
+                        item_ids: selectedGroup.inventory_ids.slice(0, giftCount),
+                        quantity: giftCount,
+                        type: 'by_type',
+                        item_name: selectedGroup.name
+                    });
+                    
+                    gifted_items_info = `\n🎁 ${selectedGroup.name} × ${giftCount}`;
+                    item_selection_complete = true;
+                }
             }
         }
     } else {
@@ -947,126 +1384,272 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
         return res;
     }
 
-    // Подтверждение финальное
-    const finalConfirmMessage = mode === 'by_ids' 
-        ? `подарить ${item_ids.length} предметов игроку ${person_goten_check.name}?`
-        : `подарить ${item_ids.length} предметов "${gifted_items_info.split('×')[0].trim()}" игроку ${person_goten_check.name}?`;
+    // Подтверждение финальное с превью
+    let finalConfirmMessage = '';
+    let previewMessage = '';
+
+    if (isMultipleMode) {
+        const recipients = Array.from(new Set(operations.map(op => op.recipient_id)));
+        
+        // Собираем информацию о получателях и предметах для превью
+        const recipientDetails: string[] = [];
+        const itemDistribution: {[key: string]: {quantity: number, item_name: string}} = {};
+        
+        for (const operation of operations) {
+            const recipient = await prisma.user.findFirst({ where: { id: operation.recipient_id } });
+            if (recipient) {
+                const itemName = operation.item_name || 'разные предметы';
+                const key = `${recipient.name} (UID: ${recipient.id})`;
+                
+                if (!itemDistribution[key]) {
+                    itemDistribution[key] = { quantity: 0, item_name: itemName };
+                }
+                itemDistribution[key].quantity += operation.quantity;
+            }
+        }
+        
+        // Формируем превью распределения
+        for (const [recipientInfo, data] of Object.entries(itemDistribution)) {
+            recipientDetails.push(`👤 ${recipientInfo}: ${data.item_name} × ${data.quantity}`);
+        }
+        
+        finalConfirmMessage = `раздать предметы ${recipients.length} персонажам?`;
+        previewMessage = `\n\n🎁 Распределение предметов:\n${recipientDetails.join('\n')}`;
+    } else {
+        const recipientId = operations[0].recipient_id;
+        const recipient = await prisma.user.findFirst({ where: { id: recipientId } });
+        finalConfirmMessage = `подарить предметы игроку ${recipient?.name}?`;
+        previewMessage = gifted_items_info ? `\n\n📦 Получатель: ${recipient?.name} (UID: ${recipientId})${gifted_items_info}` : '';
+    }
 
     const final_confirm: { status: boolean, text: string } = await Confirm_User_Success(
         context, 
-        finalConfirmMessage
+        `${finalConfirmMessage}${previewMessage}`
     );
-    
+
     if (!final_confirm.status) {
         await context.send(`❌ Массовое дарение отменено.`);
         return res;
     }
 
     // Выполняем массовое дарение
-    let success_count = 0;
-    let failed_count = 0;
+    let total_success_count = 0;
+    let total_failed_count = 0;
+    const recipientResults: { [key: number]: { success: number, failed: number, name: string, items: {[item_name: string]: number} } } = {};
 
-    // Если в режиме по типу мы еще не собрали информацию о предметах, делаем это сейчас
-    if (mode === 'by_ids') {
-        gifted_items_info = '';
+    // НОВАЯ СТРУКТУРА ДЛЯ АГРЕГАЦИИ УВЕДОМЛЕНИЙ
+    const recipientNotifications: { [key: number]: { 
+        recipient: User, 
+        items: { [item_name: string]: number },
+        total_count: number 
+    } } = {};
+
+    for (const operation of operations) {
+        const recipient = await prisma.user.findFirst({ where: { id: operation.recipient_id } });
+        if (!recipient) {
+            await context.send(`❌ Получатель с UID ${operation.recipient_id} не найден. Пропускаем.`);
+            total_failed_count += operation.quantity;
+            continue;
+        }
+
+        // Инициализируем запись для получателя, если ее еще нет
+        if (!recipientNotifications[operation.recipient_id]) {
+            recipientNotifications[operation.recipient_id] = {
+                recipient: recipient,
+                items: {},
+                total_count: 0
+            };
+        }
+
+        if (!recipientResults[operation.recipient_id]) {
+            recipientResults[operation.recipient_id] = { 
+                success: 0, 
+                failed: 0, 
+                name: recipient.name,
+                items: {}
+            };
+        }
+
+        let item_ids: number[] = [];
+        
+        if (operation.type === 'by_id') {
+            item_ids = [operation.item_id];
+        } else {
+            item_ids = operation.item_ids || [];
+        }
+
+        let success_count = 0;
+        let failed_count = 0;
+
+        for (const item_id of item_ids) {
+            try {
+                const inv = await prisma.inventory.findFirst({
+                    where: { 
+                        id: item_id,
+                        id_user: user.id 
+                    }
+                });
+
+                if (!inv) {
+                    await context.send(`⚠ Предмет с ID ${item_id} не найден в вашем инвентаре.`);
+                    failed_count++;
+                    continue;
+                }
+
+                let itemInfo = null;
+                if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
+                    itemInfo = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } });
+                } else if (inv.type == InventoryType.ITEM_SHOP) {
+                    itemInfo = await prisma.item.findFirst({ where: { id: inv.id_item } });
+                } else if (inv.type == InventoryType.ITEM_STORAGE) {
+                    itemInfo = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
+                }
+                
+                const itemName = itemInfo?.name || operation.item_name || 'Неизвестный предмет';
+
+                const updated_item = await prisma.inventory.update({
+                    where: { id: inv.id },
+                    data: { 
+                        id_user: recipient.id,
+                        comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
+                    }
+                });
+
+                if (updated_item) {
+                    success_count++;
+                    
+                    // ДОБАВЛЯЕМ ПРЕДМЕТ В УВЕДОМЛЕНИЕ ДЛЯ ПОЛУЧАТЕЛЯ
+                    if (!recipientNotifications[operation.recipient_id].items[itemName]) {
+                        recipientNotifications[operation.recipient_id].items[itemName] = 0;
+                    }
+                    recipientNotifications[operation.recipient_id].items[itemName]++;
+                    recipientNotifications[operation.recipient_id].total_count++;
+                    
+                    if (!recipientResults[operation.recipient_id].items[itemName]) {
+                        recipientResults[operation.recipient_id].items[itemName] = 0;
+                    }
+                    recipientResults[operation.recipient_id].items[itemName]++;
+                    
+                    await Logger(`Массовое дарение: ${user.name} -> ${recipient.name}, предмет: ${itemName}`);
+                } else {
+                    failed_count++;
+                }
+
+            } catch (error) {
+                await context.send(`⚠ Ошибка при передаче предмета ID ${item_id}`);
+                failed_count++;
+            }
+        }
+
+        recipientResults[operation.recipient_id].success += success_count;
+        recipientResults[operation.recipient_id].failed += failed_count;
+        total_success_count += success_count;
+        total_failed_count += failed_count;
     }
 
-    for (const item_id of item_ids) {
-        try {
-            // Проверяем, что предмет принадлежит текущему пользователю
-            const inv = await prisma.inventory.findFirst({
-                where: { 
-                    id: item_id,
-                    id_user: user.id 
-                }
-            });
+    // ОТПРАВЛЯЕМ УВЕДОМЛЕНИЯ ПОЛУЧАТЕЛЯМ (ОДНО УВЕДОМЛЕНИЕ НА КАЖДОГО ПОЛУЧАТЕЛЯ)
+    for (const recipientId in recipientNotifications) {
+        const notification = recipientNotifications[recipientId];
+        if (notification.total_count > 0) {
+            const itemSummary = Object.entries(notification.items)
+                .map(([name, count]) => `${name} × ${count}`)
+                .join(', ');
+                
+            const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
+                `🎯 Получено персонажем: ${notification.recipient.name} (UID: ${notification.recipient.id})\n\n` +
+                `📦 Получено предметов: ${notification.total_count}\n` +
+                `🎁 Список: ${itemSummary}`;
 
-            if (!inv) {
-                await context.send(`⚠ Предмет с ID ${item_id} не найден в вашем инвентаре.`);
-                failed_count++;
-                continue;
-            }
-
-            // Для режима по ID собираем информацию о предметах
-            if (mode === 'by_ids') {
-                let item_info = null;
-                if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
-                    item_info = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } });
-                } else if (inv.type == InventoryType.ITEM_SHOP) {
-                    item_info = await prisma.item.findFirst({ where: { id: inv.id_item } });
-                } else if (inv.type == InventoryType.ITEM_STORAGE) {
-                    item_info = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
-                }
-
-                if (success_count === 0) {
-                    gifted_items_info += `\n🎁 ${item_info?.name || `Предмет ${inv.id}`}`;
-                }
-            }
-
-            // Передаем предмет
-            const updated_item = await prisma.inventory.update({
-                where: { id: inv.id },
-                data: { 
-                    id_user: person_goten_check.id,
-                    comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
-                }
-            });
-
-            if (updated_item) {
-                success_count++;
-                await Logger(`Массовое дарение: ${user.name} -> ${person_goten_check.name}, предмет ID: ${inv.id}`);
-            } else {
-                failed_count++;
-            }
-
-        } catch (error) {
-            await context.send(`⚠ Ошибка при передаче предмета ID ${item_id}`);
-            failed_count++;
+            await Send_Message(notification.recipient.idvk, receiver_message);
         }
     }
 
-    // Для режима по ID добавляем общее количество
-    if (mode === 'by_ids' && success_count > 0) {
-        gifted_items_info += ` × ${success_count}`;
-    }
+    // Формируем итоговое сообщение
+    let result_message = `🎁 Массовое дарение завершено!\n\n` +
+        `✅ Успешно передано: ${total_success_count} предметов\n` +
+        `❌ Не удалось передать: ${total_failed_count} предметов\n\n`;
 
-    // Отправляем уведомления
-    const result_message = `🎁 Массовое дарение завершено!\n\n` +
-        `✅ Успешно передано: ${success_count} предметов\n` +
-        `❌ Не удалось передать: ${failed_count} предметов\n\n` +
-        `📦 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id})` +
-        gifted_items_info;
+    if (isMultipleMode) {
+        result_message += `📊 Результаты по получателям:\n`;
+        for (const [recipientId, result] of Object.entries(recipientResults)) {
+            const itemDetails = Object.entries(result.items)
+                .map(([name, count]) => `   • ${name} × ${count}`)
+                .join('\n');
+            result_message += `👤 ${result.name} (UID: ${recipientId}): ✅ ${result.success} ❌ ${result.failed}\n${itemDetails}\n\n`;
+        }
+    } else {
+        const recipientId = operations[0].recipient_id;
+        const recipient = await prisma.user.findFirst({ where: { id: recipientId } });
+        result_message += `📦 Получатель: ${recipient?.name} (UID: ${recipientId})` + gifted_items_info;
+    }
 
     await context.send(result_message);
 
-    // Уведомление получателю
-    const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
-        `🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n\n` +
-        `Было передано ${success_count} предметов:` +
-        gifted_items_info;
+    // Уведомление в чат только если есть успешно переданные предметы
+    if (total_success_count > 0) {
+        let log_message = `🎁 Массовое дарение предметов\n\n` +
+            `👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
+            `📦 Передано предметов: ${total_success_count}\n` +
+            `📝 Режим: ${mode === 'by_ids' ? 'По ID предметов' : 'По типу и количеству'}\n` +
+            `👥 Тип: ${isMultipleMode ? 'Нескольким персонажам' : 'Одному персонажу'}`;
 
-    await Send_Message(person_goten_check.idvk, receiver_message);
+        // Добавляем информацию о получателях
+        if (isMultipleMode) {
+            log_message += `\n\n📊 Получатели:`;
+            for (const [recipientId, result] of Object.entries(recipientResults)) {
+                if (result.success > 0) {
+                    const itemDetails = Object.entries(result.items)
+                        .map(([name, count]) => `   • ${name} × ${count}`)
+                        .join('\n');
+                    log_message += `\n👤 ${result.name} (UID: ${recipientId}):\n${itemDetails}`;
+                }
+            }
+        } else {
+            const recipientId = operations[0].recipient_id;
+            const recipient = await prisma.user.findFirst({ where: { id: recipientId } });
+            log_message += `\n\n📦 Получатель: ${recipient?.name} (UID: ${recipientId})`;
+        }
 
-    // Уведомление в чат
-    const log_message = `🎁 Массовое дарение предметов\n\n` +
-        `👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
-        `🎯 Получатель: @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})\n` +
-        `📦 Передано предметов: ${success_count}\n` +
-        `📝 Режим: ${mode === 'by_ids' ? 'По ID предметов' : 'По типу и количеству'}` +
-        gifted_items_info;
+        // Добавляем информацию о предметах
+        if (gifted_items_info) {
+            log_message += `\n🎁 Предметы:${gifted_items_info}`;
+        }
 
-    await Send_Message(chat_id, log_message);
+        // Проверяем длину сообщения и разбиваем при необходимости
+        const MAX_MESSAGE_LENGTH = 4096;
+
+        if (log_message.length > MAX_MESSAGE_LENGTH) {
+            // Разбиваем сообщение на части
+            const messages = [];
+            let currentMessage = '';
+            const lines = log_message.split('\n');
+            
+            for (const line of lines) {
+                if ((currentMessage + '\n' + line).length <= MAX_MESSAGE_LENGTH) {
+                    currentMessage += (currentMessage ? '\n' : '') + line;
+                } else {
+                    if (currentMessage) {
+                        messages.push(currentMessage);
+                    }
+                    currentMessage = line;
+                }
+            }
+            
+            if (currentMessage) {
+                messages.push(currentMessage);
+            }
+            
+            // Отправляем разбитые сообщения
+            for (const messagePart of messages) {
+                await Send_Message(chat_id, messagePart);
+            }
+        } else {
+            await Send_Message(chat_id, log_message);
+        }
+    } else {
+        // Если ничего не передано, логируем только отмену/ошибку
+        await Logger(`Массовое дарение от ${user.name} (UID: ${user.id}) отменено или не выполнено - передано 0 предметов`);
+    }
 
     return res;
-}
-
-// Добавляем обработчики для пагинации в массовом дарении
-async function Mass_Present_Prev_Page(context: any, data: any, user: User, user_adm?: User) {
-    // Эта функция теперь обрабатывается внутри Inventory_Mass_Present
-    return { cursor: data.cursor, group_mode: data.group_mode };
-}
-
-async function Mass_Present_Next_Page(context: any, data: any, user: User, user_adm?: User) {
-    // Эта функция теперь обрабатывается внутри Inventory_Mass_Present
-    return { cursor: data.cursor, group_mode: data.group_mode };
 }

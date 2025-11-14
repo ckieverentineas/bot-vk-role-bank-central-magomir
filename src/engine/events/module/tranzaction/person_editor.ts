@@ -208,9 +208,25 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
         }
     }
     if (person.alliance == 'Союзник Номер') {
-        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатара ролевого проекта AUID📜')
+        // ДОБАВЛЕНО: Показываем список союзных проектов перед запросом AUID
+        let alli_list = ''
+        const alliances = await prisma.alliance.findMany({})
+        for (const alli of alliances) {
+            alli_list += `${alli.id} - ${alli.name}\n`
+        }
+        
+        if (alli_list) {
+            await context.send(`📋 Текущие союзные ролевые проекты и их уникальные идентификаторы:\n${alli_list}`)
+        } else {
+            await context.send(`📋 Список союзных проектов пуст.`)
+        }
+
+        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатора ролевого проекта AUID (укажите номер)📜')
         const alliance = await prisma.alliance.findFirst({ where: { id: Number(input_alliance) } })
-        if (!alliance) { return context.send(`Альянс под AUID ${input_alliance} не найден! Повторите регистрацию заново с нуля.`) }
+        if (!alliance) { 
+            await context.send(`❌ Альянс под AUID ${input_alliance} не найден! Повторите регистрацию заново с нуля.`)
+            return 
+        }
         person.alliance = alliance.name
         person.id_alliance = alliance.id
     }

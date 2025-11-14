@@ -78,10 +78,10 @@ export async function Person_Register(context: any) {
     if (person.alliance == 'Союзник Номер') {
         let alli_list = ''
         for (const alli of await prisma.alliance.findMany({})) {
-            alli_list += `AUID: ${alli.id} - ${alli.name}\n`
+            alli_list += `${alli.id} - ${alli.name}\n`
         }
         await context.send(`Текущие союзные ролевые проекты и их уникальные идентификаторы:\n${alli_list}`)
-        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатара ролевого проекта AUID📜')
+        const input_alliance = await Ipnut_Gold(context, 'ввода уникального идентификатора ролевого проекта AUID (укажите номер)📜')
         const alliance = await prisma.alliance.findFirst({ where: { id: Number(input_alliance) } })
         if (!alliance) { return context.send(`Альянс под AUID ${input_alliance} не найден! Повторите регистрацию заново с нуля.`) }
         person.alliance = alliance.name
