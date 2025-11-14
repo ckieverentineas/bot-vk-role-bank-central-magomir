@@ -139,7 +139,7 @@ async function AllianceShopCategory_Delete(context: any, data: any, shop: any) {
     const confirm2: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}, все товары в данной категории пропадут?`);
     //await context.send(confirm.text);
     if (!confirm2.status) return res;
-    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить категорию ${category_check?.id}-${category_check?.name}, все покупки из инвенторя пользователя исчезнут данных товаров?`);
+    const confirm3: { status: boolean, text: string } = await Confirm_User_Success(context, `ТОЧНО удалить категорию ${category_check?.id}-${category_check?.name}? (Все покупки товаров данной категории останутся в инвентарях пользователей)`);
     //await context.send(confirm.text);
     if (!confirm3.status) return res;
 
