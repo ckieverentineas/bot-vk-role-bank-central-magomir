@@ -57,11 +57,12 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             let answer_check = false
             let rank_action = null
             while (answer_check == false) {
-                const answer_selector = await context.question(`🧷 Укажите что будем делать с баллами ученика инвестированными в факультет за текущий учебный год:`,
+                const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами ученика, инвестированными в факультет за текущий учебный год:`,
                     {	
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
                         .textButton({ label: 'Обнулить', payload: { command: 'professor' }, color: 'secondary' }).row()
+                        .textButton({ label: 'Ограбить', payload: { command: 'rob' }, color: 'secondary' }).row()
                         .oneTime().inline(), answerTimeLimit
                     }
                 )
@@ -96,6 +97,34 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                         const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
                         const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
                         const ans_log = `🌐 "${rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} из-за крота @id${user_get.idvk}(${user_get.name})`
+                        const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
+                        if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
+                    }
+                    break;
+                case 'Ограбить': // НОВЫЙ CASE
+                    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user_get.id_alliance! } })) {
+                        const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user_get.id }})
+                        if (!bal_usr || bal_usr.amount == 0) { continue }
+                        
+                        // Для рейтинговых валют вычитаем из факультета
+                        if (coin.point && user_get.id_facult) {
+                            const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user_get.id_facult! }})
+                            if (bal_fac) {
+                                const bal_fac_ch = await prisma.balanceFacult.update({ 
+                                    where: { id: bal_fac.id }, 
+                                    data: { amount: { decrement: bal_usr.amount } } 
+                                })
+                            }
+                        }
+                        
+                        // Обнуляем все валюты (и рейтинговые и нерейтинговые)
+                        const bal_usr_ch = await prisma.balanceCoin.update({ 
+                            where: { id: bal_usr.id }, 
+                            data: { amount: 0 } 
+                        })
+                        
+                        const action_type = coin.point ? "рейтинговые" : "нерейтинговые"
+                        const ans_log = `🌐 "Ограбить${coin.smile}" > Обнулены ${action_type} баллы: ${bal_usr.amount}${coin.smile} у @id${user_get.idvk}(${user_get.name})`
                         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                     }
