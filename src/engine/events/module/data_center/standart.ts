@@ -1,9 +1,9 @@
 import { Keyboard } from "vk-io";
 
 export enum InventoryType {
-    ITEM_SHOP = "item_shop",
-    ITEM_SHOP_ALLIANCE = "item_shop_alliance",
-    ITEM_STORAGE = "item_storage",
+    ITEM_SHOP = "item_shop", //маголавка
+    ITEM_SHOP_ALLIANCE = "item_shop_alliance", //магазин альянса
+    ITEM_STORAGE = "item_storage", //движок хранилища
     // ... другие допустимые значения
 }
 

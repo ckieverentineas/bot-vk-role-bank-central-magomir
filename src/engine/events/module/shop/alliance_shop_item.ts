@@ -4,6 +4,7 @@ import { answerTimeLimit, timer_text } from "../../../..";
 import { Confirm_User_Success, Get_Url_Picture, Input_Number, Select_Alliance_Coin, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
+import { InventoryType } from "../data_center/standart";
 
 async function AllianceShopItem_Get(cursor: number, id_category: number) {
     const batchSize = 5;
@@ -256,8 +257,8 @@ async function AllianceShopItem_Edit_Limit(context: any, data: any) {
 
 async function AllianceShopItem_View_Stats(context: any, data: any) {
     const res = { cursor: data.cursor };
-    const purchases = await prisma.inventoryAllianceShop.count({
-        where: { id_item: data.id_item }
+    const purchases = await prisma.inventory.count({
+        where: { id_item: data.id_item, type: InventoryType.ITEM_SHOP_ALLIANCE }
     });
 
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });

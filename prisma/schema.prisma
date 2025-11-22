@@ -70,7 +70,6 @@ model User {
   Analyzer              Analyzer[]
   BalanceCoin           BalanceCoin[]
   Limiter               Limiter[]
-  InventoryAllianceShop InventoryAllianceShop[]
 }
 
 model BlackBox {
@@ -251,13 +250,4 @@ model AllianceShopItem {
   inventory_tr          Boolean @default(true)
   hidden                Boolean @default(false)
   id_shop               Int
-  InventoryAllianceShop InventoryAllianceShop[]
-}
-
-model InventoryAllianceShop {
-  id      Int              @id @default(autoincrement())
-  id_user Int
-  id_item Int
-  item    AllianceShopItem @relation(fields: [id_item], references: [id], onDelete: Cascade)
-  user    User             @relation(fields: [id_user], references: [id], onDelete: Cascade)
 }
