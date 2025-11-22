@@ -217,20 +217,41 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 await context.send("⚠ Предмет не найден.");
                 continue;
             }
-            const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `выдать предмет "${item?.name}" игроку ${user_get.name}?`);
-            if (!confirm.status) return;
-            
-            await prisma.inventory.create({
-                data: {
-                    id_user: user_get.id,
-                    id_item: item.id,
-                    type: InventoryType.ITEM_STORAGE,
-                    comment: `Получено от ${user_adm.name}`
+
+            let res = { status: false, text: `` }
+            const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать предмет "${item?.name}" игроку ${user_get.name}?`,
+                {
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+                    .textButton({ label: 'Нет', payload: { command: 'not' }, color: 'secondary' }).row()
+                    .textButton({ label: 'Скрыть', payload: { command: 'hidden' }, color: 'secondary' }).row()
+                    //.textButton({ label: 'Удалить', payload: { command: 'delete' }, color: 'secondary' }).row()
+                    .oneTime().inline(),
+                    answerTimeLimit
                 }
-            });
-            const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
-            await Send_Message_Smart(context, notif, 'client_callback', user_get)
-            if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+            )
+            if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение операции выдачи предмета в хранилище игрока истекло!`) }
+            if (confirmq?.payload?.command === 'confirm') {
+                res.status = true
+                await prisma.inventory.create({
+                    data: {
+                        id_user: user_get.id,
+                        id_item: item.id,
+                        type: InventoryType.ITEM_STORAGE,
+                        comment: `Получено от ${user_adm.name}`
+                    }
+                });
+                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+                await Send_Message_Smart(context, notif, 'client_callback', user_get)
+                if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+            }
+            if (confirmq?.payload?.command === 'hidden') {
+                const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `скрыть предмет "${item?.name}" для выдачи игрокам? Соглашайтесь, если вы больше не планируете выдавать данный предмет игрокам, но их необходимо оставить в инвентарях`);
+                if (!confirm.status) return;
+                await prisma.itemStorage.update({ where: { id: item.id }, data: { hidden: true } })
+                const notif = `"🎁" --> СКРЫТ для выдачи товар "${item?.name}" ${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+                await Send_Message_Smart(context, notif, 'admin_solo', user_adm)
+            }
             continue;
         }
 
@@ -277,7 +298,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     data: {
                         id_user: user_get.id,
                         id_item: newItem.id,
-                        type: "item_shop",
+                        type: InventoryType.ITEM_STORAGE,
                         comment: `Выдан админом @id${context.senderId}`
                     }
                 });
