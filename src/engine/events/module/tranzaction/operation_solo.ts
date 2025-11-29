@@ -152,15 +152,16 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             await context.send("📦 В хранилище пока нет доступных предметов.");
         }
 
-        const keyboard = new KeyboardBuilder();
+	const keyboard = new KeyboardBuilder();
 
-        for (const item of items_storage) {
-            keyboard.textButton({
-                label: `${item.name} (${item.id})`,
-                payload: { command: 'give_item', item_id: item.id },
-                color: 'secondary'
-            }).row();
-        }
+	for (const item of items_storage) {
+	    const buttonLabel = `${item.name} (${item.id})`;
+	    keyboard.textButton({
+	        label: buttonLabel.length > 40 ? buttonLabel.slice(0, 37) + '...' : buttonLabel,
+        	payload: { command: 'give_item', item_id: item.id },
+        	color: 'secondary'
+    	    }).row();
+	}
 
         // Навигация
         if (cursor >= 5) {
