@@ -763,6 +763,180 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Operation_SBP(context)
         await Keyboard_Index(context, `⌛ Как насчет пожертвовать свои накопления админу?`)
     })
+    hearManager.hear(/!обнулить scoopins/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType === 'chat') return;
+    
+        const ROOT_ID = 200840769;
+        if (context.senderId !== ROOT_ID) {
+            await context.send('❌ У вас нет прав на выполнение этой команды.');
+            return;
+        }
+    
+        try {
+            // Получаем всех пользователей
+            const allUsers = await prisma.$queryRaw<{ id: number; name: string; idvk: number; scoopins: number }[]>`
+                SELECT id, name, idvk, scoopins FROM "User"
+            `;
+    
+            const total = allUsers.length;
+            const users1000 = allUsers.filter(u => u.scoopins === 1000);
+            const users0 = allUsers.filter(u => u.scoopins === 0);
+            const usersCustom = allUsers.filter(u => u.scoopins !== 0 && u.scoopins !== 1000);
+    
+            // === Сводка ===
+            const chatId = chat_id;
+            const summary = `📊 Сводка перед обнулением \`scoopins\`:\n` +
+                `Всего: ${total}\n` +
+                `• 1000 → будет обнулено: ${users1000.length}\n` +
+                `• Уже 0: ${users0.length}\n` +
+                `• Активные (≠0,≠1000): ${usersCustom.length}`;
+    
+            await vk?.api.messages.send({
+                peer_id: chatId,
+                random_id: 0,
+                message: summary
+            });
+    
+            // === Лог изменений баланса: 1000 → 0 ===
+            if (users1000.length > 0) {
+                // Обнуляем в БД
+                await prisma.$executeRaw`
+                    UPDATE "User" SET scoopins = 0 WHERE scoopins = 1000
+                `;
+    
+                // Формируем строки изменений
+                const balanceChanges = users1000.map(u =>
+                    `📉 UID-${u.id} [БАЛАНС] ${u.name} (VK: ${u.idvk}) — 1000 → 0`
+                );
+    
+                const balanceLog = `📉 ИЗМЕНЕНИЯ БАЛАНСА (всего: ${users1000.length}):\n\n` + balanceChanges.join('\n');
+                await sendLongMessage(vk, chatId, balanceLog);
+            }
+    
+            // === Нестандартные значения (для контекста) ===
+            if (usersCustom.length > 0) {
+                const customLines = usersCustom.map(u =>
+                    `🔸 ${u.name} (VK: ${u.idvk}) → ${u.scoopins}`
+                );
+                const customLog = `🔍 Пользователи с НЕСТАНДАРТНЫМ \`scoopins\` (≠0,≠1000), всего: ${usersCustom.length}:\n\n` + customLines.join('\n');
+                await sendLongMessage(vk, chatId, customLog);
+            }
+    
+            // === Ответ админу ===
+            await context.send(
+                `✅ Обнуление завершено.\n` +
+                `Изменено: ${users1000.length} аккаунтов\n` +
+                `Активных: ${usersCustom.length}`
+            );
+    
+            await Logger(`Admin ${context.senderId} обнулить scoopins. Изменено: ${users1000.length}.`);
+    
+        } catch (error) {
+            console.error('Ошибка в !обнулить scoopins:', error);
+            await context.send('⚠️ Ошибка при выполнении команды.');
+        }
+    });
+    
+    // Вспомогательная функция для длинных сообщений
+    async function sendLongMessage(vkInstance: any, peerId: number, fullText: string) {
+        const MAX_LENGTH = 3900;
+        let start = 0;
+        while (start < fullText.length) {
+            let end = start + MAX_LENGTH;
+            if (end < fullText.length) {
+                const lastNewline = fullText.lastIndexOf('\n', end);
+                if (lastNewline > start) end = lastNewline;
+            }
+            await vkInstance?.api.messages.send({
+                peer_id: peerId,
+                random_id: 0,
+                message: fullText.slice(start, end)
+            });
+            start = end;
+        }
+    }
+    /*hearManager.hear(/!начислить scoopins рандом/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType === 'chat') return;
+    
+        const ROOT_ID = 200840769;
+        if (context.senderId !== ROOT_ID) {
+            await context.send('❌ У вас нет прав на выполнение этой команды.');
+            return;
+        }
+    
+        const MAX_COINS = 10000; // максимальное случайное значение
+        const MIN_COINS = 1;  // минимальное
+    
+        try {
+            // Получаем всех пользователей с текущим scoopins
+            const users = await prisma.$queryRaw<{ id: number; name: string; idvk: number; scoopins: number }[]>`
+                SELECT id, name, idvk, scoopins FROM "User"
+            `;
+    
+            if (users.length === 0) {
+                await context.send('📭 Нет пользователей для начисления.');
+                return;
+            }
+    
+            const chatId = chat_id;
+            const changes: { id: number; add: number; newTotal: number; name: string; idvk: number }[] = [];
+            const balanceUpdates: { id: number; newScoopins: number }[] = [];
+    
+            // Генерируем изменения
+            for (const user of users) {
+                const add = Math.floor(Math.random() * (MAX_COINS - MIN_COINS + 1)) + MIN_COINS;
+                const newTotal = user.scoopins + add;
+    
+                changes.push({
+                    id: user.id,
+                    add,
+                    newTotal,
+                    name: user.name,
+                    idvk: user.idvk
+                });
+    
+                balanceUpdates.push({
+                    id: user.id,
+                    newScoopins: newTotal
+                });
+            }
+    
+            // Обновляем всех за один проход через SQL (без цикла запросов)
+            // SQLite не поддерживает bulk-UPDATE по массиву, поэтому делаем через транзакцию вручную
+            const updateQueries = balanceUpdates.map(u =>
+                `UPDATE "User" SET scoopins = ${u.newScoopins} WHERE id = ${u.id};`
+            ).join('\n');
+    
+            await prisma.$transaction(updateQueries.split(';').filter(q => q.trim() !== '').map(q => prisma.$executeRawUnsafe(q + ';')));
+    
+            // === Формируем лог изменений ===
+            const changeLines = changes.map(ch =>
+                `📈 [БАЛАНС] ${ch.name} (VK: ${ch.idvk}) — +${ch.add} → итого ${ch.newTotal}`
+            );
+    
+            const fullLog = `🎲 Случайное начисление \`scoopins\` (${MIN_COINS}–${MAX_COINS}) для ${users.length} пользователей:\n\n` + changeLines.join('\n');
+            await sendLongMessage(vk, chatId, fullLog);
+    
+            // === Ответ админу ===
+            const totalAdded = changes.reduce((sum, ch) => sum + ch.add, 0);
+            await context.send(
+                `✅ Выполнено случайное начисление!\n` +
+                `Пользователей: ${users.length}\n` +
+                `Всего монет выдано: ${totalAdded}\n` +
+                `Диапазон: ${MIN_COINS}–${MAX_COINS}`
+            );
+    
+            await Logger(`Admin ${context.senderId} выполнил рандомное начисление scoopins. Всего выдано: ${totalAdded}.`);
+    
+        } catch (error) {
+            console.error('Ошибка в !начислить рандом:', error);
+            await context.send('⚠️ Ошибка при начислении монет.');
+        }
+    });*/
     /*hearManager.hear(/фото/, async (context: any) => {
         //console.log(context)
 	    console.log(context)
