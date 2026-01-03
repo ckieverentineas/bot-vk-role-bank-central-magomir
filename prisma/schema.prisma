@@ -8,11 +8,29 @@ datasource db {
 }
 
 model Account {
-  id          Int      @id @default(autoincrement())
-  idvk        Int
-  crdate      DateTime @default(now())
-  select_user Int      @default(0)
-  User        User[]
+  id                 Int                @id @default(autoincrement())
+  idvk               Int
+  crdate             DateTime           @default(now())
+  select_user        Int                @default(0)
+  monitor_select_user Int?
+  User               User[]
+  MonitorSelection   MonitorSelection[]
+}
+
+model MonitorSelection {
+  id         Int      @id @default(autoincrement())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId Int
+  createdAt  DateTime @default(now())
+
+  @@unique([accountId, allianceId])
+  
+  @@index([accountId])
+  @@index([allianceId])
 }
 
 model Monitor {
@@ -54,6 +72,7 @@ model User {
   spec                  String
   id_alliance           Int?
   medal                 Int                     @default(5)
+  scoopins              Int                     @default(0)
   id_facult             Int?
   private               Boolean                 @default(false)
   notification          Boolean                 @default(true)
@@ -70,6 +89,7 @@ model User {
   Analyzer              Analyzer[]
   BalanceCoin           BalanceCoin[]
   Limiter               Limiter[]
+  MonitorSelection      MonitorSelection[]
 }
 
 model BlackBox {
@@ -165,16 +185,18 @@ model Analyzer {
 }
 
 model Alliance {
-  id              Int              @id @default(autoincrement())
+  id              Int                     @id @default(autoincrement())
   name            String
   idvk            Int
-  id_chat         Int              @default(0)
-  id_chat_monitor Int              @default(0)
-  id_chat_shop    Int              @default(0)
+  id_chat         Int                     @default(0)
+  id_chat_monitor Int                     @default(0)
+  id_chat_shop    Int                     @default(0)
   AllianceCoin    AllianceCoin[]
   AllianceFacult  AllianceFacult[]
   Monitor         Monitor[]
   Shop            AllianceShop[]
+  terminology     AllianceTerminology?
+  MonitorSelection MonitorSelection[]
 }
 
 model AllianceCoin {
@@ -187,6 +209,9 @@ model AllianceCoin {
   sbp_on          Boolean         @default(false)
   course_medal    Int             @default(1)
   course_coin     Int             @default(1)
+  scoopins_converted Boolean      @default(false)
+  course_scoopins_medal Int       @default(1)
+  course_scoopins_coin Int        @default(1)
   alliance        Alliance        @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_alliance     Int
   BalanceCoin     BalanceCoin[]
@@ -250,4 +275,20 @@ model AllianceShopItem {
   inventory_tr          Boolean @default(true)
   hidden                Boolean @default(false)
   id_shop               Int
+}
+
+model AllianceTerminology {
+  id              Int      @id @default(autoincrement())
+  alliance        Alliance @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance     Int      @unique
+  singular        String   @default("факультет")
+  plural          String   @default("факультеты")
+  genitive        String   @default("факультета")
+  dative          String   @default("факультету")
+  accusative      String   @default("факультет")
+  instrumental    String   @default("факультетом")
+  prepositional   String   @default("факультете")
+  plural_genitive String   @default("факультетов")
+  crdate          DateTime @default(now())
+  upddate         DateTime @default(now())
 }

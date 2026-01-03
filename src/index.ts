@@ -19,6 +19,7 @@ import { Account_Register } from './engine/events/module/person/account';
 import { Shop_Bought, Shop_Buy, Shop_Cancel, Shop_Category_Enter, Shop_Enter, Shop_Enter_Multi } from './engine/events/module/shop/engine';
 import { Auto_Backup_DB } from './engine/core/auto_backup';
 import { Start_Worker_API_Bot } from './engine/api';
+import { Monitor_Select_Person_Handler } from './engine/events/module/person/monitor_select';
 
 // Загрузка конфигурации
 const envConfig = dotenv.config();
@@ -147,7 +148,8 @@ initializeGroupId().then(async () => {
 			'alliance_enter_admin': Alliance_Enter_Admin,
 			'alliance_rank_enter': Alliance_Rank_Enter,
 			'alliance_rank_coin_enter': Alliance_Rank_Coin_Enter,
-			'comment_person_enter': Comment_Person_Enter
+			'comment_person_enter': Comment_Person_Enter,
+			"monitor_select_person": Monitor_Select_Person_Handler
 		}
 		const cmd = context.eventPayload.command;
 		if (config[cmd]) {

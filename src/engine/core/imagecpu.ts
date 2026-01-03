@@ -12,16 +12,35 @@ export async function Image_Text_Add_Card(context: any, x: number, y: number, te
     const lenna = await Jimp.read(`${dir}/${file_name[randomInt(0, file_name.length)]}`)
     const font = await Jimp.loadFont('./src/art/font/impact_medium/impact.fnt')
     const font_big = await Jimp.loadFont('./src/art/font/impact_big/impact.fnt') 
-    const res = await lenna.resize(1687, 1077).print(font_big, x, y, (`${text.idvk * Math.pow(10, 16-String(text.idvk).length)+text.id}`).slice(-16).replace(/\d{4}(?=.)/g, '$& ').replace(/ /g, `${' '.repeat(7)}`))
-    .print(font, x, y+200, text.name, 1200)
-    .print(font, lenna.getWidth()-370, y+200, text.crdate.toLocaleDateString('de-DE', { year: "numeric", month: "2-digit", day: "2-digit" }) )
+    
+    const imageWidth = 1687; // Ширина после resize
+    
+    const cardNumber = (`${text.idvk * Math.pow(10, 16-String(text.idvk).length)+text.id}`).slice(-16).replace(/\d{4}(?=.)/g, '$& ').replace(/ /g, `${' '.repeat(7)}`);
+    
+    // Пробуем разные значения для центрирования номера
+    // Если номер ушел вправо, уменьшаем это значение
+    const cardNumberX = 100; // Уменьшили с 500/300 до 200
+    
+    const res = await lenna
+        .resize(1687, 1077)
+        // Номер карты - смещаем левее
+        .print(font_big, cardNumberX, y, cardNumber)
+        // Имя - оставляем как было (слева)
+        .print(font, x + 50, y + 250, text.name, 1200)
+        // Дата - оставляем как было (справа)
+        .print(font, imageWidth - 400, y + 250, text.crdate.toLocaleDateString('de-DE', { 
+            year: "numeric", 
+            month: "2-digit", 
+            day: "2-digit" 
+        }))
+    
     const attachment = await vk?.upload.messagePhoto({
         source: {
             value: await res.getBufferAsync(Jimp.MIME_JPEG)
         }
     });
-    return attachment
     
+    return attachment
 }
 
 async function readDir(path: string) {

@@ -7,6 +7,7 @@ import { Person_Get } from "../person/person";
 import * as CryptoJS from 'crypto-js';
 import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
+import { getTerminology } from "../alliance/terminology_helper"
 
 //контроллер управления валютами альянса
 async function Alliance_Monitor_Get(cursor: number, alliance: Alliance) {
@@ -297,32 +298,80 @@ function Encrypt_Data(data: string): string {
     return encryptedData;
 }
 
-// Функция для проверки пользователя
 export async function User_Bonus_Check(idvk: number, monitor: Monitor) {
     const account: Account | null = await prisma.account.findFirst({ where: { idvk: idvk } })
     if (!account) { return false; }
-    let user = await prisma.user.findFirst({ where: { id: account.select_user, id_alliance: monitor.id_alliance } })
-    user = user ? user : await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
+    
+    // ПРИОРИТЕТ 1: Если указан персонаж для мониторов в ЭТОМ альянсе
+    const monitorSelection = await prisma.monitorSelection.findFirst({
+        where: {
+            accountId: account.id,
+            allianceId: monitor.id_alliance
+        },
+        include: {
+            user: true
+        }
+    })
+    
+    if (monitorSelection) {
+        // Проверяем, что персонаж все еще в этом альянсе
+        if (monitorSelection.user.id_alliance === monitor.id_alliance) {
+            return monitorSelection.user;
+        } else {
+            // Персонаж был переведен в другой альянс, нужно удалить выбор
+            await prisma.monitorSelection.delete({
+                where: { id: monitorSelection.id }
+            });
+            // Продолжаем со стандартной логикой
+        }
+    }
+    
+    // ПРИОРИТЕТ 2: Текущий выбранный персонаж (старая логика)
+    let user = await prisma.user.findFirst({ 
+        where: { 
+            id: account.select_user, 
+            id_alliance: monitor.id_alliance,
+            id_account: account.id
+        } 
+    })
+    
+    // ПРИОРИТЕТ 3: Любой персонаж в альянсе (старая логика)
+    if (!user) {
+        user = await prisma.user.findFirst({ 
+            where: { 
+                id_account: account.id, 
+                id_alliance: monitor.id_alliance 
+            } 
+        });
+    }
+    
     if (!user) { return false; }
-    return user
+    return user;
 }
 
-// функция для начисления вознаграждения за активность
 export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', reward: number, target: string, link: string, monitor: Monitor) {
     const answer = { status: false, message: '', console: '', logging: '' } // ответ
-    // префаб персонажа
+    const user = await User_Bonus_Check(idvk, monitor);
+    if (!user) { 
+        //console.log(`[DEBUG] Calc_Bonus_Activity: User not found for idvk ${idvk} in alliance ${monitor.id_alliance}`);
+        return answer; 
+    }
+    
+    //console.log(`[DEBUG] Calc_Bonus_Activity: Using user ${user.id} - ${user.name} for monitor ${monitor.id}`);
+    
+    // Получаем аккаунт для уведомлений
     const account = await prisma.account.findFirst({ where: { idvk: idvk } })
     if (!account) { return answer; }
-    let user = await prisma.user.findFirst({ where: { id: account.select_user, id_alliance: monitor.id_alliance } })
-    user = user ? user : await prisma.user.findFirst({ where: { id_account: account.id, id_alliance: monitor.id_alliance } })
-    if (!user) { return answer; }
+    
     const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_user: user.id }})
     if (!balance) { return answer; }
-    // префаб факультета
     const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0, id_alliance: monitor.id_alliance }})
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const alliance = await prisma.alliance.findFirst({ where: { id: monitor.id_alliance } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: monitor.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
+    const singular = await getTerminology(alliance?.id || 0, 'singular');
+    const genitive = await getTerminology(alliance?.id || 0, 'genitive');
+
     switch (operation) {
         case '+':
             const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: reward } } })
@@ -333,8 +382,8 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
             if (coin?.point == true && balance_facult_check) {
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { increment: reward } } })
                 if (balance_facult_plus) {
-                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;
@@ -347,8 +396,8 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
             if (coin?.point == true && balance_facult_check) {
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: reward } } })
                 if (balance_facult_plus) {
-                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;

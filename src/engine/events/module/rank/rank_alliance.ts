@@ -7,6 +7,7 @@ import prisma from "../prisma_client";
 import { Person_Get } from "../person/person";
 import { answerTimeLimit } from "../../../..";
 import { button_alliance_return } from "../data_center/standart";
+import { getTerminology } from "../alliance/terminology_helper"
 
 
 //контроллер управления валютами альянса
@@ -32,11 +33,13 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
     const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 }})
     if (!alliance) { return }
     const allicoin = await prisma.allianceCoin.findMany({ where: { id_alliance: alliance.id } })
+    const singular = await getTerminology(alliance.id, 'singular');
+    const accusative = await getTerminology(alliance.id, 'accusative');
     const coin = await Carusel_Selector(context, { message_title: `Выберите ролевую валюту`, menu: allicoin, smile: `smile`, name: `name`, title: `Ролевая валюта`})
     if (!coin.status) { return await context.send(`⚠ Ролевая валюта не выбрана!`)}
     const allifacult = await prisma.allianceFacult.findMany({ where: { id_alliance: alliance.id } })
-    const facult = await Carusel_Selector(context, { message_title: `Выберите ролевой факультет`, menu: allifacult, smile: `smile`, name: `name`, title: `Ролевой факультет`})
-    if (!facult.status) { return await context.send(`⚠ Ролевой факультет не выбран!`)}
+    const facult = await Carusel_Selector(context, { message_title: `Выберите ролевой(ую) ${accusative}`, menu: allifacult, smile: `smile`, name: `name`, title: `Ролевой(ая) ${singular}`})
+    if (!facult.status) { return await context.send(`⚠ Ролевой(ая) ${singular} не выбран!`)}
     const facult_sel = await prisma.allianceFacult.findFirst({ where: { id: facult.id, id_alliance: Number(user.id_alliance) } })
     const coin_sel = await prisma.allianceCoin.findFirst({ where: { id: coin.id, id_alliance: Number(user.id_alliance) }})
     const keyboard = new KeyboardBuilder()
@@ -62,8 +65,9 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
     let cursor = 0
     let counter_init = 0
     const counter_go = counter
+    const prepositional = await getTerminology(alliance.id, 'prepositional');
     while (!allicoin_tr) {
-        let text = `⚙ Рейтинг персонажей по ролевой валюте [${coin_sel?.name}${coin_sel?.smile}] в ролевом проекте [${alliance?.name}] на факультете [${facult_sel?.name}${facult_sel?.smile}]:\n\n`
+        let text = `⚙ Рейтинг персонажей по ролевой валюте [${coin_sel?.name}${coin_sel?.smile}] в ролевом проекте [${alliance?.name}], ${prepositional} [${facult_sel?.name}${facult_sel?.smile}]:\n\n`
         let counter_last = 1
         let counter_limit = 0
         let trig_find_me = false
@@ -116,7 +120,9 @@ export async function Alliance_Coin_Rank_Admin_Printer(context: any) {
 
 async function Alliance_Coin_Rank_Admin_Return(context: any, data: any, alliance: Alliance) {
     const res = { cursor: data.cursor, stop: true }
-    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по факультетам`, { keyboard: button_alliance_return })
+    const plural = await getTerminology(alliance.id, 'plural');
+    const genitive = await getTerminology(alliance.id, 'genitive');
+    await context.send(`⚠ Вы отменили меню рейтингов валют ролевого проекта ${alliance.id}-${alliance.name} по ${genitive}`, { keyboard: button_alliance_return })
     return res
 }
 

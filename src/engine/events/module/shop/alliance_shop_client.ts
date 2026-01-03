@@ -4,6 +4,7 @@ import { answerTimeLimit } from "../../../..";
 import { Confirm_User_Success, Input_Number, Input_Text, Keyboard_Index, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
+import { getTerminology } from "../alliance/terminology_helper";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -260,10 +261,15 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     // Списание баллов факультета
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
     const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
+    const alliance = await prisma.alliance.findFirst({ 
+        where: { id: user.id_alliance ?? 0 } 
+    });
+    const singular = await getTerminology(alliance?.id || 0, 'singular');
+    const genitive = await getTerminology(alliance?.id || 0, 'genitive');
     if (coin_get?.point == true && balance_facult_check) {
         const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price*item_count } } })
         if (balance_facult_plus) {
-            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price*item_count} = ${balance_facult_plus.amount} для Факультета [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price*item_count} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
         }
     }
     // Выдача предмета
@@ -323,7 +329,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (coin_get?.point == true && balance_facult_check_owner) {
         const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price*item_count } } })
         if (balance_facult_plus_owner) {
-            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price*item_count} = ${balance_facult_plus_owner.amount} для Факультета [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
+            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price*item_count} = ${balance_facult_plus_owner.amount} для ${genitive} [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
         }
     }
     const allianceForSale = await prisma.alliance.findFirst({ 

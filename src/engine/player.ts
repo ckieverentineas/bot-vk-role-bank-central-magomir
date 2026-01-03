@@ -9,10 +9,9 @@ import { Account, Alliance, User } from "@prisma/client";
 import { Person_Detector, Person_Get, Person_Register, Person_Selector } from "./events/module/person/person";
 import { Alliance_Add, Alliance_Updater } from "./events/module/alliance/alliance";
 import { Alliance_Coin_Printer } from "./events/module/alliance/alliance_coin";
-import { Alliance_Facult_Printer } from "./events/module/alliance/alliance_facult";
+import { Alliance_Facult_Printer, getFacultyTerminology } from "./events/module/alliance/alliance_facult";
 import { Person_Coin_Printer_Self } from "./events/module/person/person_coin";
-import { Alliance_Coin_Converter_Printer } from "./events/module/converter";
-import { Alliance_Coin_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
+import { Alliance_Scoopins_Converter_Editor_Printer } from "./events/module/alliance/alliance_scoopins_converter_editor";
 import { Alliance_Year_End_Printer } from "./events/module/alliance/alliance_year_end";
 import { Alliance_Coin_Rank_Admin_Printer } from "./events/module/rank/rank_alliance";
 import { Alliance_Monitor_Printer } from "./events/module/alliance/monitor";
@@ -25,6 +24,9 @@ import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_
 import { Keyboard_User_Main, Main_Menu_Init } from "./events/contoller";
 import { generateAllWeeks } from "./core/weather";
 import { Operation_SBP } from "./events/module/tranzaction/sbp";
+import { Alliance_Coin_Converter_Editor_Printer, Alliance_Coin_Converter_Printer } from "./events/module/alliance/alliance_converter_editor";
+import { ico_list } from "./events/module/data_center/icons_lib";
+import { getTerminology } from "./events/module/alliance/terminology_helper";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
@@ -472,11 +474,27 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
+    hearManager.hear(/⚙ !настроить S-coins/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        if (await Accessed(context) == 1) { return }
+        await Alliance_Scoopins_Converter_Editor_Printer(context)
+    })
     hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
+        
+        // Получаем терминологию для отображения
+        const user = await Person_Get(context);
+        const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } });
+        if (alliance) {
+            const terminology = await getFacultyTerminology(alliance.id);
+            await context.send(`${ico_list['config'].ico} Открываю меню управления ${terminology.plural_genitive}...`);
+        }
+        
         await Alliance_Facult_Printer(context)
     })
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {

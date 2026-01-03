@@ -10,15 +10,29 @@ import { Person_Coin_Printer } from "./module/person/person_coin";
 import { Facult_Rank_Printer } from "./module/alliance/facult_rank";
 
 export async function Main_Menu_Init(context: any) {
-    const attached = image_bank//await Image_Random(context, "bank")
+    const attached = image_bank
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
+    
+    // Проверяем, есть ли у альянса рейтинговые валюты (point == true)
+    const hasRatingCurrencies = alli_get ? await prisma.allianceCoin.findFirst({ 
+        where: { 
+            id_alliance: alli_get.id,
+            point: true 
+        } 
+    }) : false;
+    
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}]`
+        
+        // Добавляем факультетские рейтинги только если есть рейтинговые валюты
+        if (hasRatingCurrencies && facult_rank) {
+            text += ` \n${facult_rank}`
+        }
     } else {
         text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }
@@ -84,9 +98,23 @@ export async function Main_Menu_Admin_Init(context: any) {
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
+    
+    // Проверяем, есть ли у альянса рейтинговые валюты (point == true)
+    const hasRatingCurrencies = alli_get ? await prisma.allianceCoin.findFirst({ 
+        where: { 
+            id_alliance: alli_get.id,
+            point: true 
+        } 
+    }) : false;
+    
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n Баланс: ${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}] \n${facult_rank}`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} - 📜 AUID: ${alli_get?.id}]`
+        
+        // Добавляем факультетские рейтинги только если есть рейтинговые валюты
+        if (hasRatingCurrencies && facult_rank) {
+            text += ` \n${facult_rank}`
+        }
     } else {
         text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }

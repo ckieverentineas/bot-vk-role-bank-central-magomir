@@ -7,6 +7,7 @@ import { Back } from "./operation_global"
 import { Editor } from "./person_editor"
 import { User } from "@prisma/client"
 import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
+import { getTerminology } from "../alliance/terminology_helper"
 
 //Модуль доп клавиатуры
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
@@ -41,6 +42,8 @@ async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: 
 
 async function User_Drop(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
+    const alli_get = await prisma.alliance.findFirst({ where: { id: Number(user_get?.id_alliance) } })
+    
     const confirmq = await context.question(`⁉ Вы уверены, что хотите выпнуть с ролевого проекта ${user_get.name}`,
         {
             keyboard: Keyboard.builder()
@@ -56,8 +59,13 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             // модуль принятия решения с баллами
             let answer_check = false
             let rank_action = null
+            let singular = '';
+            let genitive = '';
+            
             while (answer_check == false) {
-                const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами ученика, инвестированными в факультет за текущий учебный год:`,
+                singular = await getTerminology(alli_get?.id || 0, 'singular')
+                genitive = await getTerminology(alli_get?.id || 0, 'genitive')
+                const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами игрока, инвестированными в ${genitive} за текущий учебный год (обнулить — только рейтинговые, ограбить — все валюты):`,
                     {	
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
@@ -74,15 +82,17 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                     answer_check = true
                 }
             }
-            const alli_get = await prisma.alliance.findFirst({ where: { id: Number(id) } })
+            
             const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0, id_role: 1 } })
+            
             await context.send(`❗ Выпнут пользователь ${user_del.name}`)
             const notif_ans = await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`)
-            !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователю завершена успешно.`)
+            !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователя завершена успешно.`)
             const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name})`
             if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
             await Send_Message(chat_id, ans_log)
             await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
+            
             // Движок модуля принятия решений с баллами
             const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user_get.id_facult! } })
             switch (rank_action) {
@@ -96,12 +106,12 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                         if ( !bal_fac || !bal_usr) { continue }
                         const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: { decrement: bal_usr.amount } } })
                         const bal_usr_ch = await prisma.balanceCoin.update({ where: { id: bal_usr.id }, data: { amount: 0 } })
-                        const ans_log = `🌐 "${rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для Факультета [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} из-за крота @id${user_get.idvk}(${user_get.name})`
+                        const ans_log = `🌐 "${rank_action}${coin.smile}" > ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount} для ${singular.charAt(0).toUpperCase() + singular.slice(1)} [${alli_fac!.smile} ${alli_fac!.name}], баланс: ${bal_usr_ch.amount}${coin.smile} из-за крота @id${user_get.idvk}(${user_get.name})`
                         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                     }
                     break;
-                case 'Ограбить': // НОВЫЙ CASE
+                case 'Ограбить':
                     for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user_get.id_alliance! } })) {
                         const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user_get.id }})
                         if (!bal_usr || bal_usr.amount == 0) { continue }
@@ -163,7 +173,7 @@ async function User_delete(id: number, context: any, user_adm: User) {
                 } else {
                     await context.send(`⚙ @id${user_del.idvk}(${user_del.name}) депортируется НА РОДИНУ уже не в первый раз.`)
                 }
-                const notif_ans = await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались Центробанком Магомира Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
+                const notif_ans = await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались РП-банком Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name})`
                 await Send_Message(chat_id, ans_log)

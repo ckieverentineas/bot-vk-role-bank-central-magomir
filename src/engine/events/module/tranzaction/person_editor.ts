@@ -4,6 +4,7 @@ import { Keyboard, KeyboardBuilder } from "vk-io"
 import { Accessed, Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Ipnut_Gold } from "./operation_global"
+import { getTerminology } from "../alliance/terminology_helper"
 
 //Модуль редактирования персонажей
 export async function Editor(id: number, context: any, user_adm: User) {
@@ -12,10 +13,11 @@ export async function Editor(id: number, context: any, user_adm: User) {
     let answer_check = false
     while (answer_check == false) {
         const keyboard = new KeyboardBuilder()
+        const singular = await getTerminology(user.id_alliance || 0, 'singular');
         keyboard.textButton({ label: '✏Положение', payload: { command: 'edit_class' }, color: 'secondary' }).row()
         .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
         .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
-        .textButton({ label: '✏Факультет', payload: { command: 'edit_facult' }, color: 'secondary' }).row()
+        .textButton({ label: `✏${singular.charAt(0).toUpperCase() + singular.slice(1)}`, payload: { command: 'edit_facult' }, color: 'secondary' }).row()
         if (await Accessed(context) == 3 || user.id_alliance == 0 || user.id_alliance == -1 ) { keyboard.textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row() }
         keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
         const answer1: any = await context.question(`⌛ Переходим в режим редактирования данных, выберите сие злодейство: `, { keyboard: keyboard, answerTimeLimit })
@@ -112,8 +114,9 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
     let spec_check = false
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
     const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
+    const accusative = await getTerminology(user.id_alliance || 0, 'accusative');
     while (spec_check == false) {
-        const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не факультет. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+        const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не ${accusative}. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
         if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
         if (spec.text.length <= 32) {
             spec_check = true
@@ -256,14 +259,18 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
     const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
     const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(user.id_facult) } })
-    const facult_sel = `${facult_get ? facult_get.name : `Без факультета`}`
+    const singular = await getTerminology(user.id_alliance || 0, 'singular');
+    const genitive = await getTerminology(user.id_alliance || 0, 'genitive');
+    const plural = await getTerminology(user.id_alliance || 0, 'plural');
+    const accusative = await getTerminology(user.id_alliance || 0, 'accusative');
+    const facult_sel = `${facult_get ? facult_get.name : `Без ${genitive}`}`
     let facult_check = false
     if (await prisma.allianceFacult.findFirst({ where: { id_alliance: Number(user.id_alliance) } })) {
         let id_builder_sent = 0
         while (!facult_check) {
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
-            let event_logger = `❄ Выберите факультет для ${user.name} в ${alli_sel}, сейчас его(ее) факультет ${facult_sel}:\n\n`
+            let event_logger = `❄ Выберите ${accusative} для ${user.name} в ${alli_sel}, сейчас его(ее) ${singular} ${facult_sel}:\n\n`
             const builder_list: AllianceFacult[] = await prisma.allianceFacult.findMany({ where: { id_alliance: Number(user.id_alliance) } })
             if (builder_list.length > 0) {
                 const limiter = 5
@@ -272,7 +279,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                     const builder = builder_list[i]
                     keyboard.textButton({ label: `${builder.smile} №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
                     //.callbackButton({ label: '👀', payload: { command: 'builder_controller', command_sub: 'builder_open', office_current: i, target: builder.id }, color: 'secondary' })
-                    event_logger += `\n\n🔮 Ролевой факультет №${i} <--\n📜 FUID: ${builder.id}\n${builder.smile} Название: ${builder.name}`
+                    event_logger += `\n\n🔮 Ролевой(ая) ${singular} №${i} <--\n📜 FUID: ${builder.id}\n${builder.smile} Название: ${builder.name}`
                     /*
                     const services_ans = await Builder_Lifer(user, builder, id_planet)*/
                     counter++
@@ -286,7 +293,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                 if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                     keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                 }
-                keyboard.textButton({ label: 'Нафиг учебу', payload: { command: 'builder_control_multi', target: { id: 0, name: 'Без факультета', smile: '🔥', id_alliance: user.id_alliance } }, color: 'secondary' })
+                keyboard.textButton({ label: 'Нафиг учебу', payload: { command: 'builder_control_multi', target: { id: 0, name: `Без ${genitive}`, smile: '🔥', id_alliance: user.id_alliance } }, color: 'secondary' })
             } else {
                 event_logger = `💬 Вы еще не построили здания, как насчет что-то построить??`
             }
@@ -309,12 +316,12 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
             }
         }
     } else {
-        return await context.send(`⛔ В ролевом проекте еще не инициализированы факультеты`)
+        return await context.send(`⛔ В ролевом проекте еще не инициализированы ${plural}`)
     }
     // модуль принятия решения с баллами
     let answer_check = false
     while (answer_check == false) {
-        const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами ученика, инвестированными в факультет за текущий учебный год:`,
+        const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами игрока, инвестированными в ${accusative} за текущий учебный год:`,
             {	
                 keyboard: Keyboard.builder()
                 .textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
@@ -335,10 +342,10 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
     // обновление факультета
     const update_facult = await prisma.user.update({ where: { id: user.id }, data: { id_facult: person.id_facult } })
     if (update_facult) {
-        await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена факультета с ${facult_sel} на ${person.facult}.`)
-        const notif_ans = await Send_Message(user.idvk, `⚙ Ваш факультет ролевой сменилась с ${facult_sel} на ${person.facult}.`)
-        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены факультета пользователя завершена успешно.`)
-        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Факультет" > Факультет изменился с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
+        await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ${genitive} с ${facult_sel} на ${person.facult}.`)
+        const notif_ans = await Send_Message(user.idvk, `⚙ Ваш(а) ${singular} ролевой сменился(лась) с ${facult_sel} на ${person.facult}.`)
+        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены ${genitive} пользователя завершена успешно.`)
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤${singular.charAt(0).toUpperCase() + singular.slice(1)}" > ${singular.charAt(0).toUpperCase() + singular.slice(1)} изменился(лась) с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
         await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)
@@ -348,6 +355,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
     const alli_fac_tar = person.id_facult ? await prisma.allianceFacult.findFirst({ where: { id: person.id_facult } }) : null
 
     switch (person.rank_action) {
+        
         case 'Ничего не делать':
             break;
         case 'Обнулить':
@@ -373,7 +381,14 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                     data: { amount: 0 } 
                 })
                 
-                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${alli_fac ? `Факультет [${alli_fac.smile} ${alli_fac.name}] уменьшен на ${bal_usr.amount}` : 'Без вычета из факультета'}, баланс пользователя: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name})`
+                // Получаем терминологию
+                const currentAlliance = await prisma.alliance.findFirst({ 
+                    where: { id: user.id_alliance ?? 0 } 
+                });
+                const singular = await getTerminology(currentAlliance?.id || 0, 'singular');
+                const genitive = await getTerminology(currentAlliance?.id || 0, 'genitive');
+                
+                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${alli_fac ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} [${alli_fac.smile} ${alli_fac.name}] уменьшен(а) на ${bal_usr.amount}` : `Без вычета из ${genitive}`}, баланс пользователя: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
@@ -383,6 +398,13 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                 if (coin.point == false) { continue }
                 const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: update_facult.id }})
                 if (!bal_usr || bal_usr.amount == 0) { continue }
+                
+                // Получаем терминологию перед использованием
+                const currentAlliance = await prisma.alliance.findFirst({ 
+                    where: { id: user.id_alliance ?? 0 } 
+                });
+                const singular = await getTerminology(currentAlliance?.id || 0, 'singular');
+                const genitive = await getTerminology(currentAlliance?.id || 0, 'genitive');
                 
                 // Если был факультет - вычитаем из старого
                 if (alli_fac) {
@@ -415,12 +437,12 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                     }
                 }
                 
-                const ans_log = `🌐 "${person.rank_action}${coin.smile}" >\n${alli_fac ? `Старый факультет уменьшен на ${bal_usr.amount}` : 'Не было факультета'},\n${alli_fac_tar ? `Новый факультет увеличен на ${bal_usr.amount}` : 'Без зачисления на факультет'} \nдля @id${user.idvk}(${user.name})`
+                const ans_log = `🌐 "${person.rank_action}${coin.smile}" >\n${alli_fac ? `Старый(ая) ${singular} уменьшен(а) на ${bal_usr.amount}` : `Не было ${genitive}`},\n${alli_fac_tar ? `Новый(ая) ${singular} увеличен(а) на ${bal_usr.amount}` : `Без зачисления на/в ${singular}`} \nдля @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
             break;
         default:
             break;
-    }
+        }
 }

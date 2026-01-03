@@ -10,6 +10,7 @@ import { Back, Ipnut_Gold, Ipnut_Message } from "./operation_global"
 import { Sub_Menu } from "./operation_sub"
 import { ico_list } from "../data_center/icons_lib"
 import { InventoryType } from "../data_center/standart"
+import { getTerminology } from "../alliance/terminology_helper"
 
 export async function Operation_Solo(context: any) {
     if (context.peerType == 'chat') { return }
@@ -38,7 +39,11 @@ export async function Operation_Solo(context: any) {
 			    datas.push({id: `${uid.text}`})
                 const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
                 const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
-                await context.send(`🏦 Открыта следующая карточка: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} Факультет: ${facult_get ? facult_get.name : `Без факультета`} \n🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
+                const singular = await getTerminology(alli_get?.id || 0, 'singular');
+                const genitive = await getTerminology(alli_get?.id || 0, 'genitive');
+                const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
+                const withoutFaculty = `Без ${genitive}`;
+                await context.send(`🏦 Открыта следующая карточка: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty} \n🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
             } else { 
                 if (user_adm?.id_alliance != get_user?.id_alliance) {
                     await context.send(`💡 Игрок ${get_user?.name} ${get_user?.id} в ролевой AUID: ${get_user?.id_alliance}, в то время, как вы состоите в AUID: ${user_adm?.id_alliance}`)
@@ -513,11 +518,16 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                 if (!pers_bal_coin) { await context.send(`UID ${ui.id} не открыт валютный счет`); continue }
                 const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: pers.id_facult ?? 0 } })
                 const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: pers_bal_coin?.id }, data: { amount: { increment: ui.amount } } })
+                const alliance = await prisma.alliance.findFirst({ 
+                    where: { id: pers.id_alliance ?? 0 } 
+                });
+                const singular = await getTerminology(alliance?.id || 0, 'singular');
+                const genitive = await getTerminology(alliance?.id || 0, 'genitive');
                 let facult_income = ''
                 if (person.coin?.point == true && alli_fac) {
                     const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
                     const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: ui.amount } } }) : null
-                    facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]` : ''
+                    facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]` : ''
                 }
                 
                 const notif_ans = await Send_Coin_Operation_Notification(
@@ -548,13 +558,18 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                 if (!pers_bal_coin) { await context.send(`UID ${ui.id} не открыт валютный счет`); continue }
                 const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: pers.id_facult ?? 0 } })
                 const money_put_minus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: pers_bal_coin.id }, data: { amount: { decrement: ui.amount } } })
+                const alliance = await prisma.alliance.findFirst({ 
+                    where: { id: pers.id_alliance ?? 0 } 
+                });
+                const singular = await getTerminology(alliance?.id || 0, 'singular');
+                const genitive = await getTerminology(alliance?.id || 0, 'genitive');
                 let facult_income = ''
                 if (person.coin?.point == true && alli_fac) {
                     const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
                     if (rank_put_plus_check) {
                         const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: ui.amount } } })
                         if (rank_put_plus) {
-                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${ui.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
                         }
                     }
                 }
@@ -659,6 +674,11 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
     const messa: string = await Ipnut_Message(context, `[${person.operation}${person.coin?.smile}]`)
     const findas: BalanceCoin | null = await prisma.balanceCoin.findFirst({ where: { id_coin: person.coin?.id, id_user: user.id }})
     const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
+    const alliance = await prisma.alliance.findFirst({ 
+        where: { id: user.id_alliance ?? 0 } 
+    });
+    const singular = await getTerminology(alliance?.id || 0, 'singular');
+    const genitive = await getTerminology(alliance?.id || 0, 'genitive');
     let incomer = 0
     let facult_income = ``
     let passer = true
@@ -671,7 +691,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
                 if (rank_put_plus_check) {
                     const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } })
                     if (rank_put_plus) {
-                        facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                        facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
                     }
                 }
             }
@@ -684,7 +704,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
                 if (rank_put_plus_check) {
                     const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: person.amount } } })
                     if (rank_put_plus) {
-                        facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                        facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
                     }
                 }
             }
@@ -783,26 +803,36 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
         switch (person.operation) {
             case '+':
                 const money_put_plus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { increment: person.amount } } })
+                const alliance = await prisma.alliance.findFirst({ 
+                    where: { id: user.id_alliance ?? 0 } 
+                });
+                const singular = await getTerminology(alliance?.id || 0, 'singular');
+                const genitive = await getTerminology(alliance?.id || 0, 'genitive');
                 incomer = money_put_plus.amount
                 if (person.coin?.point == true && alli_fac) {
                     const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: user.id_facult! } }) 
                     if (rank_put_plus_check) {
                         const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } })
                         if (rank_put_plus) {
-                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
                         }
                     }
                 }
                 break;
             case '-':
                 const money_put_minus: BalanceCoin = await prisma.balanceCoin.update({ where: { id: findas?.id }, data: { amount: { decrement: person.amount } } })
+                const alliance2 = await prisma.alliance.findFirst({ 
+                    where: { id: user.id_alliance ?? 0 } 
+                });
+                const singular2 = await getTerminology(alliance2?.id || 0, 'singular');
+                const genitive2 = await getTerminology(alliance2?.id || 0, 'genitive');
                 incomer = money_put_minus.amount
                 if (person.coin?.point == true && alli_fac) {
                     const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: user.id_facult! } }) 
                     if (rank_put_plus_check) {
                         const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: person.amount } } })
                         if (rank_put_plus) {
-                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`
+                            facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive2} [${alli_fac.smile} ${alli_fac.name}]`
                         }
                     }
                 }

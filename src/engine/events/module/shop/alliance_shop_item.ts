@@ -280,7 +280,7 @@ async function AllianceShopItem_Hide(context: any, data: any) {
     if (!confirm.status) return res;
 
     const item_hidden = await prisma.allianceShopItem.update({ where: { id: item.id }, data: { hidden: item.hidden ? false : true } });
-    if (item_hidden) { await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  ${item_hidden.hidden ? 'недоступен' : 'доступен'} к покупки товар: ${item_hidden.id}-${item_hidden.name}`, 'admin_solo') }
+    if (item_hidden) { await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  ${item_hidden.hidden ? 'недоступен' : 'доступен'} к покупке товар: ${item_hidden.id}-${item_hidden.name}`, 'admin_solo') }
 
     return res;
 }

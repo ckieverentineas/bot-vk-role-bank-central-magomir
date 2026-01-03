@@ -223,7 +223,7 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
 		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
 		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
 		if (name.text.length <= limit && name.text.length > 0) {
-            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
+            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\nВы уверены?`, {	
 				keyboard: Keyboard.builder()
 				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
                 .textButton({ label: `${ico_list['stop'].ico} Назад`, color: 'negative' })
@@ -251,7 +251,7 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
 		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
 		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
 		if (name.text.length <= limit && name.text.length > 0) {
-            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\n Вы уверены?`, {	
+            const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\nВы уверены?`, {	
 				keyboard: Keyboard.builder()
 				.textButton({ label: `${ico_list['success'].ico} Да`, color: 'positive' }).row()
                 .textButton({ label: `${ico_list['stop'].ico} Назад`, color: 'negative' })

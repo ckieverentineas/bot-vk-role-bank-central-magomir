@@ -5,6 +5,7 @@ import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, timer_text_oper } from "../../..";
 import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../core/helper";
 import { button_alliance_return } from "./data_center/standart";
+import { getTerminology } from "./alliance/terminology_helper";
 
 
 //контроллер управления валютами альянса
@@ -137,9 +138,11 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
             const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: alliance_coin_check.id, id_facult: user.id_facult ?? 0 } }) 
             if (rank_put_plus_check && alli_fac) {
                 const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: calc } } })
+                const singular = await getTerminology(alliance?.id || 0, 'singular');
+                const genitive = await getTerminology(alliance?.id || 0, 'genitive');
                 if (rank_put_plus) {
-                    answer += `🌐 "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для факультета [${alli_fac.smile} ${alli_fac.name}]`
-                    await context.send(`⚙ Также начислены рейтинги следующим образом "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для Факультета [${alli_fac.smile} ${alli_fac.name}]`)
+                    answer += `🌐 "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
+                    await context.send(`⚙ Также начислены рейтинги следующим образом "⚖${alliance_coin_check.smile}" > ${rank_put_plus_check.amount} + ${calc} = ${rank_put_plus.amount} для ${singular.charAt(0).toUpperCase() + singular.slice(1)} [${alli_fac.smile} ${alli_fac.name}]`)
                 }
             }
         }
