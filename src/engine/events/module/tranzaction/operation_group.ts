@@ -9,6 +9,17 @@ import { Facult_Coin_Printer_Self } from "../alliance/facult_rank"
 import { ico_list } from "../data_center/icons_lib"
 import { getTerminology } from "../alliance/terminology_helper"
 
+interface LightAllianceCoin {
+    id: number;
+    name: string;
+    smile: string;
+    point: boolean;
+    converted: boolean;
+    converted_point: boolean;
+    sbp_on: boolean;
+    course_medal: number;
+    course_coin: number;
+}
 
 // В функции Operation_Group добавляем новую кнопку и обработку ввода 0
 export async function Operation_Group(context: any) {
@@ -293,10 +304,23 @@ async function Medal_Custom_Many(uids: number[], context: any, person_adm: User)
 // НОВАЯ ФУНКЦИЯ: Массовые операции с разными суммами
 async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm: User) {
     // Используем персонажа администратора для определения ролевой
-    const person: { coin: AllianceCoin | null, operation: string | null } = { coin: null, operation: null }
+    const person: { coin: LightAllianceCoin | null, operation: string | null } = { coin: null, operation: null }
     
     const alli_get = await prisma.alliance.findFirst({ where: { id: person_adm.id_alliance ?? 0 } })
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(person_adm?.id_alliance) } })
+    const coin_pass = await prisma.allianceCoin.findMany({ 
+        where: { id_alliance: Number(person_adm?.id_alliance) },
+        select: {
+            id: true,
+            name: true,
+            smile: true,
+            point: true,
+            converted: true,
+            converted_point: true,
+            sbp_on: true,
+            course_medal: true,
+            course_coin: true
+        }
+    }) as LightAllianceCoin[];
     if (!coin_pass) { 
         await context.send(`Валют ролевых пока еще нет, чтобы начать=)`)
         return false 
@@ -309,7 +333,7 @@ async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm:
         const keyboard = new KeyboardBuilder()
         id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
         let event_logger = `❄ Выберите валюту для массовых операций:\n\n`
-        const builder_list: AllianceCoin[] = coin_pass
+        const builder_list: LightAllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
             let counter = 0
@@ -537,10 +561,23 @@ async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm:
 //Модуль мульти начислений в цикле
 async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: uids[0] } })
-    const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
+    const person: { coin: LightAllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
     const alli_get = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(user?.id_alliance) } })
+    const coin_pass = await prisma.allianceCoin.findMany({ 
+        where: { id_alliance: Number(user?.id_alliance) },
+        select: {
+            id: true,
+            name: true,
+            smile: true,
+            point: true,
+            converted: true,
+            converted_point: true,
+            sbp_on: true,
+            course_medal: true,
+            course_coin: true
+        }
+    }) as LightAllianceCoin[];
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
     let infinity_pay = false
     while (!infinity_pay) {
@@ -550,7 +587,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
             let event_logger = `❄ Выберите валюту, с которой будем делать отчисления:\n\n`
-            const builder_list: AllianceCoin[] = coin_pass
+            const builder_list: LightAllianceCoin[] = coin_pass
             if (builder_list.length > 0) {
                 const limiter = 5
                 let counter = 0
@@ -721,10 +758,23 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
 //Модуль мульти начислений
 async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: uids[0] } })
-    const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
+    const person: { coin: LightAllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
     if (!user) { return }
     const alli_get = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } })
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(user?.id_alliance) } })
+    const coin_pass = await prisma.allianceCoin.findMany({ 
+        where: { id_alliance: Number(user?.id_alliance) },
+        select: {
+            id: true,
+            name: true,
+            smile: true,
+            point: true,
+            converted: true,
+            converted_point: true,
+            sbp_on: true,
+            course_medal: true,
+            course_coin: true
+        }
+    }) as LightAllianceCoin[];
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent = 0
@@ -732,7 +782,7 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
         const keyboard = new KeyboardBuilder()
         id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
         let event_logger = `❄ Выберите валюту, с которой будем делать отчисления:\n\n`
-        const builder_list: AllianceCoin[] = coin_pass
+        const builder_list: LightAllianceCoin[] = coin_pass
         if (builder_list.length > 0) {
             const limiter = 5
             let counter = 0
