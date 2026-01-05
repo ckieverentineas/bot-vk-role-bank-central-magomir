@@ -209,29 +209,71 @@ async function Alliance_Monitor_Back(context: any, data: any, alliance: Alliance
 async function Alliance_Monitor_Create(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
     const monik = { token: ``, id_alliance: alliance.id, alliance: alliance.name, id_coin: 0, coin: ``, name: `zero`, idvk_group: 0 }
+    
     // воод ссылки на группу
     const targeta = await Input_Text(context, `Введите ссылку на сообщество нового монитора\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`)
     if (!targeta) { return res}
     const temp = targeta.replace(/.*[/]/, "");
     try {
         const [group] = await vk!.api.groups.getById({ group_id: temp });
-	    if (!group) { return }
-	    const alli_check = await prisma.monitor.findFirst({ where: { idvk: group.id } })
-	    if (!alli_check) {
+        if (!group) { return }
+        const alli_check = await prisma.monitor.findFirst({ where: { idvk: group.id } })
+        if (!alli_check) {
             monik.name = group.name!
             monik.idvk_group = group.id!
-	    } else {
-	    	await Logger(`In database already created monitor idvk ${group.id}`)
+        } else {
+            await Logger(`In database already created monitor idvk ${group.id}`)
             return await context.send(`⚙ Монитор уже был создан:\n💬 ${alli_check.id} - ${alli_check.name}\n 🧷 Ссылка: https://vk.com/club${alli_check.idvk}\n🌐 Альянс: ${alliance.name}`)
-	    }
+        }
     } catch (e) {
         return await context.send(`⛔ Такой группы не найдено! Монитор не установлен!`)
     }
-    // воод токен группы
-    const group_token = await Input_Text(context, `Введите токен группы.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 600)
-    if (!group_token) { return res}
+    
+    // Локальная функция для ввода токена без подтверждения
+    async function Input_Text_NoConfirm(context: any, prompt: string, limit: number = 300): Promise<string | null> {
+        const answer = await context.question(`${prompt}\n\n⚠ Допустимый лимит символов: ${limit}`, timer_text);
+        
+        if (answer.isTimeout) {
+            await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`);
+            return null;
+        }
+        
+        const user_text = answer.text?.trim();
+        
+        if (!user_text || user_text.length === 0) {
+            await context.send(`${ico_list['help'].ico} Текст не может быть пустым!`);
+            return null;
+        }
+        
+        if (user_text.length > limit) {
+            await context.send(`${ico_list['warn'].ico} Превышен лимит символов! Максимум: ${limit}`);
+            return null;
+        }
+        
+        return user_text;
+    }
+    
+    // воод токен группы БЕЗ подтверждения от Input_Text
+    const group_token = await Input_Text_NoConfirm(context, `Введите токен группы.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 600)
+    if (!group_token) { return res }
+
+    // Кастомное подтверждение без показа токена
+    const keyboard = new KeyboardBuilder()
+        .textButton({ label: '✅ Да', payload: { command: 'confirm' }, color: 'positive' })
+        .textButton({ label: '❌ Нет', payload: { command: 'cancel' }, color: 'negative' })
+
+    const confirm = await context.question(
+        `⁉ Вы ввели токен (${group_token.length} символов).\nВы уверены?`,
+        { keyboard: keyboard.inline(), answerTimeLimit }
+    )
+
+    if (confirm.isTimeout || confirm.payload?.command !== 'confirm') {
+        return await context.send('❌ Ввод токена отменен')
+    }
+
     monik.token = Encrypt_Data(group_token)
     await context.send(`${ico_list['warn'].ico} Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
+    
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
     if (!coin_pass) { return await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
@@ -264,7 +306,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
             return context.send(`${event_logger}`)
         }
         const answer1: any = await context.question(`${event_logger}`,
-            {	
+            {    
                 keyboard: keyboard.inline(), answerTimeLimit
             }
         )
@@ -281,7 +323,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
             }
         }
     }
-	const starting_check: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота для группы ${monik.alliance}?`)
+    const starting_check: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота для группы ${monik.alliance}?`)
     await context.send(`${starting_check.text}`)
     const monitor_cr = await prisma.monitor.create({ data: { token: monik.token, id_alliance: monik.id_alliance, id_coin: monik.id_coin, name: monik.name, idvk: monik.idvk_group, starting: starting_check.status } })
     if (monitor_cr) {

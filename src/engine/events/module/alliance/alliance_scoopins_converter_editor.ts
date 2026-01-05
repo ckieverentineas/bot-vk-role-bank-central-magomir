@@ -54,7 +54,7 @@ export async function Alliance_Scoopins_Converter_Editor_Printer(context: any) {
             event_logger += `• Второй вопрос (о конвертации в рейтинги) — ОБЯЗАТЕЛЬНО выбрать "ДА" (эта настройка общая для ЖЕТОНОВ И S-КОИНОВ).\n`;
             event_logger += `3. Принять изменения. Повторить для каждой рейтинговой валюты, в которую хотите конвертировать!\n`;
             event_logger += `4. Только после этого настраивать конвертацию S-coins здесь!\n\n`;
-            event_logger += `${ico_list['money'].ico} Достуыпные валюты:\n`;
+            event_logger += `${ico_list['money'].ico} Доступные валюты:\n`;
             
             for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance)) {
                 keyboard.textButton({ 
