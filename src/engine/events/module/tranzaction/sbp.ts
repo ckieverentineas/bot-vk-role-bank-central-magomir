@@ -113,18 +113,18 @@ export async function Operation_SBP(context: Context) {
     }
     
     // СООБЩЕНИЕ ОТПРАВИТЕЛЮ (видит только свой баланс)
-    const sender_notif = `"💷СБП" --> совершен перевод в валюте "${coin.name}":\n👤 Отправитель ${user_check.name} (UID: ${user_check.id}) --> ${coin_me.amount} - ${count_coin} = ${coin_me_change.amount}${coin.smile}\n👥 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id})${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
-    
+    const sender_notif = `"💷СБП" --> совершен перевод в валюте "${coin.name}":\n👤 Отправитель @id${user_check.idvk}(${user_check.name}) (UID: ${user_check.id}) --> ${coin_me.amount} - ${count_coin} = ${coin_me_change.amount}${coin.smile}\n👥 Получатель: @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+
     await Send_Message(user_check.idvk, sender_notif);
     
     // СООБЩЕНИЕ ПОЛУЧАТЕЛЮ (формат как в примере)
-    const receiver_notif = `🔔 Уведомление для ${person_goten_check.name} (UID: ${person_goten_check.id})\n💷 Вам перевели ${count_coin}${coin.smile} от ${user_check.name} (UID: ${user_check.id})\n💰 Ваш баланс: ${coin_other.amount} + ${count_coin} = ${coin_other_change.amount}${coin.smile}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+    const receiver_notif = `🔔 Уведомление для @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})\n💷 Вам перевели ${count_coin}${coin.smile} от @id${user_check.idvk}(${user_check.name}) (UID: ${user_check.id})\n💰 Ваш баланс: ${coin_other.amount} + ${count_coin} = ${coin_other_change.amount}${coin.smile}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
 
     await Send_Message(person_goten_check.idvk, receiver_notif);
-    
+
     // ЛОГ В ЧАТ АЛЬЯНСА (полная информация)
-    const log_message = `"💷СБП" --> совершен перевод в валюте "${coin.name}":\n👤 Отправитель ${user_check.name} (UID: ${user_check.id}) --> ${coin_me.amount} - ${count_coin} = ${coin_me_change.amount}${coin.smile}\n👥 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id}) --> ${coin_other.amount} + ${count_coin} = ${coin_other_change.amount}${coin.smile}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
-    
+    const log_message = `"💷СБП" --> совершен перевод в валюте "${coin.name}":\n👤 Отправитель @id${user_check.idvk}(${user_check.name}) (UID: ${user_check.id}) --> ${coin_me.amount} - ${count_coin} = ${coin_me_change.amount}${coin.smile}\n👥 Получатель: @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id}) --> ${coin_other.amount} + ${count_coin} = ${coin_other_change.amount}${coin.smile}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+
     // Отправка в финансовый чат альянса
     const alliance = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 } });
     if (alliance?.id_chat && alliance.id_chat > 0) {
