@@ -422,13 +422,13 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
     let cursor = 0
     while (!allicoin_tr) {
         const keyboard = new KeyboardBuilder()
-        let event_logger = `${ico_list['converter'].ico} настройка конвертации жетонов для валют ${alliance.name}:\n\n`
+        let event_logger = `${ico_list['converter'].ico} Настройка конвертации жетонов для валют ${alliance.name}:\n\n`
         
         for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance!)) {
             keyboard.textButton({ 
                 label: `${ico_list['edit'].ico} ${alliance_coin.id}-${alliance_coin.name.slice(0,30)}`, 
                 payload: { 
-                    command: 'alliance_coin_edit_course', // ИЗМЕНИЛИ команду
+                    command: 'alliance_coin_edit_course',
                     cursor: cursor, 
                     id_alliance_coin: alliance_coin.id 
                 }, 

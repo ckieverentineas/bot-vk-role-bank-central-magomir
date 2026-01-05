@@ -42,19 +42,30 @@ export async function Alliance_Scoopins_Converter_Editor_Printer(context: any) {
     let cursor = 0;
     
     while (!allicoin_tr) {
-        const keyboard = new KeyboardBuilder();
-        let event_logger = `${ico_list['attach'].ico} Управление конвертацией 🌕 S-coins для валют ${alliance.name}:\n\n`;
-        
-        for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance)) {
-            keyboard.textButton({ 
-                label: `${alliance_coin.scoopins_converted ? '✅' : '⛔'} ${alliance_coin.id}-${alliance_coin.name.slice(0,25)}`, 
-                payload: { 
-                    command: 'scoopins_coin_edit', 
-                    cursor: cursor, 
-                    id_alliance_coin: alliance_coin.id 
-                }, 
-                color: alliance_coin.scoopins_converted ? 'positive' : 'negative' 
-            })
+            const keyboard = new KeyboardBuilder();
+            let event_logger = `${ico_list['attach'].ico} Управление конвертацией 🌕 S-coins для валют ${alliance.name}:\n\n`;
+            
+            // ВАЖНОЕ ПРИМЕЧАНИЕ ДЛЯ АДМИНОВ
+            event_logger += `${ico_list['warn'].ico} Внимание! Прежде чем разрешать конвертацию S-coins и настраивать курс:\n`;
+            event_logger += `Если валюта является РЕЙТИНГОВОЙ (участвует в рейтинге), сначала необходимо:\n`;
+            event_logger += `1. Перейти в меню: ${ico_list['config'].ico} !конвертацию настроить, нажать ⚙ той рейтинговой валюты, в которую будет конвертация.\n`;
+            event_logger += `2. Система задаст два вопроса:\n`;
+            event_logger += `• Первый вопрос (о конвертации из ЖЕТОНОВ) — ответ опционален;\n`;
+            event_logger += `• Второй вопрос (о конвертации в рейтинги) — ОБЯЗАТЕЛЬНО выбрать "ДА" (эта настройка общая для ЖЕТОНОВ И S-КОИНОВ).\n`;
+            event_logger += `3. Принять изменения. Повторить для каждой рейтинговой валюты, в которую хотите конвертировать!\n`;
+            event_logger += `4. Только после этого настраивать конвертацию S-coins здесь!\n\n`;
+            event_logger += `${ico_list['money'].ico} Достуыпные валюты:\n`;
+            
+            for await (const alliance_coin of await Alliance_Coin_Get(cursor, alliance)) {
+                keyboard.textButton({ 
+                    label: `${alliance_coin.scoopins_converted ? '✅' : '⛔'} ${alliance_coin.id}-${alliance_coin.name.slice(0,25)}`, 
+                    payload: { 
+                        command: 'scoopins_coin_edit', 
+                        cursor: cursor, 
+                        id_alliance_coin: alliance_coin.id 
+                    }, 
+                    color: alliance_coin.scoopins_converted ? 'positive' : 'negative' 
+                })
             .textButton({ 
                 label: `${ico_list['config'].ico}`, 
                 payload: { 

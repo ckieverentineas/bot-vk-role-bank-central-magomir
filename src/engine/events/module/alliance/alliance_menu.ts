@@ -42,12 +42,12 @@ export async function Alliance_Enter_Admin(context:any) {
         if (await Accessed(context) != 1) {
             keyboard.textButton({ label: `${ico_list['config'].ico} !факультеты настроить`, color: 'secondary' })
             keyboard.textButton({ label: `${ico_list['config'].ico} !магазины настроить`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить валюты`, color: 'secondary' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить положения`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить конвертацию`, color: 'secondary' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить S-coins`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !валюты настроить`, color: 'secondary' })
+            keyboard.textButton({ label: `${ico_list['config'].ico} !положения настроить`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !конвертацию настроить`, color: 'secondary' })
+            keyboard.textButton({ label: `${ico_list['config'].ico} !S-coins настроить`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы нафиг`, color: 'positive' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы настроить`, color: 'positive' }).row()
         }
         keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: "system_call_admin" }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)

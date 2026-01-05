@@ -191,7 +191,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
     const monitor_up = await prisma.monitor.update({ where: { id: monitora.id }, data: { id_coin: monik.id_coin, cost_like: monik.cost_like, cost_comment: monik.cost_comment, cost_post: monik.cost_post, lim_like: monik.lim_like, lim_comment: monik.lim_comment, starting: monik.starting, wall_on: monik.wall_on, like_on: monik.like_on, comment_on: monik.comment_on } })
     if (!monitor_up) { return res }
     await Logger(`In database, updated monitor: ${monitor_up.id}-${monitor_up.name} by admin ${context.senderId}`)
-    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
+    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы настроить --> ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
     await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_up.id}-${monitor_up.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
     return res
 }
@@ -286,7 +286,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     const monitor_cr = await prisma.monitor.create({ data: { token: monik.token, id_alliance: monik.id_alliance, id_coin: monik.id_coin, name: monik.name, idvk: monik.idvk_group, starting: starting_check.status } })
     if (monitor_cr) {
         await Logger(`In database, created monitor for group ${monik.alliance} by admin ${context.senderId}`)
-        await context.send(`${ico_list['reconfig'].ico} Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}\n Чтобы его поднять на пятый этаж, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы нафиг --> ${ico_list['run'].ico} !моники_on`)
+        await context.send(`${ico_list['reconfig'].ico} Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}\n Чтобы его поднять на пятый этаж, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы настроить --> ${ico_list['run'].ico} !моники_on`)
         await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_cr.name}-${monitor_cr.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
     }
     return res
