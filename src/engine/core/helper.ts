@@ -420,43 +420,52 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number): P
     }
 
     let coin_check = false;
-    let id_builder_sent1 = 0;
+    let current_offset = 0; // Измениял название для ясности
 
     while (!coin_check) {
         const keyboard = new KeyboardBuilder();
-        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1);
+        const limiter = 5;
+        
         let event_logger = `${ico_list['money'].ico} Выберите валюту:\n\n`;
 
-        const limiter = 5;
-        let counter = 0;
-
-        for (let i = id_builder_sent1; i < coin_pass.length && counter < limiter; i++) {
+        // Выводим 5 валют, начиная с current_offset
+        for (let i = current_offset; i < Math.min(current_offset + limiter, coin_pass.length); i++) {
             const builder = coin_pass[i];
             keyboard.textButton({
-                label: `${builder.smile}-${builder.name.slice(0, 30)}`,
-                payload: { command: 'select_coin', id_builder_sent1: i, id_coin: builder.id, coin: builder.name },
+                label: `${builder.smile} ${builder.name.slice(0, 30)}`,
+                payload: { 
+                    command: 'select_coin', 
+                    id_coin: builder.id 
+                },
                 color: 'secondary'
             }).row();
 
             event_logger += `\n${ico_list['message'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}`;
-            counter++;
         }
 
-        event_logger += `\n\n${coin_pass.length > 1 ? `~~~~ ${Math.min(id_builder_sent1 + limiter, coin_pass.length)} из ${coin_pass.length} ~~~~` : ''}`;
+        event_logger += `\n\n~~~~ ${Math.min(current_offset + limiter, coin_pass.length)} из ${coin_pass.length} ~~~~`;
 
         // Навигация ← →
-        if (id_builder_sent1 > 0) {
+        if (current_offset > 0) {
             keyboard.textButton({
-                label: `${ico_list['back'].ico}`,
-                payload: { command: 'select_coin_back', id_builder_sent1 },
+                label: '←',
+                payload: { 
+                    command: 'coin_navigation', 
+                    action: 'prev', 
+                    new_offset: current_offset - limiter 
+                },
                 color: 'secondary'
             });
         }
 
-        if (id_builder_sent1 + limiter < coin_pass.length) {
+        if (current_offset + limiter < coin_pass.length) {
             keyboard.textButton({
-                label: `${ico_list['next'].ico}`,
-                payload: { command: 'select_coin_next', id_builder_sent1 },
+                label: '→',
+                payload: { 
+                    command: 'coin_navigation', 
+                    action: 'next',
+                    new_offset: current_offset + limiter 
+                },
                 color: 'secondary'
             });
         }
@@ -477,16 +486,16 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number): P
             continue;
         }
 
-        const cmd = answer.payload.command;
-        if (cmd === 'select_coin') {
+        const payload = answer.payload;
+        
+        if (payload.command === 'select_coin') {
             // Пользователь выбрал валюту
-            return answer.payload.id_coin;
-        } else if (cmd === 'select_coin_back') {
-            // Предыдущая страница
-            id_builder_sent1 = answer.payload.id_builder_sent1;
-        } else if (cmd === 'select_coin_next') {
-            // Следующая страница
-            id_builder_sent1 = answer.payload.id_builder_sent1;
+            return payload.id_coin;
+        } else if (payload.command === 'coin_navigation') {
+            // Навигация вперед/назад
+            current_offset = payload.new_offset;
+            // Продолжаем цикл, чтобы показать новую страницу
+            continue;
         }
     }
 

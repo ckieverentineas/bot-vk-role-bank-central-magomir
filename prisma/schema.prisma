@@ -197,6 +197,7 @@ model Alliance {
   Shop            AllianceShop[]
   terminology     AllianceTerminology?
   MonitorSelection MonitorSelection[]
+  classSettings   AllianceClassSetting? 
 }
 
 model AllianceCoin {
@@ -291,4 +292,18 @@ model AllianceTerminology {
   plural_genitive String   @default("факультетов")
   crdate          DateTime @default(now())
   upddate         DateTime @default(now())
+}
+
+model AllianceClassSetting {
+  id          Int      @id @default(autoincrement())
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  allianceId  Int      @unique
+  mode        String   @default("default")
+  option1     String?  @default("Ученик")
+  option2     String?  @default("Житель")
+  option3     String?  @default("Профессор")
+  option4     String?  @default("Декан")
+  option5     String?  @default("Бизнесвумен(мэн)")
+  option6     String?  @default("Другое")
+  updatedAt   DateTime @default(now())
 }

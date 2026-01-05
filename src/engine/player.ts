@@ -27,6 +27,7 @@ import { Operation_SBP } from "./events/module/tranzaction/sbp";
 import { Alliance_Coin_Converter_Editor_Printer, Alliance_Coin_Converter_Printer } from "./events/module/alliance/alliance_converter_editor";
 import { ico_list } from "./events/module/data_center/icons_lib";
 import { getTerminology } from "./events/module/alliance/terminology_helper";
+import { Alliance_Class_Settings_Printer } from "./events/module/alliance/alliance_class_settings";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
@@ -496,6 +497,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         
         await Alliance_Facult_Printer(context)
+    })
+    hearManager.hear(/⚙ !настроить положения/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        if (await Accessed(context) == 1) { return }
+        await Alliance_Class_Settings_Printer(context)
     })
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)

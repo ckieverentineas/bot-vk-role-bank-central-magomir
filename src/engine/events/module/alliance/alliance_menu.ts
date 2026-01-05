@@ -42,7 +42,8 @@ export async function Alliance_Enter_Admin(context:any) {
         if (await Accessed(context) != 1) {
             keyboard.textButton({ label: `${ico_list['config'].ico} !факультеты настроить`, color: 'secondary' })
             keyboard.textButton({ label: `${ico_list['config'].ico} !магазины настроить`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить валюты`, color: 'secondary' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить валюты`, color: 'secondary' })
+            keyboard.textButton({ label: `${ico_list['config'].ico} !настроить положения`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !настроить конвертацию`, color: 'secondary' })
             keyboard.textButton({ label: `${ico_list['config'].ico} !настроить S-coins`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()

@@ -1,6 +1,6 @@
 import { Inventory, Prisma, User } from "@prisma/client";
 import prisma from "../prisma_client";
-import { KeyboardBuilder } from "vk-io";
+import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Input_Number, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
@@ -497,7 +497,6 @@ async function Inventory_Group_Select(context: any, data: any, user: User, user_
     return res;
 }
 
-// Дарение группы предметов
 async function Inventory_Group_Present(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor, group_mode: data.group_mode };
     
@@ -535,10 +534,46 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
         return res; 
     }
 
+    // ЗАПРОС КОММЕНТАРИЯ ДЛЯ ГРУППЫ ПРЕДМЕТОВ
+    let comment = "";
+    const want_comment = await context.question(
+        `💬 Хотите добавить комментарий к подарку?`,
+        {
+            keyboard: Keyboard.builder()
+                .textButton({ label: '✅ Да', payload: { command: 'add_comment' }, color: 'positive' })
+                .textButton({ label: '❌ Нет', payload: { command: 'no_comment' }, color: 'negative' })
+                .oneTime().inline(),
+            answerTimeLimit
+        }
+    );
+    
+    if (want_comment.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
+    }
+    
+    if (want_comment.payload?.command === 'add_comment') {
+        const comment_input = await context.question(
+            `💬 Введите комментарий к подарку (максимум 200 символов):`,
+            { answerTimeLimit }
+        );
+        
+        if (comment_input.isTimeout) {
+            await context.send(`⏰ Время ожидания истекло!`);
+            return res;
+        }
+        
+        if (comment_input.text && comment_input.text.length <= 200) {
+            comment = comment_input.text;
+        } else if (comment_input.text.length > 200) {
+            await context.send(`⚠ Комментарий слишком длинный (${comment_input.text.length}/200). Комментарий не будет добавлен.`);
+        }
+    }
+
     // Подтверждение финальное
     const final_confirm: { status: boolean, text: string } = await Confirm_User_Success(
         context, 
-        `подарить ${group.count} предметов "${group.name}" игроку ${person_goten_check.name}?`
+        `подарить ${group.count} предметов "${group.name}" игроку ${person_goten_check.name}?${comment ? `\n💬 Комментарий: "${comment}"` : ''}`
     );
     
     if (!final_confirm.status) {
@@ -556,7 +591,8 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
                 where: { id: inventory_id },
                 data: { 
                     id_user: person_goten_check.id,
-                    comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
+                    comment: comment ? `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}. Комментарий: ${comment}` 
+                               : `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
                 }
             });
 
@@ -572,12 +608,12 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
     }
 
     // Отправляем уведомления
-    const result_message = `🎁 Дарение группы предметов завершено!\n\n✅ Успешно передано: ${success_count} предметов\n❌ Не удалось передать: ${failed_count} предметов\n\n📦 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id})\n🎯 Предмет: ${group.name} × ${success_count}`;
+    const result_message = `🎁 Дарение группы предметов завершено!\n\n✅ Успешно передано: ${success_count} предметов\n❌ Не удалось передать: ${failed_count} предметов\n\n📦 Получатель: ${person_goten_check.name} (UID: ${person_goten_check.id})\n🎯 Предмет: ${group.name} × ${success_count}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
 
     await context.send(result_message);
 
     // Уведомление получателю
-    const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n\nБыло передано ${success_count} предметов: ${group.name} × ${success_count}`;
+    const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n\nБыло передано ${success_count} предметов: ${group.name} × ${success_count}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
 
     await Send_Message(person_goten_check.idvk, receiver_message);
 
@@ -587,7 +623,7 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
 👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})
 🎯 Получатель: @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})
 📦 Передано предметов: ${success_count}
-🎯 Предмет: ${group.name} × ${success_count}`;
+🎯 Предмет: ${group.name} × ${success_count}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
 
     await Send_Message(chat_id, log_message);
 
@@ -818,19 +854,77 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         }
         text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
     }
+    
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить кому-то "${item?.name}" из своего инвентаря?`);
     await context.send(confirm.text);
     if (!confirm.status) return res;
+    
     const person_goten = await Input_Number(context, `Введите UID персонажа, которому будет подарено:\n ${text}`, true)
     if (!person_goten) { await context.send(`Получатель не найден`); return res }
     if (person_goten == user.id) { await context.send(`Самому себе вы можете подарить только через шопинг:)`); return res}
     const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } })
     if (!person_goten_check) { await context.send(`Такого персонажа не числится!`); return res }
-    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить "${item?.name}" ${person_goten_check.name} из своего инвентаря?`);
+    
+    // ЗАПРОС КОММЕНТАРИЯ
+    let comment = "";
+    const want_comment = await context.question(
+        `💬 Хотите добавить комментарий к подарку?`,
+        {
+            keyboard: Keyboard.builder()
+                .textButton({ label: '✅ Да', payload: { command: 'add_comment' }, color: 'positive' })
+                .textButton({ label: '❌ Нет', payload: { command: 'no_comment' }, color: 'negative' })
+                .oneTime().inline(),
+            answerTimeLimit
+        }
+    );
+    
+    if (want_comment.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
+    }
+    
+    if (want_comment.payload?.command === 'add_comment') {
+        const comment_input = await context.question(
+            `💬 Введите комментарий к подарку (максимум 200 символов):`,
+            { answerTimeLimit }
+        );
+        
+        if (comment_input.isTimeout) {
+            await context.send(`⏰ Время ожидания истекло!`);
+            return res;
+        }
+        
+        if (comment_input.text && comment_input.text.length <= 200) {
+            comment = comment_input.text;
+        } else if (comment_input.text.length > 200) {
+            await context.send(`⚠ Комментарий слишком длинный (${comment_input.text.length}/200). Комментарий не будет добавлен.`);
+        }
+    }
+    
+    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить "${item?.name}" ${person_goten_check.name} из своего инвентаря?${comment ? `\n💬 Комментарий: "${comment}"` : ''}`);
     if (!confirm_gift.status) return res;
-    const item_update = await prisma.inventory.update({ where: { id: inv.id }, data: { id_user: person_goten_check.id } });
+    
+    // ОБНОВЛЯЕМ КОММЕНТАРИЙ ПРИ ПЕРЕДАЧЕ ПРЕДМЕТА
+    const item_update = await prisma.inventory.update({ 
+        where: { id: inv.id }, 
+        data: { 
+            id_user: person_goten_check.id,
+            comment: comment ? `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}. Комментарий: ${comment}` 
+                       : `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
+        } 
+    });
+    
     if (!item_update) { return res }
-    const notif = `"<🎁>" --> передача товара "${item?.name}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+    
+    const notif = `"<🎁>" --> передача товара "${item?.name}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+    
+    // УВЕДОМЛЕНИЕ ДЛЯ ПОЛУЧАТЕЛЯ С КОММЕНТАРИЕМ
+    const receiver_message = `🎁 Вам подарен предмет от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
+        `🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n` +
+        `📦 Предмет: ${item?.name}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+    
+    await Send_Message(person_goten_check.idvk, receiver_message);
+    
     await Send_Message_Smart(context, notif, 'client_callback', person_goten_check)
     if (user_adm) { await Send_Message(user_adm.idvk, notif) }
     await Send_Message(user.idvk, notif)
@@ -1051,7 +1145,6 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
                 }
 
                 // Создаем клавиатуру для выбора предмета с пагинацией
-                // УДАЛЕНО: let item_cursor = 0; // ЭТА СТРОКА ПЕРЕЗАПИСЫВАЛА ВНЕШНЮЮ ПЕРЕМЕННУЮ
                 const itemKeyboard = new KeyboardBuilder();
                 
                 // Показываем предметы для текущей страницы (по 6 на страницу)
@@ -1432,6 +1525,42 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
         return res;
     }
 
+    // ЗАПРОС КОММЕНТАРИЯ ДЛЯ МАССОВОГО ДАРЕНИЯ
+    let mass_comment = "";
+    const want_mass_comment = await context.question(
+        `💬 Хотите добавить комментарий к массовому подарку?`,
+        {
+            keyboard: Keyboard.builder()
+                .textButton({ label: '✅ Да', payload: { command: 'add_comment' }, color: 'positive' })
+                .textButton({ label: '❌ Нет', payload: { command: 'no_comment' }, color: 'negative' })
+                .oneTime().inline(),
+            answerTimeLimit
+        }
+    );
+    
+    if (want_mass_comment.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
+    }
+    
+    if (want_mass_comment.payload?.command === 'add_comment') {
+        const comment_input = await context.question(
+            `💬 Введите комментарий к массовому подарку (максимум 200 символов):`,
+            { answerTimeLimit }
+        );
+        
+        if (comment_input.isTimeout) {
+            await context.send(`⏰ Время ожидания истекло!`);
+            return res;
+        }
+        
+        if (comment_input.text && comment_input.text.length <= 200) {
+            mass_comment = comment_input.text;
+        } else if (comment_input.text.length > 200) {
+            await context.send(`⚠ Комментарий слишком длинный (${comment_input.text.length}/200). Комментарий не будет добавлен.`);
+        }
+    }
+
     // Выполняем массовое дарение
     let total_success_count = 0;
     let total_failed_count = 0;
@@ -1441,7 +1570,8 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
     const recipientNotifications: { [key: number]: { 
         recipient: User, 
         items: { [item_name: string]: number },
-        total_count: number 
+        total_count: number,
+        comment?: string // ДОБАВИМ ВОЗМОЖНОСТЬ КОММЕНТАРИЯ
     } } = {};
 
     for (const operation of operations) {
@@ -1457,7 +1587,8 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
             recipientNotifications[operation.recipient_id] = {
                 recipient: recipient,
                 items: {},
-                total_count: 0
+                total_count: 0,
+                comment: mass_comment // ПЕРЕДАЕМ КОММЕНТАРИЙ
             };
         }
 
@@ -1507,11 +1638,12 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
                 
                 const itemName = itemInfo?.name || operation.item_name || 'Неизвестный предмет';
 
+                // ОБНОВЛЯЕМ С УЧЕТОМ КОММЕНТАРИЯ
                 const updated_item = await prisma.inventory.update({
                     where: { id: inv.id },
                     data: { 
                         id_user: recipient.id,
-                        comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}`
+                        comment: `Подарок от ${user.name}${user_adm ? ` (через ${user_adm.name})` : ''}${mass_comment ? `. Комментарий: ${mass_comment}` : ''}`
                     }
                 });
 
@@ -1530,7 +1662,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
                     }
                     recipientResults[operation.recipient_id].items[itemName]++;
                     
-                    await Logger(`Массовое дарение: ${user.name} -> ${recipient.name}, предмет: ${itemName}`);
+                    await Logger(`Массовое дарение: ${user.name} -> ${recipient.name}, предмет: ${itemName}${mass_comment ? `, комментарий: ${mass_comment}` : ''}`);
                 } else {
                     failed_count++;
                 }
@@ -1558,7 +1690,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
             const receiver_message = `🎁 Вам подарены предметы от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
                 `🎯 Получено персонажем: ${notification.recipient.name} (UID: ${notification.recipient.id})\n\n` +
                 `📦 Получено предметов: ${notification.total_count}\n` +
-                `🎁 Список: ${itemSummary}`;
+                `🎁 Список: ${itemSummary}${notification.comment ? `\n💬 Комментарий: "${notification.comment}"` : ''}`;
 
             await Send_Message(notification.recipient.idvk, receiver_message);
         }
@@ -1567,7 +1699,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
     // Формируем итоговое сообщение
     let result_message = `🎁 Массовое дарение завершено!\n\n` +
         `✅ Успешно передано: ${total_success_count} предметов\n` +
-        `❌ Не удалось передать: ${total_failed_count} предметов\n\n`;
+        `❌ Не удалось передать: ${total_failed_count} предметов${mass_comment ? `\n💬 Комментарий: "${mass_comment}"` : ''}\n\n`;
 
     if (isMultipleMode) {
         result_message += `📊 Результаты по получателям:\n`;
@@ -1591,7 +1723,7 @@ async function Inventory_Mass_Present(context: any, data: any, user: User, user_
             `👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
             `📦 Передано предметов: ${total_success_count}\n` +
             `📝 Режим: ${mode === 'by_ids' ? 'По ID предметов' : 'По типу и количеству'}\n` +
-            `👥 Тип: ${isMultipleMode ? 'Нескольким персонажам' : 'Одному персонажу'}`;
+            `👥 Тип: ${isMultipleMode ? 'Нескольким персонажам' : 'Одному персонажу'}${mass_comment ? `\n💬 Комментарий: "${mass_comment}"` : ''}`;
 
         // Добавляем информацию о получателях
         if (isMultipleMode) {

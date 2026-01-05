@@ -5,6 +5,8 @@ import { Accessed, Fixed_Number_To_Five, Logger, Send_Message } from "../../../c
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Ipnut_Gold } from "./operation_global"
 import { getTerminology } from "../alliance/terminology_helper"
+import { getClassOptions, getClassSettings } from "../alliance/alliance_class_settings"
+import { ico_list } from "../data_center/icons_lib"
 
 //Модуль редактирования персонажей
 export async function Editor(id: number, context: any, user_adm: User) {
@@ -74,28 +76,98 @@ async function Edit_Name(id: number, context: any, user_adm: User){
 }
 async function Edit_Class(id: number, context: any, user_adm: User){
     const user: any = await prisma.user.findFirst({ where: { id: id } })
-    let answer_check = false
+    if (!user) { return }
+    
     const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user.id_alliance) } })
     const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
-    while (answer_check == false) {
-        const answer1: any = await context.question(`🧷 Укажите положение в ${alli_sel} для ${user.name}, имеющего текущий статус: ${user.class}. `,
-            {
-                keyboard: Keyboard.builder()
-                .textButton({ label: 'Ученик', payload: { command: 'student' }, color: 'secondary' })
-                .textButton({ label: 'Житель', payload: { command: 'citizen' }, color: 'secondary' }).row()
-                .textButton({ label: 'Профессор', payload: { command: 'professor' }, color: 'secondary' })
-                .textButton({ label: 'Декан', payload: { command: 'professor' }, color: 'secondary' }).row()
-                .textButton({ label: 'Бизнесвумен(мэн)', payload: { command: 'professor' }, color: 'secondary' })
-                .textButton({ label: 'Другое', payload: { command: 'citizen' }, color: 'secondary' })
-                .oneTime().inline(),
-                answerTimeLimit
+    
+    // Проверяем, состоит ли персонаж в альянсе
+    if (!user.id_alliance || user.id_alliance <= 0) {
+        // Для персонажей не в альянсе используем стандартные опции
+        const options = ['Ученик', 'Житель', 'Профессор', 'Декан', 'Бизнесвумен(мэн)', 'Другое'];
+        let answer_check = false;
+        
+        while (answer_check == false) {
+            const keyboard = new KeyboardBuilder();
+            
+            // Создаем клавиатуру из стандартных опций
+            for (let i = 0; i < options.length; i += 2) {
+                keyboard.textButton({ 
+                    label: options[i], 
+                    payload: { command: 'select_class', class: options[i] }, 
+                    color: 'secondary' 
+                });
+                
+                if (options[i + 1]) {
+                    keyboard.textButton({ 
+                        label: options[i + 1], 
+                        payload: { command: 'select_class', class: options[i + 1] }, 
+                        color: 'secondary' 
+                    });
+                }
+                
+                if (i + 2 < options.length) {
+                    keyboard.row();
+                }
             }
-        )
-        if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания на изменение положения для ${user.name} истекло!`) }
-        if (!answer1.payload) {
-            await context.send(`💡 Жмите только по кнопкам с иконками!`)
-        } else {
-            const update_class = await prisma.user.update({ where: { id: user.id }, data: { class: answer1.text } })
+            
+            const answer1: any = await context.question(
+                `🧷 Укажите положение в ${alli_sel} для ${user.name}, имеющего текущий статус: ${user.class}.`,
+                { keyboard: keyboard.inline(), answerTimeLimit }
+            )
+            
+            if (answer1.isTimeout) { 
+                return await context.send(`⏰ Время ожидания на изменение положения для ${user.name} истекло!`) 
+            }
+            
+            if (!answer1.payload) {
+                await context.send(`💡 Жмите только по кнопкам с иконками!`)
+            } else {
+                const update_class = await prisma.user.update({ 
+                    where: { id: user.id }, 
+                    data: { class: answer1.payload.class } 
+                })
+                
+                if (update_class) {
+                    await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
+                    const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
+                    !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
+                    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                    const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
+                    if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
+                    await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
+                }
+                answer_check = true
+            }
+        }
+    } else {
+        // Для персонажей в альянсе используем настройки альянса
+        const settings = await getClassSettings(user.id_alliance);
+        
+        if (settings.mode === 'free') {
+            // Режим произвольного ввода
+            const answer1: any = await context.question(
+                `🧷 Укажите положение в ${alli_sel} для ${user.name} (текущее: ${user.class}).\n${ico_list['help'].ico} Введите новое положение:`, 
+                timer_text
+            )
+            
+            if (answer1.isTimeout) { 
+                return await context.send(`⏰ Время ожидания на изменение положения для ${user.name} истекло!`) 
+            }
+            
+            if (!answer1.text || answer1.text.trim() === '') {
+                return await context.send(`⛔ Положение не может быть пустым!`)
+            }
+            
+            if (answer1.text.length > 32) {
+                return await context.send(`⛔ Название положения слишком длинное (максимум 32 символа)!`)
+            }
+            
+            const update_class = await prisma.user.update({ 
+                where: { id: user.id }, 
+                data: { class: answer1.text } 
+            })
+            
             if (update_class) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
                 const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
@@ -105,7 +177,71 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
             }
-            answer_check = true
+        } else {
+            // Режим с кнопками (default или custom)
+            const options = await getClassOptions(user.id_alliance);
+            
+            if (options.length === 0) {
+                return await context.send(`${ico_list['warn'].ico} Для альянса "${alli_sel}" не настроены опции положений!`);
+            }
+            
+            let answer_check = false;
+            
+            while (answer_check == false) {
+                const keyboard = new KeyboardBuilder();
+                
+                // Создаем клавиатуру из настроек
+                for (let i = 0; i < options.length; i += 2) {
+                    if (options[i]) {
+                        keyboard.textButton({ 
+                            label: options[i], 
+                            payload: { command: 'select_class', class: options[i] }, 
+                            color: 'secondary' 
+                        });
+                    }
+                    
+                    if (options[i + 1]) {
+                        keyboard.textButton({ 
+                            label: options[i + 1], 
+                            payload: { command: 'select_class', class: options[i + 1] }, 
+                            color: 'secondary' 
+                        });
+                    }
+                    
+                    if (i + 2 < options.length) {
+                        keyboard.row();
+                    }
+                }
+                
+                const answer1: any = await context.question(
+                    `🧷 Укажите положение в ${alli_sel} для ${user.name}, имеющего текущий статус: ${user.class}.`,
+                    { keyboard: keyboard.inline(), answerTimeLimit }
+                )
+                
+                if (answer1.isTimeout) { 
+                    return await context.send(`⏰ Время ожидания на изменение положения для ${user.name} истекло!`) 
+                }
+                
+                if (!answer1.payload) {
+                    await context.send(`💡 Жмите только по кнопкам с иконками!`)
+                } else {
+                    const update_class = await prisma.user.update({ 
+                        where: { id: user.id }, 
+                        data: { class: answer1.payload.class } 
+                    })
+                    
+                    if (update_class) {
+                        await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
+                        const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} on ${update_class.class}.`)
+                        !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
+                        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                        const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
+                        if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
+                        await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
+                    }
+                    answer_check = true
+                }
+            }
         }
     }
 }
