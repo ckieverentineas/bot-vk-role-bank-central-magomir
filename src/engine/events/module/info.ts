@@ -118,23 +118,92 @@ export async function Card_Enter(context:any) {
 }
 
 export async function Admin_Enter(context: any) {
-    const attached = image_admin//await Image_Random(context, "admin")
-    const user: User | null | undefined = await Person_Get(context)
-    if (!user) { return }
-    let puller = '🏦 Полный спектр рабов... \n'
-    if (await Accessed(context) != 1) {
-        const admar = await prisma.role.findFirst({ where: { name: `root` } })
-        const usersr = await prisma.user.findMany({ where: { id_role: admar?.id } })
-        for (const i in usersr) { puller += `\n😎 ${usersr[i].id} - @id${usersr[i].idvk}(${usersr[i].name})` }
-        const adma = await prisma.role.findFirst({ where: { name: `admin` } })
-        const users = await prisma.user.findMany({ where: { id_role: adma?.id } })
-        for (const i in users) { puller += `\n👤 ${users[i].id} - @id${users[i].idvk}(${users[i].name})` }
-    } else {
-        puller += `\n🚫 Доступ запрещен\n`
+    const attached = image_admin;
+    const user: User | null | undefined = await Person_Get(context);
+    
+    if (!user) { return; }
+    
+    let puller = '🏦 Полный спектр рабов... \n';
+    const keyboard = new KeyboardBuilder();
+    
+    // Получаем роль текущего пользователя
+    const currentUserRole = await prisma.role.findUnique({
+        where: { id: user.id_role }
+    });
+    
+    // Проверяем, является ли пользователь root или superadmin
+    const isRootOrSuperadmin = currentUserRole?.name === 'root' || 
+                                currentUserRole?.name === 'superadmin';
+    
+    // Если пользователь root или superadmin - показываем всех администраторов
+    if (isRootOrSuperadmin) {
+        // Получаем root администраторов
+        const rootRole = await prisma.role.findFirst({ where: { name: 'root' } });
+        const rootUsers = rootRole ? await prisma.user.findMany({ 
+            where: { id_role: rootRole.id } 
+        }) : [];
+        
+        for (const rootUser of rootUsers) {
+            puller += `\n😎 ${rootUser.id} - @id${rootUser.idvk}(${rootUser.name})`;
+        }
+        
+        // Получаем superadmin администраторов
+        const superadminRole = await prisma.role.findFirst({ where: { name: 'superadmin' } });
+        const superadminUsers = superadminRole ? await prisma.user.findMany({ 
+            where: { id_role: superadminRole.id } 
+        }) : [];
+        
+        for (const superadminUser of superadminUsers) {
+            puller += `\n😎 ${superadminUser.id} - @id${superadminUser.idvk}(${superadminUser.name})`;
+        }
+        
+        // Получаем admin администраторов
+        const adminRole = await prisma.role.findFirst({ where: { name: 'admin' } });
+        const adminUsers = adminRole ? await prisma.user.findMany({ 
+            where: { id_role: adminRole.id } 
+        }) : [];
+        
+        for (const adminUser of adminUsers) {
+            puller += `\n👤 ${adminUser.id} - @id${adminUser.idvk}(${adminUser.name})`;
+        }
+    } 
+    // Если пользователь просто admin - показываем только админов из его альянса
+    else if (currentUserRole?.name === 'admin' && user.id_alliance && user.id_alliance > 0) {
+        puller += `\n👥 Администраторы вашего альянса:\n`;
+        
+        const adminRole = await prisma.role.findFirst({ where: { name: 'admin' } });
+        if (adminRole) {
+            const allianceAdmins = await prisma.user.findMany({ 
+                where: { 
+                    id_role: adminRole.id,
+                    id_alliance: user.id_alliance
+                } 
+            });
+            
+            if (allianceAdmins.length > 0) {
+                for (const adminUser of allianceAdmins) {
+                    puller += `\n👤 ${adminUser.id} - @id${adminUser.idvk}(${adminUser.name})`;
+                }
+            } else {
+                puller += `\n📭 В вашем альянсе нет других администраторов`;
+            }
+        }
+    } 
+    // Для всех остальных - доступ запрещен
+    else {
+        puller += `\n🚫 Доступ запрещен\n`;
+        
+        // Если пользователь admin, но не в альянсе
+        if (currentUserRole?.name === 'admin' && (!user.id_alliance || user.id_alliance <= 0)) {
+            puller += `\nℹ Вы являетесь администратором, но не состоите в альянсе.\nПрисоединитесь к альянсу, чтобы увидеть список администраторов.`;
+        }
     }
-    const keyboard = new KeyboardBuilder().callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await Send_Message(context.peerId, puller, keyboard, attached)
-    await Logger(`In a private chat, the list administrators is viewed by admin ${user.idvk}`)
+    
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime();
+    
+    await Send_Message(context.peerId, puller, keyboard, attached);
+    await Logger(`In a private chat, the list administrators is viewed by ${currentUserRole?.name} ${user.idvk}`);
+    
     await vk?.api.messages.sendMessageEventAnswer({
         event_id: context.eventId,
         user_id: context.userId,
@@ -143,7 +212,7 @@ export async function Admin_Enter(context: any) {
             type: "show_snackbar",
             text: `🔔 Им бы еще черные очки, и точно люди в черном!`
         })
-    })
+    });
 }
 
 export async function Statistics_Enter(context: any) {
