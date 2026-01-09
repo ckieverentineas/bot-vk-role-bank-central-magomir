@@ -263,7 +263,7 @@ export async function Person_Register(context: any) {
         const accusative = await getTerminology(person.id_alliance || 0, 'accusative');
         const spec_name = await Input_Text(context, 
             `Укажите вашу специализацию в [${person.alliance}]. Если вы профессор/житель, введите должность (не ${accusative}) и т.п. ...\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 
-            64
+            150
         );
         
         if (!spec_name) { return }

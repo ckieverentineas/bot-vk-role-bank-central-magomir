@@ -96,7 +96,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
     const selectedCoinId = await Select_Alliance_Coin(context, Number(alli_shop.id_alliance));
     const id_coin = selectedCoinId
-    const newPrice = await Input_Number(context, `Введите цену для товара "${name}"`, true)
+    const newPrice = await Input_Number(context, `Введите цену для товара "${name_loc}"`, true)
     if (!newPrice) { return res }
 
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным?`);

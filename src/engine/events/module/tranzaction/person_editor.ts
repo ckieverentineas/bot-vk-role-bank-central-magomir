@@ -254,7 +254,7 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
     while (spec_check == false) {
         const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не ${accusative}. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
         if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
-        if (spec.text.length <= 32) {
+        if (spec.text.length <= 150) {
             spec_check = true
             const update_spec = await prisma.user.update({ where: { id: user.id }, data: { spec: spec.text } })
             if (update_spec) {
