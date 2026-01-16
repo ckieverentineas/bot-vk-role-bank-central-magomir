@@ -881,6 +881,7 @@ async function determineTargetUser(
     senderUserId: number,
     allianceId: number
 ): Promise<{ user: any, uidSpecified: boolean, specifiedUid: number | null }> {
+    //console.log(`🔍 Определение пользователя: senderUserId=${senderUserId}, allianceId=${allianceId}`);
     
     // 1. Получаем аккаунт отправителя по VK ID
     const account = await prisma.account.findFirst({
@@ -888,13 +889,18 @@ async function determineTargetUser(
     });
     
     if (!account) {
+        //console.log(`❌ Аккаунт VK ID ${senderUserId} не найден`);
         throw new Error(`Аккаунт VK ID ${senderUserId} не найден`);
     }
+    
+    //console.log(`✅ Аккаунт найден: ID=${account.id}, VK ID=${account.idvk}`);
     
     // 2. Пытаемся извлечь UID из текста поста
     const extractedUid = extractTargetUidFromText(text);
     
     if (extractedUid) {
+        //console.log(`📝 Найден UID в тексте: #${extractedUid}`);
+        
         // Проверяем, существует ли пользователь с таким UID в альянсе
         const specifiedUser = await prisma.user.findFirst({
             where: { 
@@ -906,31 +912,39 @@ async function determineTargetUser(
         if (specifiedUser) {
             // Проверяем, принадлежит ли указанный пользователь тому же аккаунту
             if (specifiedUser.id_account === account.id) {
+                //console.log(`✅ Указанный UID ${extractedUid} принадлежит аккаунту ${account.id}. Используем его.`);
                 return {
                     user: specifiedUser,
                     uidSpecified: true,
                     specifiedUid: extractedUid
                 };
             } else {
+                //console.log(`⚠️ Указанный UID ${extractedUid} принадлежит другому аккаунту. Начисление по умолчанию.`);
                 await Logger(`⚠️ Пользователь ${account.idvk} попытался указать чужой UID ${extractedUid}. Начисление по умолчанию.`);
             }
         } else {
+            //console.log(`⚠️ Указанный UID ${extractedUid} не найден в альянсе ${allianceId}. Начисление по умолчанию.`);
             await Logger(`⚠️ Указанный UID ${extractedUid} не найден в альянсе ${allianceId}. Начисление по умолчанию.`);
         }
     }
     
     // 3. По умолчанию: получаем выбранного персонажа для мониторов в этом альянсе
+    //console.log(`🔍 Получаем выбранного персонажа для accountId=${account.id}, allianceId=${allianceId}`);
     const selectedUser = await GetSelectedPersonForAlliance(account.id, allianceId);
     
     if (selectedUser) {
+        //console.log(`✅ Найден выбранный персонаж для мониторов: UID=${selectedUser.id}, Name=${selectedUser.name}`);
         return {
             user: selectedUser,
             uidSpecified: false,
             specifiedUid: null
         };
+    } else {
+        //console.log(`⚠️ Нет выбранного персонажа для мониторов для accountId=${account.id}, allianceId=${allianceId}`);
     }
     
     // 4. Если нет явного выбора, ищем пользователя по VK ID (обратная совместимость)
+    //console.log(`🔍 Ищем пользователя по VK ID ${senderUserId} в альянсе ${allianceId}`);
     const senderUser = await prisma.user.findFirst({
         where: { 
             idvk: senderUserId,
@@ -939,6 +953,7 @@ async function determineTargetUser(
     });
     
     if (senderUser) {
+        //console.log(`✅ Найден пользователь по VK ID: UID=${senderUser.id}, Name=${senderUser.name}`);
         return {
             user: senderUser,
             uidSpecified: false,
@@ -947,6 +962,7 @@ async function determineTargetUser(
     }
     
     // 5. Последняя попытка: берем любого персонажа аккаунта в альянсе
+    //console.log(`🔍 Ищем любого персонажа аккаунта ${account.id} в альянсе ${allianceId}`);
     const anyUserInAlliance = await prisma.user.findFirst({
         where: { 
             id_account: account.id,
@@ -955,6 +971,7 @@ async function determineTargetUser(
     });
     
     if (anyUserInAlliance) {
+        //console.log(`✅ Найден персонаж аккаунта в альянсе: UID=${anyUserInAlliance.id}, Name=${anyUserInAlliance.name}`);
         return {
             user: anyUserInAlliance,
             uidSpecified: false,
@@ -962,6 +979,7 @@ async function determineTargetUser(
         };
     }
     
+    //console.log(`❌ Не удалось определить пользователя для начисления`);
     throw new Error(`Не удалось определить пользователя для начисления`);
 }
 
@@ -984,9 +1002,12 @@ function extractTargetUidFromText(text: string): number | null {
 // Обработчик новых постов в обсуждениях
 export async function handleTopicPost(context: BoardPostContext, monitor: any, action: 'new' | 'edit' | 'delete' | 'restore') {
     try {
+        //console.log(`\n🎯 Обработка поста: action=${action}, postId=${context.id}, topicId=${context.topicId}, fromId=${context.fromId}`);
+
         // ДОБАВЛЕНО: Защита от повторной обработки
         const processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
         if (processingPosts.has(processingKey)) {
+            //console.log(`⏸️  Пропуск: пост ${context.id} уже обрабатывается`);
             return;
         }
         
@@ -999,12 +1020,14 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
 
         // Проверяем, есть ли текст (для delete может не быть)
         if ((action === 'new' || action === 'edit' || action === 'restore') && !context.text) {
+            //console.log(`⚠ Пропуск: нет текста для действия ${action}`);
             processingPosts.delete(processingKey);
             return;
         }
 
         // Проверяем, что это не бот (для delete ищем пользователя в БД)
         if (action !== 'delete' && (!context.fromId || context.fromId <= 0)) {
+            //console.log(`⚠ Пропуск: невалидный fromId ${context.fromId}`);
             processingPosts.delete(processingKey);
             return;
         }
@@ -1021,12 +1044,16 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         });
 
         if (!topicMonitor) {
+            //console.log(`⚠ Пропуск: обсуждение ${topicId} не отслеживается монитором ${monitor.id}`);
             processingPosts.delete(processingKey);
             return;
         }
 
+        //console.log(`✅ Найдено отслеживание: "${topicMonitor.name}" для поста ${context.id}, действие: ${action}`);
+
         // Для удаления - удаляем статистику и отменяем награды
         if (action === 'delete') {
+            //console.log(`🗑️ Удаление поста ${context.id} из статистики`);
             await handlePostDeletion(topicMonitor, context.id, monitor, context.fromId, context.topicId);
             processingPosts.delete(processingKey);
             return;
@@ -1034,6 +1061,7 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
 
         // Проверяем, что есть fromId для new/edit/restore
         if (!context.fromId || context.fromId <= 0) {
+            //console.log(`⚠ Пропуск: нет fromId для действия ${action}`);
             processingPosts.delete(processingKey);
             return;
         }
@@ -1046,15 +1074,24 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         );
         
         if (!targetUser) {
+            //console.log(`⚠ Пользователь не найден для начисления`);
             processingPosts.delete(processingKey);
             return;
+        }
+
+        if (uidSpecified && specifiedUid) {
+            //console.log(`🎯 Начисление по указанному UID: ${specifiedUid} (отправитель: ${context.fromId})`);
+        } else {
+            //console.log(`🎯 Начисление по умолчанию: UID:${targetUser.id} (${targetUser.name})`);
         }
 
         // Рассчитываем статистику поста
         const text = context.text || '';
         const stats = calculatePostStats(text);
-        const displayPc = getPcLinesForDisplay(stats.pc);
-        const checkPcLines = getPcLinesForCheck(stats.pc);
+        const displayPc = getPcLinesForDisplay(stats.pc); // Для отображения
+        const checkPcLines = getPcLinesForCheck(stats.pc); // Для проверки
+
+        //console.log(`📊 Статистика поста: ${stats.words} слов, ${stats.characters} символов, PC=${displayPc}, checkPcLines=${checkPcLines}`);
 
         // Проверяем существующую запись для редактирования/восстановления
         const existingStat = await prisma.postStatistic.findFirst({
@@ -1084,13 +1121,21 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             userChanged = false;
 
             if (existingStat && oldUser) {
+                // Сравниваем не только ID, но и имя, и другие параметры
                 userChanged = !(
                     oldUser.id === targetUser.id && 
                     oldUser.name === targetUser.name &&
                     oldUser.idvk === targetUser.idvk &&
                     oldUser.id_alliance === targetUser.id_alliance
                 );
+                
+                // ДОБАВЛЕНО: Дополнительная проверка на случай некорректных данных
+                if (userChanged && oldUser.id === targetUser.id) {
+                    //console.log(`⚠️  userChanged=true, но ID пользователей одинаковые. Исправляем.`);
+                    userChanged = false;
+                }
             }
+            //console.log(`🔄 Сравнение пользователей: было UID:${existingStat.userId} (${oldUser?.name}), стало UID:${targetUser.id} (${targetUser.name}), изменился: ${userChanged}`);
         }
 
         // Проверяем минимальный объем (ПК строки)
@@ -1098,21 +1143,32 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         const hasMinPcLines = minPcLines > 0;
         const belowMinPcLines = hasMinPcLines && checkPcLines < minPcLines;
 
+        //console.log(`📏 Минималка: ${minPcLines} ПК строк, текущий объем: ${checkPcLines}, ниже минималки: ${belowMinPcLines}`);
+
+        // === ВАЖНО: НОВАЯ ЛОГИКА ===
         // Сначала обрабатываем СТАРОГО пользователя (если изменился)
         if (userChanged && existingStat && oldUser && oldUser.id !== targetUser.id) {
+            //console.log(`🔄 Обработка смены пользователя: с ${oldUser.name} (${oldTargetUserId}) на ${targetUser.name} (${targetUser.id})`);
             
             // 1. Снимаем награду со старого пользователя (если была)
             if (existingStat.rewardGiven && existingStat.rewardAmount && existingStat.rewardAmount > 0) {
+                //console.log(`💰 Снимаем награду ${existingStat.rewardAmount} со старого пользователя ${oldUser.name}`);
+                
                 // Снимаем награду у старого пользователя
                 await deductRewardFromUser(oldUser, existingStat.rewardAmount, monitor, topicMonitor, context);
                 
                 // Уведомляем старого пользователя о переводе
                 await notifyUserOfRewardTransfer(oldUser, targetUser, topicMonitor, monitor, context, existingStat.rewardAmount);
+            } else {
+                //console.log(`ℹ️ У старого пользователя ${oldUser.name} не было награды для снятия`);
             }
             
             // 2. Обрабатываем нового пользователя (с учетом объема)
+            //console.log(`🎯 Обработка нового пользователя ${targetUser.name}`);
+            
             // Проверяем объем для нового пользователя
             if (belowMinPcLines) {
+                //console.log(`⚠ Новый пост ниже минималки (${checkPcLines} < ${minPcLines}), награда НЕ начисляется`);
                 // Просто сохраняем статистику без награды
                 await savePostStats(topicMonitor, targetUser, context, stats, action, false, 0);
                 
@@ -1131,6 +1187,8 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                 const newRewardAmount = calculateReward(topicMonitor, stats.characters);
                 
                 if (newRewardAmount > 0) {
+                    //console.log(`💰 Начисляем награду ${newRewardAmount} новому пользователю ${targetUser.name}`);
+                    
                     // Начисляем награду новому пользователю
                     await addRewardToUser(targetUser, newRewardAmount, monitor, topicMonitor, context);
                     
@@ -1147,6 +1205,7 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                     return;
                 } else {
                     // Награда 0 (ниже rewardMinLines)
+                    //console.log(`ℹ️ Объем достаточный, но награда 0 (ниже rewardMinLines)`);
                     await savePostStats(topicMonitor, targetUser, context, stats, action, false, 0);
                     
                     // Уведомление о посте без награды
@@ -1162,10 +1221,16 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         
         // Если пользователь НЕ менялся
         if (!userChanged) {
+            //console.log(`👤 Пользователь не изменился: ${targetUser.name}`);
+            
             // Проверяем объем
             if (belowMinPcLines) {
+                //console.log(`⚠ Пост ниже минималки (${checkPcLines} < ${minPcLines})`);
+                
                 if (existingStat && existingStat.rewardGiven && existingStat.rewardAmount && existingStat.rewardAmount > 0) {
                     // Была награда - снимаем
+                    //console.log(`📉 Была награда ${existingStat.rewardAmount}, снимаем`);
+                    
                     // Проверяем, что action подходит для handleRewardReduction
                     if (action === 'edit' || action === 'restore') {
                         await handleRewardReduction(
@@ -1182,6 +1247,7 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                         );
                     } else {
                         // Для 'new' используем другую логику
+                        //console.log(`ℹ️ Новый пост ниже минималки, награда не начислена`);
                         await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid);
                     }
                 } else {
@@ -1214,13 +1280,15 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             });
             const currentBalanceAmount = currentBalance?.amount || 0;
             
+            //console.log(`💰 Расчет награды: старая=${oldReward}, новая=${newRewardAmount}, изменение=${rewardChange}, текущий баланс=${currentBalanceAmount}`);
+            
             if (action === 'edit' || action === 'restore') {
                 // Обрабатываем изменение награды при редактировании
                 await handlePostRewardsAndNotifications(
                     topicMonitor, targetUser, context, stats, displayPc, monitor, action, 
                     existingStat?.rewardAmount || 0, oldDisplayPc, newRewardAmount,
                     uidSpecified, specifiedUid, false, oldTargetUserId,
-                    currentBalanceAmount
+                    currentBalanceAmount // Передаем текущий баланс
                 );
             } else if (action === 'new') {
                 // Новый пост
@@ -1234,6 +1302,7 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             }
         }
 
+        //console.log(`✅ Пост ${context.id} успешно обработан (${action})\n`);
         processingPosts.delete(processingKey);
 
     } catch (error) {
@@ -1253,6 +1322,7 @@ const processingPosts = new Map<string, number>();
 
 // Снять награду у пользователя
 async function deductRewardFromUser(user: any, amount: number, monitor: any, topicMonitor: any, context: BoardPostContext) {
+    // ИСПРАВЛЕНО: Используем валюту обсуждений, если она задана
     const coinId = monitor.id_topic_coin ?? monitor.id_coin;
     const balance = await prisma.balanceCoin.findFirst({ 
         where: { id_coin: coinId ?? 0, id_user: user.id } 
@@ -1288,6 +1358,7 @@ async function deductRewardFromUser(user: any, amount: number, monitor: any, top
 
 // Добавить награду пользователю
 async function addRewardToUser(user: any, amount: number, monitor: any, topicMonitor: any, context: BoardPostContext) {
+    // ИСПРАВЛЕНО: Используем валюту обсуждений, если она задана
     const coinId = monitor.id_topic_coin ?? monitor.id_coin;
     const balance = await prisma.balanceCoin.findFirst({ 
         where: { id_coin: coinId ?? 0, id_user: user.id } 
@@ -1362,7 +1433,7 @@ async function notifyUserOfRewardTransfer(oldUser: any, newUser: any, topicMonit
     }
 }
 
-// Уведомить пользователя о редактировании с переводе
+// Уведомить пользователя о редактировании с переводом
 async function notifyUserOfEditWithTransfer(user: any, topicMonitor: any, monitor: any, context: BoardPostContext, stats: any, displayPc: number, amount: number, uidSpecified: boolean, specifiedUid: number | null) {
     const account = await prisma.account.findFirst({ 
         where: { idvk: user.idvk } 
@@ -1563,6 +1634,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     }
 
     if (!user) {
+        //console.log(`⚠ Пользователь не найден для поста ${postId}`);
         // Если была статистика, удаляем ее
         if (postStat) {
             await prisma.postStatistic.delete({
@@ -1585,6 +1657,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
     
     if (!balance || !coin) {
+        //console.log(`⚠ Баланс не найден для пользователя ${user.name}`);
         // Все равно удаляем статистику если она была
         if (postStat) {
             await prisma.postStatistic.delete({
@@ -1606,6 +1679,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     if (postStat && postStat.rewardGiven && postStat.rewardAmount && postStat.rewardAmount > 0) {
         // Если была награда - снимаем ее
         rewardAmount = postStat.rewardAmount;
+        //console.log(`💰 Снятие награды за удаленный пост: ${rewardAmount}`);
         
         newBalance = balance.amount - rewardAmount;
         
@@ -1671,6 +1745,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
                 }
             }
         });
+        //console.log(`🗑️ Статистика поста ${postId} удалена`);
     }
     
     // Отправляем уведомление если пользователь найден и включены уведомления ОБСУЖДЕНИЙ
@@ -1681,6 +1756,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     if (account && user.notification_topic) {
         try {
             await Send_Message(account.idvk, message);
+            //console.log(`📨 Уведомление об удалении отправлено пользователю ${user.name}`);
         } catch (error) {
             console.error(`❌ Ошибка отправки уведомления об удаления: ${error}`);
         }
@@ -1775,6 +1851,7 @@ async function handleRewardReduction(
         
         try {
             await Send_Message(account.idvk, message);
+            //console.log(`📨 Уведомление о снятии награды отправлено пользователю ${user.name}`);
         } catch (error) {
             console.error(`❌ Ошибка отправки уведомления: ${error}`);
         }
@@ -1798,6 +1875,7 @@ async function sendBelowMinNotification(
     });
     
     if (!account || !targetUser.notification_topic) {
+        //console.log(`⚠ Уведомления об обсуждениях отключены для пользователя ${targetUser.name}`);
         return;
     }
     
@@ -1881,6 +1959,7 @@ async function sendBelowMinNotification(
     
     try {
         await Send_Message(account.idvk, message);
+        //console.log(`📨 Уведомление о посте ниже минималки отправлено пользователю ${targetUser.name}`);
     } catch (error) {
         console.error(`❌ Ошибка отправки уведомления: ${error}`);
     }
@@ -1895,7 +1974,7 @@ async function handlePostRewardsAndNotifications(
     specifiedUid: number | null = null,
     rewardTransferNeeded: boolean = false,
     oldTargetUserId: number | null = null,
-    currentBalanceAmount: number = 0
+    currentBalanceAmount: number = 0 // ДОБАВЛЕНО: текущий баланс перед изменениями
 ) {
     try {
         const account = await prisma.account.findFirst({ 
@@ -1907,7 +1986,7 @@ async function handlePostRewardsAndNotifications(
         const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
         
         if (!coin) {
-            console.log(`⚠ Валюта не найдена для монитора ${monitor.id}`);
+            //console.log(`⚠ Валюта не найдена для монитора ${monitor.id}`);
             return;
         }
         
@@ -1919,6 +1998,8 @@ async function handlePostRewardsAndNotifications(
             });
             userBalance = balanceRecord?.amount || 0;
         }
+        
+        //console.log(`🎯 Обработка наград: действие=${action}, старая награда=${oldReward}, новая награда=${newRewardAmount}, текущий баланс=${userBalance}`);
         
         let message = '';
         let rewardChange = 0;
@@ -1985,11 +2066,12 @@ async function handlePostRewardsAndNotifications(
             
             if (rewardTransferNeeded) {
                 // Особый случай: награда переведена от другого персонажа
+                //console.log(`🔄 Обработка перевода награды от другого персонажа`);
                 
                 if (oldReward > 0 && newRewardAmount > 0) {
                     // Переводим награду от старого к новому пользователю
                     const oldBalance = userBalance;
-                    newBalance = oldBalance + newRewardAmount;
+                    newBalance = oldBalance + newRewardAmount; // Уже сняли у старого, начисляем новому
                     rewardChange = newRewardAmount;
                     
                     // Обновляем баланс
@@ -2024,6 +2106,8 @@ async function handlePostRewardsAndNotifications(
                 rewardChange = newRewardAmount - oldReward;
                 const oldBalance = userBalance;
                 newBalance = oldBalance + rewardChange;
+                
+                //console.log(`📈 Изменение награды: ${oldReward} → ${newRewardAmount}, изменение=${rewardChange}, баланс ${oldBalance} → ${newBalance}`);
                 
                 // Обновляем баланс
                 await updateUserBalance(user.id, coinId, newBalance);
@@ -2103,6 +2187,8 @@ async function handlePostRewardsAndNotifications(
                     const oldBalance = userBalance;
                     newBalance = oldBalance + rewardChange;
                     
+                    //console.log(`↩️ Восстановление: изменение награды ${rewardChange}, баланс ${oldBalance} → ${newBalance}`);
+                    
                     // Обновляем баланс
                     await updateUserBalance(user.id, coinId, newBalance);
                     
@@ -2150,6 +2236,7 @@ async function handlePostRewardsAndNotifications(
         if (account && user.notification_topic) {
             try {
                 await Send_Message(account.idvk, message);
+                //console.log(`📨 Уведомление отправлено пользователю ${user.name} (${action})`);
             } catch (error) {
                 console.error(`❌ Ошибка отправки уведомления: ${error}`);
             }
@@ -2236,42 +2323,31 @@ async function logToTopicChat(
         });
         
         if (!alliance?.id_chat_topic || alliance.id_chat_topic === 0) {
-            console.log(`⚠ Чат обсуждений не привязан для альянса ${alliance?.name}`);
             return; // Чат обсуждений не привязан
         }
         
-        // Текстовое представление действия
-        const actionText = {
-            'new': 'новый пост',
-            'edit': 'редактирование',
-            'delete': 'удаление',
-            'restore': 'восстановление'
-        }[action];
+        // Эмодзи для действий
+        const actionEmoji = {
+            'new': '✅',
+            'edit': '✏️',
+            'delete': '🗑️',
+            'restore': '↩️'
+        }[action] || '📝';
         
-        // Эмодзи для награды
-        let rewardEmoji = '';
-        let rewardText = '';
-        
-        if (belowMin) {
-            rewardEmoji = '⚠';
-            rewardText = 'ниже минималки';
-        } else if (rewardChange > 0) {
-            rewardEmoji = '💰';
-            rewardText = `получил ${rewardChange}${coin?.smile || ''}`;
-        } else if (rewardChange < 0) {
-            rewardEmoji = '💸';
-            rewardText = `потерял ${Math.abs(rewardChange)}${coin?.smile || ''}`;
-        } else {
-            rewardEmoji = '🔸';
-            rewardText = 'без награды';
-        }
-        
+        // Эмодзи для награды (только если есть изменение)
+        const rewardEmoji = rewardChange > 0 ? '💰' : rewardChange < 0 ? '💸' : '';
+
         // Информация об указанном UID
         const uidInfo = uidSpecified && specifiedUid ? 
-            ` (UID:${specifiedUid})` : '';
+            `\n🎯 Указанный UID: ${specifiedUid}` : '';
         
-        // Формируем красивый лог в стиле мониторов
-        let logMessage = `[${alliance.name}] --> (обсуждение) ~ ${user.name}${uidInfo} ${actionText} and ${rewardText}`;
+        // Формируем красивый лог как в мониторах
+        let logMessage = `🌐 [${alliance.name}] --> (обсуждение №${monitor.id}):\n`;
+        logMessage += `📖 ${topicMonitor.name}\n`;
+        logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}\n`;
+        
+        // Добавляем статистику с округлением до 2 знаков
+        logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;
         
         // Получаем текущий баланс пользователя для отображения
         let userBalance = 0;
@@ -2283,23 +2359,16 @@ async function logToTopicChat(
                 }
             });
             userBalance = balanceCoin?.amount || 0;
-            
-            // Добавляем информацию о балансе
-            if (rewardChange !== 0) {
-                const oldBalance = userBalance - rewardChange;
-                logMessage += `, balance ${oldBalance} ${rewardChange > 0 ? '+' : '-'} ${Math.abs(rewardChange)} = ${userBalance}${coin.smile}`;
-            } else {
-                logMessage += `, balance ${userBalance}${coin.smile}`;
-            }
         }
         
-        // Информация о факультете
-        if (user.id_facult && coin?.point) {
+        // Проверяем, нужно ли показывать информацию о факультете
+        if (user.id_facult && coin?.point && rewardChange !== 0) {
             const facult = await prisma.allianceFacult.findFirst({ 
                 where: { id: user.id_facult } 
             });
             
             if (facult) {
+                // Получаем баланс факультета
                 const balanceFacult = await prisma.balanceFacult.findFirst({
                     where: { 
                         id_coin: coin.id,
@@ -2308,36 +2377,38 @@ async function logToTopicChat(
                 });
                 
                 if (balanceFacult) {
-                    logMessage += ` для факультета [${facult.smile} ${facult.name}]`;
+                    const oldFacultBalance = balanceFacult.amount;
+                    const newFacultBalance = rewardChange > 0 ? 
+                        oldFacultBalance + rewardChange : 
+                        oldFacultBalance - Math.abs(rewardChange);
+                    
+                    const operation = rewardChange > 0 ? '+' : '-';
+                    const operationSymbol = rewardChange > 0 ? `"${coin.smile}"` : `"${coin.smile}"`;
+                    
+                    logMessage += `🔮 ${operationSymbol} > ${oldFacultBalance} ${operation} ${Math.abs(rewardChange)} = ${newFacultBalance} для факультета [${facult.smile} ${facult.name}]\n`;
                 }
             }
+        }
+        // Если нет факультета, но есть изменение баланса - показываем в формате "205 + 10 = 215"
+        else if (rewardChange !== 0 && coin) {
+            const operation = rewardChange > 0 ? '+' : '-';
+            const operationSymbol = rewardChange > 0 ? `"${coin.smile}"` : `"${coin.smile}"`;
+            const oldBalance = userBalance - rewardChange; // Так проще вычислить старое значение
+            
+            logMessage += `🔮 ${operationSymbol} > ${oldBalance} ${operation} ${Math.abs(rewardChange)} = ${userBalance}\n`;
         }
         
         // Добавляем ссылку на пост
         if (postId && monitor?.idvk && topicMonitor?.topicId) {
-            logMessage += `, link https://vk.com/topic${monitor.idvk}_${topicMonitor.topicId}?post=${postId}`;
+            logMessage += `🔗 https://vk.com/topic${monitor.idvk}_${topicMonitor.topicId}?post=${postId}`;
         }
-        
-        // Добавляем статистику
-        logMessage += `, stats ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК`;
-        
-        // Добавляем номер монитора и название обсуждения
-        logMessage += ` by <обсуждение> №${monitor.id} "${topicMonitor.name}" <--`;
         
         // Отправляем в чат обсуждений
-        try {
-            await Send_Message(alliance.id_chat_topic, logMessage);
-            console.log(`📨 Лог отправлен в чат обсуждений ${alliance.id_chat_topic}`);
-        } catch (error: any) {
-            if (error.code === 917) {
-                console.log(`❌ Бот не имеет доступа к чату обсуждений ${alliance.id_chat_topic}. Добавьте бота в беседу.`);
-            } else {
-                console.error(`❌ Ошибка отправки лога в чат обсуждений: ${error}`);
-            }
-        }
+        await Send_Message(alliance.id_chat_topic, logMessage);
+        //console.log(`📨 Лог отправлен в чат обсуждений ${alliance.id_chat_topic}`);
         
     } catch (error) {
-        console.error(`❌ Ошибка формирования лога: ${error}`);
+        console.error(`❌ Ошибка отправки лога в чат обсуждений: ${error}`);
     }
 }
 
@@ -2366,6 +2437,7 @@ export async function Topic_Currency_Select(context: any) {
     try {
         const user = await Person_Get(context);
         if (!user) {
+            console.log('❌ Пользователь не найден');
             return null;
         }
 
@@ -2374,6 +2446,7 @@ export async function Topic_Currency_Select(context: any) {
         const cursor = context.eventPayload?.cursor || 0;
 
         if (!monitorId || !coinId) {
+            console.log('❌ Не указаны monitorId или coinId');
             return null;
         }
 
@@ -2414,6 +2487,7 @@ export async function Topic_Currency_Reset(context: any) {
     try {
         const user = await Person_Get(context);
         if (!user) {
+            console.log('❌ Пользователь не найден');
             return;
         }
 
@@ -2421,6 +2495,7 @@ export async function Topic_Currency_Reset(context: any) {
         const cursor = context.eventPayload?.cursor || 0;
 
         if (!monitorId) {
+            console.log('❌ Не указан monitorId');
             return;
         }
 
