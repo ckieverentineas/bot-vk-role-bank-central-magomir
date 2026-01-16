@@ -296,7 +296,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         }
     }
 
-    // 1. Отправляем короткое сообщение пользователю (как раньше)
+    // 1. Отправляем короткое сообщение пользователю
     const userMessage = `🛒 Покупка в магазине "${item_shop_check.name}":\nСовершена покупка товара "${item.name}"x${item_count} за ${item.price*item_count}${coin_get.smile}.\n${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price*item_count}=${buying_act.amount}\n💬 Комментарий: ${item_comment}`;
     await Send_Message(context.senderId, userMessage);
 
@@ -305,7 +305,8 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         where: { id: item_alliance_check.id } 
     })
     
-    let logMessage = `👤 Клиент @id${user.idvk}(${user.name}) (UID: ${user.id})\n🔧 ${answer_log}\n📦 Осталось товара в магазине: ${remaining_items}`;
+    // ДОБАВЛЕНО: название магазина в лог-сообщение
+    let logMessage = `👤 Клиент @id${user.idvk}(${user.name}) (UID: ${user.id})\n🛍 Магазин: "${item_shop_check.name}"\n🔧 ${answer_log}\n📦 Осталось товара в магазине: ${remaining_items}`;
     
     // Добавляем предупреждение о том, что товар закончился
     if (item_finished) {
@@ -335,7 +336,9 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     const allianceForSale = await prisma.alliance.findFirst({ 
         where: { id: item_alliance_check.id } 
     })
-    const notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}] ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`
+    
+    // ДОБАВЛЕНО: название магазина в уведомление о продаже
+    const notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}]\n💰 Баланс: ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`
 
     if (allianceForSale?.id_chat_shop && allianceForSale.id_chat_shop > 0) {
         await Send_Message(allianceForSale.id_chat_shop, notificationMessage)

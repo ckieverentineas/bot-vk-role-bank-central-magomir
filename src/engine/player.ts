@@ -28,6 +28,11 @@ import { Alliance_Coin_Converter_Editor_Printer, Alliance_Coin_Converter_Printer
 import { ico_list } from "./events/module/data_center/icons_lib";
 import { getTerminology } from "./events/module/alliance/terminology_helper";
 import { Alliance_Class_Settings_Printer } from "./events/module/alliance/alliance_class_settings";
+import { Alliance_Topic_Monitor_Printer } from "./events/module/alliance/alliance_topic_monitor";
+import { createReadStream } from "fs";
+import * as path from 'path';
+import { join } from "path";
+const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
@@ -392,14 +397,37 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
-        await context.sendDocuments({ value: `./prisma/dev.db`, filename: `dev.db` }, { message: '💡 Открывать на сайте: https://sqliteonline.com/' } );
-        await vk?.api.messages.send({
-            peer_id: chat_id,
-            random_id: 0,
-            message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
-        })
-        await Logger(`In private chat, did backup database by admin ${context.senderId}`)
-    })
+        
+        try {
+            const filePath = path.join(process.cwd(), 'prisma/dev.db');
+            
+            if (!fs.existsSync(filePath)) {
+                await context.send('❌ Файл не найден');
+                return;
+            }
+
+            const fileBuffer = fs.readFileSync(filePath);
+            
+            await context.sendDocuments({ 
+                value: fileBuffer, 
+                filename: `dev.db` 
+            }, { 
+                message: '💡 Открывать на сайте: https://sqliteonline.com/' 
+            });
+            
+            await vk?.api.messages.send({
+                peer_id: chat_id,
+                random_id: 0,
+                message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
+            });
+            
+            await Logger(`Backup database by admin ${context.senderId}`);
+            
+        } catch (error) {
+            console.error('Backup error:', error);
+            await context.send('❌ Ошибка при создании бекапа');
+        }
+    });
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -482,6 +510,24 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Scoopins_Converter_Editor_Printer(context)
     })
+    hearManager.hear(/⚙ !отслеживание обсуждений/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType == 'chat') return;
+        
+        const account = await prisma.account.findFirst({ where: { idvk: context.senderId } });
+        if (!account) return;
+        
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } });
+        if (!user_check) return;
+        
+        if (await Accessed(context) == 1) {
+            await context.send(`❌ У вас нет прав администратора для этой команды.`);
+            return;
+        }
+        
+        await Alliance_Topic_Monitor_Printer(context);
+    })
     hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -559,7 +605,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (context.peerType == 'chat') { return }
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
-    hearManager.hear(/🔔 Уведомления|!уведомления/, async (context: any) => {
+    hearManager.hear(/🔔 Мониторы|!уведомления/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
@@ -569,10 +615,36 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 		if (!user_check) { return }
         const censored_change = await prisma.user.update({ where: { id: user_check.id }, data: { notification: user_check.notification ? false : true } })
         if (censored_change) { 
-			await Send_Message(user_check.idvk, `🔔 Уведомления монитора ${censored_change.notification ? 'активированы' : 'отключены'}`)
+			await Send_Message(user_check.idvk, `🔔 Уведомления монитора ${censored_change.notification ? 'активированы. Теперь вы будете получать уведомления о ваших лайках/комментариях.' : 'отключены. Теперь вы НЕ будете получать уведомления о ваших лайках/комментариях.'}`)
 			await Logger(`(private chat) ~ changed status activity notification self by <user> №${context.senderId}`)
 		}
 		await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
+    })
+    hearManager.hear(/📝 Обсуждения|!уведы обсуждений/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        const newStatus = !user_check.notification_topic;
+        const censored_change = await prisma.user.update({ 
+            where: { id: user_check.id }, 
+            data: { notification_topic: newStatus } 
+        });
+        
+        if (censored_change) { 
+            await Send_Message(user_check.idvk, 
+                `🔔 Уведомления обсуждений ${newStatus ? 'активированы ✅' : 'отключены ❌'}\n` +
+                `ℹ️ Теперь вы ${newStatus ? 'будете получать' : 'НЕ будете получать'} уведомления о ваших постах в ролевых обсуждениях.`
+            )
+            await Logger(`(private chat) ~ changed status topic notification by <user> №${context.senderId}`)
+        }
+        
+        await Keyboard_Index(context, `⌛ Настройки уведомлений обновлены!`)
     })
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -628,6 +700,34 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по покупкам из ролевых магазинов\n💬 id_chat_shop: ${alli_get.id_chat_shop} --> ${alli_log_up.id_chat_shop}`
         )
     })
+    hearManager.hear(/!привязать обсуждения/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType != 'chat') { return }
+        
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        
+        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
+        if (!alli_get) { return }
+        
+        const alli_log_up = await prisma.alliance.update({ 
+            where: { id: alli_get.id }, 
+            data: { id_chat_topic: context.peerId }
+        })
+        
+        if (!alli_log_up) { return }
+        
+        await Send_Message( 
+            alli_log_up.id_chat_topic, 
+            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по активности в обсуждениях\n💬 id_chat_topic: ${alli_get.id_chat_topic} → ${alli_log_up.id_chat_topic}`
+        )
+    })
     hearManager.hear(/⚙ !мониторы настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -649,6 +749,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         await context.send(`☠ Меню помощи Спектр-3001:
                     \n👤 [!уведомления] — включить/выключить уведомления с мониторов
+                    \n👤 [!уведы обсуждений] — включить/выключить уведомления о постах в обсуждениях
                     \n👤 [📊 Отчатор] — меню получения информации внутри ролевого проекта
                     \n👤 [➕👤] — создание нового персонажа
                     \n👤 [🔃👥] — смена персонажа
@@ -663,6 +764,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [!привязать мониторы] — привязать чат для логов с мониторов ролевого проекта
                     \n⭐ [!привязать финансы] — привязать чат для логов внутрифинансовых операций
                     \n⭐ [!привязать покупки] — привязать чат для логов о покупках из магазинов
+                    \n⭐ [!привязать обсуждения] — привязать чат для логов активности в обсуждениях
                     \n⭐ [🚀 !моники_on] — запуск мониторов ролевого проекта
                     \n⭐ [🚫 !моники_off] — остановка мониторов ролевого проекта
                     \n⭐ [!обновить ролки] — синхронизация названий ролевых проектов с базой данных

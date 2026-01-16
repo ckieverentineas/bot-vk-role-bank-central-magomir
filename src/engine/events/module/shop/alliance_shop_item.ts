@@ -43,12 +43,19 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
         }
 
         if (cursor >= 5) {
+            keyboard.textButton({ label: `↞`, payload: { command: 'allianceshopitem_first', cursor }, color: 'secondary' });
             keyboard.textButton({ label: `←`, payload: { command: 'allianceshopitem_back', cursor }, color: 'secondary' });
         }
 
         const item_counter = await prisma.allianceShopItem.count({ where: { id_shop: id_category } });
         if (5 + cursor < item_counter) {
             keyboard.textButton({ label: `→`, payload: { command: 'allianceshopitem_next', cursor }, color: 'secondary' });
+            keyboard.textButton({ label: `↠`, payload: { command: 'allianceshopitem_last', cursor }, color: 'secondary' });
+        }
+
+        // Проверка на добавление row, если есть навигационные кнопки
+        if (cursor >= 5 || 5 + cursor < item_counter) {
+            keyboard.row();
         }
 
         keyboard.textButton({ label: `➕`, payload: { command: 'allianceshopitem_create', cursor }, color: 'positive' }).row()
@@ -62,11 +69,25 @@ export async function AllianceShopItem_Printer(context: any, id_category: number
             'allianceshopitem_create': AllianceShopItem_Create,
             'allianceshopitem_next': AllianceShopItem_Next,
             'allianceshopitem_back': AllianceShopItem_Back,
+            'allianceshopitem_first': AllianceShopItem_First,
+            'allianceshopitem_last': AllianceShopItem_Last,
         };
         const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
         cursor = ans?.cursor ?? cursor;
         item_tr = ans.stop ?? false;
     }
+}
+
+async function AllianceShopItem_First(context: any, data: any, category: any) {
+    const res = { cursor: 0 };
+    return res;
+}
+
+async function AllianceShopItem_Last(context: any, data: any, category: any) {
+    const item_counter = await prisma.allianceShopItem.count({ where: { id_shop: category.id } });
+    const lastCursor = Math.floor((item_counter - 1) / 5) * 5;
+    const res = { cursor: lastCursor };
+    return res;
 }
 
 async function AllianceShopItem_Create(context: any, data: any, category: any) {

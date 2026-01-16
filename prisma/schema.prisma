@@ -41,6 +41,7 @@ model Monitor {
   alliance     Alliance  @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_alliance  Int
   id_coin      Int?
+  id_topic_coin Int?
   cost_like    Int       @default(2)
   cost_comment Int       @default(5)
   cost_post    Int       @default(30)
@@ -50,7 +51,52 @@ model Monitor {
   wall_on      Boolean   @default(true)
   like_on      Boolean   @default(true)
   comment_on   Boolean   @default(true)
+  
+  TopicMonitor TopicMonitor[]
   Limiter      Limiter[]
+}
+
+model TopicMonitor {
+  id              Int       @id @default(autoincrement())
+  name            String
+  monitor         Monitor   @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  monitorId       Int
+  topicUrl        String    
+  topicId         Int       
+  minPcLines      Int?      
+  minPcMessage    String?
+  rewardEnabled   Boolean   @default(false)
+  linesRewards    String?   
+  uniformReward   Float?    
+  rewardMinLines  Int?      
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  PostStatistic   PostStatistic[]
+
+  @@index([monitorId])
+  @@unique([monitorId, topicId])
+}
+
+model PostStatistic {
+  id              Int         @id @default(autoincrement())
+  topicMonitor    TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  topicMonitorId  Int
+  userId          Int
+  postId          Int
+  characters      Int         
+  words           Int         
+  pc              Float       
+  mb              Float       
+  date            DateTime    @default(now())
+  action          String      
+  rewardGiven     Boolean     @default(false)
+  rewardAmount    Float?
+
+  @@index([topicMonitorId])
+  @@index([userId])
+  @@index([date])
+  @@unique([topicMonitorId, postId])
 }
 
 model Limiter {
@@ -76,6 +122,7 @@ model User {
   id_facult             Int?
   private               Boolean                 @default(false)
   notification          Boolean                 @default(true)
+  notification_topic    Boolean                 @default(true)
   crdate                DateTime                @default(now())
   id_role               Int                     @default(1)
   role                  Role                    @relation(fields: [id_role], references: [id], onDelete: Cascade)
@@ -198,6 +245,7 @@ model Alliance {
   terminology     AllianceTerminology?
   MonitorSelection MonitorSelection[]
   classSettings   AllianceClassSetting? 
+  id_chat_topic   Int                     @default(0)
 }
 
 model AllianceCoin {

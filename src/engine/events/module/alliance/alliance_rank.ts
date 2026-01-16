@@ -7,6 +7,7 @@ import { Logger, Send_Message } from "../../../core/helper"
 import { ico_list } from "../data_center/icons_lib"
 import { getTerminology } from "../alliance/terminology_helper"
 
+
 export async function Alliance_Rank_Enter(context:any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }

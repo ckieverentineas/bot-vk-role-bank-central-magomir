@@ -346,7 +346,9 @@ export async function Person_Register(context: any) {
             class: person.class!, 
             idvk: account?.idvk!, 
             id_facult: person.id_facult, 
-            id_role: role!.id 
+            id_role: role!.id,
+            notification: true,
+            notification_topic: true
         } 
     })
     

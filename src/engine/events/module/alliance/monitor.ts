@@ -418,7 +418,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
         case '+':
             const balance_up = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { increment: reward } } })
             if (!balance_up) { return answer; }
-            answer.message += `📰 ${user.name}, вам начислено за добавленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile}\n`
+            answer.message += `📰 ${user.name} (UID: ${user.id}), вам начислено за добавленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile}\n`
             answer.console += `(monitor) ~ user ${user.idvk} ${target} and got ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_up.amount}${coin?.smile} by <monitor> №${monitor.id}`
             answer.status = true
             if (coin?.point == true && balance_facult_check) {
@@ -432,7 +432,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
         case '-':
             const balance_down = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: reward } } })
             if (!balance_down) { return answer; }
-            answer.message += `📰 ${user.name}, с вас снято за удаленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile}\n`
+            answer.message += `📰 ${user.name} (UID: ${user.id}), с вас снято за удаленный ${target} ${reward} ${coin?.name}\n🧷 Ссылка: ${link}\n💳 Ваш баланс: ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile}\n`
             answer.console += `(monitor) ~ user ${user.idvk} ${target} and lost ${reward} ${coin?.name}, link ${link}, balance ${balance.amount} ${operation} ${reward} = ${balance_down.amount}${coin?.smile} by <monitor> №${monitor.id}`
             answer.status = true
             if (coin?.point == true && balance_facult_check) {

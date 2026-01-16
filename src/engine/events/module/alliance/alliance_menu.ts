@@ -47,7 +47,8 @@ export async function Alliance_Enter_Admin(context:any) {
             keyboard.textButton({ label: `${ico_list['config'].ico} !конвертацию настроить`, color: 'secondary' })
             keyboard.textButton({ label: `${ico_list['config'].ico} !S-coins настроить`, color: 'secondary' }).row()
             keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы настроить`, color: 'positive' }).row()
+            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы настроить`, color: 'positive' })
+            keyboard.textButton({ label: `${ico_list['config'].ico} !отслеживание обсуждений`, payload: { command: 'alliance_topic_monitor_enter' }, color: 'secondary' }).row()
         }
         keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: "system_call_admin" }, color: 'secondary' }).inline().oneTime()
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)

@@ -790,37 +790,69 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
         await context.send(`❌ Предмет не найден.`);
         return res;
     }
-    let item = null
+    
+    let item = null;
+    let itemName = 'Неизвестный предмет';
+    
     if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
-        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } });
         if (!item) {
-            await context.send(`❌ Предмет не найден.`);
+            await context.send(`❌ Предмет магазина альянса не найден.`);
             return res;
         }
-    }
-    if (inv.type == InventoryType.ITEM_SHOP) {
-        item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+        itemName = item.name;
+    } 
+    else if (inv.type == InventoryType.ITEM_SHOP) {
+        item = await prisma.item.findFirst({ where: { id: inv.id_item } });
         if (!item) {
-            await context.send(`❌ Предмет не найден.`);
+            await context.send(`❌ Предмет магазина не найден.`);
             return res;
         }
+        itemName = item.name;
     }
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `удалить "${item?.name}" из инвентаря?`);
+    else if (inv.type == InventoryType.ITEM_STORAGE) { // ← ДОБАВЛЕНО!
+        item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
+        if (!item) {
+            await context.send(`❌ Предмет из хранилища не найден.`);
+            return res;
+        }
+        itemName = item.name;
+    }
+    else {
+        await context.send(`❌ Неизвестный тип предмета: ${inv.type}`);
+        return res;
+    }
+
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `удалить "${itemName}" из инвентаря?`
+    );
 
     await context.send(confirm.text);
     if (!confirm.status) return res;
+    
     const deleted = await prisma.inventory.delete({
         where: { id: inv.id }
     });
 
     if (deleted) {
-        await Logger(`Игрок @id${user_adm?.idvk} удалил "${deleted.id}-${item?.name}" из инвентаря`);
-        await context.send(`Вы удалили "${deleted.id}-${item?.name}" из инвентаря.`);
+        await Logger(`Игрок @id${user_adm?.idvk || user.idvk} удалил "${deleted.id}-${itemName}" из инвентаря`);
+        await context.send(`Вы удалили "${deleted.id}-${itemName}" из инвентаря.`);
+        
         if(user_adm) {
-            await Send_Message(user.idvk, `🎒 Вашу покупку "${deleted.id}-${item?.name}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${item?.name}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
+            await Send_Message(
+                user.idvk, 
+                `🎒 Вашу покупку "${deleted.id}-${itemName}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`
+            );
+            await Send_Message(
+                chat_id, 
+                `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name})`
+            );
         } else { 
-            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.id}-${item?.name}" из инвентаря`);
+            await Send_Message(
+                chat_id, 
+                `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.id}-${itemName}" из инвентаря`
+            );
         }
     }
 
@@ -836,34 +868,71 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         await context.send(`❌ Предмет не найден.`);
         return res;
     }
-    let item = null
-    let text = ''
+    
+    let item = null;
+    let text = '';
+    let itemName = 'Неизвестный предмет';
+    
     if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
-        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
+        item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } });
         if (!item) {
-            await context.send(`❌ Предмет не найден.`);
+            await context.send(`❌ Предмет магазина альянса не найден.`);
             return res;
         }
+        itemName = item.name;
         text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}`;
     }
-    if (inv.type == InventoryType.ITEM_SHOP) {
-        item = await prisma.item.findFirst({ where: { id: inv.id_item } })
+    else if (inv.type == InventoryType.ITEM_SHOP) {
+        item = await prisma.item.findFirst({ where: { id: inv.id_item } });
         if (!item) {
-            await context.send(`❌ Предмет не найден.`);
+            await context.send(`❌ Предмет магазина не найден.`);
             return res;
         }
+        itemName = item.name;
         text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
     }
+    else if (inv.type == InventoryType.ITEM_STORAGE) { // ← ДОБАВЛЕНО!
+        item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
+        if (!item) {
+            await context.send(`❌ Предмет из хранилища не найден.`);
+            return res;
+        }
+        itemName = item.name;
+        text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n🧲 Как получено: Артефакт\n💬 Комментарий: ${inv.comment}`;
+    }
+    else {
+        await context.send(`❌ Неизвестный тип предмета: ${inv.type}`);
+        return res;
+    }
     
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить кому-то "${item?.name}" из своего инвентаря?`);
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `подарить кому-то "${itemName}" из своего инвентаря?`
+    );
     await context.send(confirm.text);
     if (!confirm.status) return res;
     
-    const person_goten = await Input_Number(context, `Введите UID персонажа, которому будет подарено:\n ${text}`, true)
-    if (!person_goten) { await context.send(`Получатель не найден`); return res }
-    if (person_goten == user.id) { await context.send(`Самому себе вы можете подарить только через шопинг:)`); return res}
-    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } })
-    if (!person_goten_check) { await context.send(`Такого персонажа не числится!`); return res }
+    const person_goten = await Input_Number(
+        context, 
+        `Введите UID персонажа, которому будет подарено:\n ${text}`, 
+        true
+    );
+    
+    if (!person_goten) { 
+        await context.send(`Получатель не найден`); 
+        return res; 
+    }
+    
+    if (person_goten == user.id) { 
+        await context.send(`Самому себе вы можете подарить только через шопинг:)`); 
+        return res;
+    }
+    
+    const person_goten_check = await prisma.user.findFirst({ where: { id: person_goten } });
+    if (!person_goten_check) { 
+        await context.send(`Такого персонажа не числится!`); 
+        return res; 
+    }
     
     // ЗАПРОС КОММЕНТАРИЯ
     let comment = "";
@@ -901,7 +970,11 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         }
     }
     
-    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, `подарить "${item?.name}" ${person_goten_check.name} из своего инвентаря?${comment ? `\n💬 Комментарий: "${comment}"` : ''}`);
+    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `подарить "${itemName}" ${person_goten_check.name} из своего инвентаря?${comment ? `\n💬 Комментарий: "${comment}"` : ''}`
+    );
+    
     if (!confirm_gift.status) return res;
     
     // ОБНОВЛЯЕМ КОММЕНТАРИЙ ПРИ ПЕРЕДАЧЕ ПРЕДМЕТА
@@ -914,20 +987,26 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         } 
     });
     
-    if (!item_update) { return res }
+    if (!item_update) { 
+        await context.send(`❌ Ошибка при передаче предмета.`);
+        return res; 
+    }
     
-    const notif = `"<🎁>" --> передача товара "${item?.name}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
+    const notif = `"<🎁>" --> передача товара "${itemName}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`;
     
     // УВЕДОМЛЕНИЕ ДЛЯ ПОЛУЧАТЕЛЯ С КОММЕНТАРИЕМ
     const receiver_message = `🎁 Вам подарен предмет от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
         `🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n` +
-        `📦 Предмет: ${item?.name}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+        `📦 Предмет: ${itemName}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
     
     await Send_Message(person_goten_check.idvk, receiver_message);
     
-    await Send_Message_Smart(context, notif, 'client_callback', person_goten_check)
-    if (user_adm) { await Send_Message(user_adm.idvk, notif) }
-    await Send_Message(user.idvk, notif)
+    await Send_Message_Smart(context, notif, 'client_callback', person_goten_check);
+    if (user_adm) { 
+        await Send_Message(user_adm.idvk, notif); 
+    }
+    await Send_Message(user.idvk, notif);
+    
     return res;
 }
 

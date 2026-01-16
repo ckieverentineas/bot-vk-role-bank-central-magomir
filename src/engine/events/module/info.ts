@@ -57,7 +57,7 @@ export async function Card_Enter(context:any) {
         const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
         const withoutFaculty = `Без ${genitive}`;
 
-        const text = `✉ Вы достали свою карточку: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}\n${coin}\n\n${monitorStatus.description}`
+        const text = `✉ Вы достали свою карточку: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}\n${coin}\n\n🔔 Мониторы: ${get_user.notification ? '✅' : '❌'} | 🔔 РП-посты: ${get_user.notification_topic ? '✅' : '❌'}\n${monitorStatus.description}`
         
         const keyboard = new KeyboardBuilder()
             .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
@@ -77,7 +77,8 @@ export async function Card_Enter(context:any) {
         
         keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
             .callbackButton({ label: '💬', payload: { command: 'comment_person_enter' }, color: 'secondary' }).row()
-            .textButton({ label: '🔔 Уведомления', payload: { command: 'notification_controller' }, color: 'secondary' })
+            .textButton({ label: '🔔 Мониторы', payload: { command: 'notification_controller' }, color: 'secondary' })
+            .textButton({ label: '📝 Обсуждения', payload: { command: 'topic_notification_controller' }, color: 'secondary' }).row()
             .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
         
         await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
