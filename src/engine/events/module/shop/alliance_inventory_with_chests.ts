@@ -56,12 +56,12 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
     let currentChestId: number | null = null;
     let cursor = 0;
     let group_mode = false;
-    let childChestCursor = 0; // ДОБАВЬТЕ ЭТО
+    let childChestCursor = 0;
 
     while (true) {
         // Если не выбран сундук - показываем список сундуков
         if (currentChestId === null) {
-            const result = await showChestSelection(context, user, cursor, user_adm);
+            const result: number | 'exit' | {cursor: number} = await showChestSelection(context, user, cursor, user_adm);
             
             if (result === 'exit') {
                 await context.send(`✅ Вы вышли из инвентаря.`, { keyboard: button_alliance_return });
@@ -72,7 +72,7 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
                 currentChestId = result;
                 cursor = 0;
                 group_mode = false;
-                childChestCursor = 0; // Сбрасываем при выборе нового сундука
+                childChestCursor = 0;
                 continue;
             }
             
@@ -83,14 +83,13 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
         } 
         // Если выбран сундук - показываем его содержимое
         else {
-            // ВАЖНО: Передаем childChestCursor в функцию
-            const result = await showChestContents(context, user, currentChestId, cursor, group_mode, user_adm, childChestCursor);
+            const result: {cursor?: number, group_mode?: boolean, back?: boolean, stop?: boolean, childChestCursor?: number, currentChestId?: number} = await showChestContents(context, user, currentChestId, cursor, group_mode, user_adm, childChestCursor);
             
             if (result?.back) {
                 currentChestId = null;
                 cursor = 0;
-                group_mode = false; // ИСПРАВЬТЕ: Добавьте это
-                childChestCursor = 0; // ИСПРАВЬТЕ: Добавьте это
+                group_mode = false;
+                childChestCursor = 0;
                 continue;
             }
             
@@ -99,16 +98,12 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
                 break;
             }
             
-            // ИСПРАВЬТЕ: Обновляем все параметры
             cursor = result?.cursor ?? cursor;
             group_mode = result?.group_mode ?? group_mode;
-            childChestCursor = result?.childChestCursor ?? childChestCursor; // ВАЖНО: Обновляем childChestCursor
+            childChestCursor = result?.childChestCursor ?? childChestCursor;
             
-            // Также важно: если в результате есть currentChestId (например, при открытии дочернего сундука)
-            // обновляем currentChestId
             if (result?.currentChestId !== undefined) {
                 currentChestId = result.currentChestId;
-                // При смене сундука сбрасываем курсоры
                 cursor = 0;
                 group_mode = false;
                 childChestCursor = 0;
@@ -1374,11 +1369,18 @@ async function handleChestMassByIdsMulti(context: any, data: any, user: User, us
     return res;
 }
 
-async function handleChestMassByTypeMulti(context: any, data: any, user: User, user_adm?: User, chest?: any) {
+async function handleChestMassByTypeMulti(
+    context: any, 
+    data: any, 
+    user: User, 
+    user_adm?: User, 
+    chest?: any
+): Promise<{cursor?: number, group_mode?: boolean, childChestCursor?: number, currentChestId?: number}> {
     const res = { 
-        cursor: data.cursor || 0,  // Добавляем значение по умолчанию
+        cursor: data.cursor || 0,
         group_mode: data.group_mode || false, 
-        childChestCursor: data.childChestCursor || 0 
+        childChestCursor: data.childChestCursor || 0,
+        currentChestId: data.chestId || chest?.id || 0
     };
     
     // Получаем все предметы в сундуке в групповом режиме
@@ -2163,13 +2165,19 @@ async function handleChestMassByIds(context: any, data: any, user: User, user_ad
 }
 
 // 2. Массовое дарение по типу и количеству (одному получателю)
-async function handleChestMassByType(context: any, data: any, user: User, user_adm?: User, chest?: any) {
+async function handleChestMassByType(
+    context: any, 
+    data: any, 
+    user: User, 
+    user_adm?: User, 
+    chest?: any
+): Promise<{cursor?: number, group_mode?: boolean, childChestCursor?: number, currentChestId?: number}> {
     const res = { 
-        cursor: data.cursor || 0,  // Добавляем значение по умолчанию
+        cursor: data.cursor || 0,
         group_mode: data.group_mode || false, 
-        childChestCursor: data.childChestCursor || 0 
+        childChestCursor: data.childChestCursor || 0,
+        currentChestId: data.chestId || chest?.id || 0
     };
-    
     // Получаем все предметы в сундуке в групповом режиме
     const chestItems = await getChestInventoryItems(user.id, chest.id, true);
     
