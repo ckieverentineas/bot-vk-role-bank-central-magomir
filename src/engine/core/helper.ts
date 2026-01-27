@@ -363,9 +363,9 @@ export async function Send_Message_Smart(
             const admin: User | null | undefined = await Person_Get(context)
             const alliance_admin = await prisma.alliance.findFirst({ where: { id: admin?.id_alliance ?? 0 } })
             await context.send(`✅ ${message}`)
-            const notif_ans_chat = await Send_Message(alliance_admin?.id_chat ?? 0, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`)
-            if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`) }
-            await Logger(`🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID:${admin?.id})\n🔧 ${message}`);
+            const notif_ans_chat = await Send_Message(alliance_admin?.id_chat ?? 0, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID: ${admin?.id})\n🔧 ${message}`)
+            if (!notif_ans_chat ) { await Send_Message(chat_id, `🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID: ${admin?.id})\n🔧 ${message}`) }
+            await Logger(`🌐 Ответственное лицо @id${admin?.idvk}(${admin?.name}) (UID: ${admin?.id})\n🔧 ${message}`);
             break;
 
         case 'client_callback':

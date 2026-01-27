@@ -6,6 +6,7 @@ import { Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper
 import { chat_id, vk } from "../../../.."
 import { Analyzer_Buying_Counter } from "../analyzer"
 import { image_shop } from "../data_center/system_image"
+import { InventoryType } from "../data_center/standart"
 
 async function Searcher(data: any, target: number) {
     let counter = 0
@@ -115,45 +116,87 @@ export async function Shop_Bought(context: any) {
         }
     }
 }
+
 export async function Shop_Buy(context: any) {
     if (context.eventPayload.command == "shop_buy" && context.eventPayload.item_sub == "item") {
-        //console.log(`Byuing: ${JSON.stringify(context)}`)
-        const item_id = context.eventPayload.value_sub
-        const id_builder_sent = context.eventPayload.id_builder_sent
-        const input = await prisma.item.findFirst({ where: { id: Number(item_id) } })
+        const item_id = context.eventPayload.value_sub;
+        const id_builder_sent = context.eventPayload.id_builder_sent;
+        const input = await prisma.item.findFirst({ where: { id: Number(item_id) } });
         if (!input) { return }
-        const user: User | null | undefined = await Person_Get(context)
+        const user: User | null | undefined = await Person_Get(context);
         if (!user) { return }
         const item_inventory:any = await prisma.inventory.findFirst({ where: { id_item: input.id, id_user: user.id } })
         let text = ``
         if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
-            //добавить обработчик ошибок
-            const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } })
-            const inventory = await prisma.inventory.create({ data: { id_user: user.id, id_item: input.id } })
-            await Logger(`In a private chat, bought a new item ${input.id} by user ${user.idvk}`)
+            const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } });
+            
+            // Создаем запись в инвентаре
+            const inventory = await prisma.inventory.create({ 
+                data: { 
+                    id_user: user.id, 
+                    id_item: input.id,
+                    type: InventoryType.ITEM_SHOP 
+                } 
+            });
+            
+            // ===== ПРИВЯЗКА К "ОСНОВНОЕ" СУНДУКУ =====
+            // Ищем "Основное" сундук
+            const mainChest = await prisma.allianceChest.findFirst({
+                where: { 
+                    name: "Основное",
+                    id_alliance: user.id_alliance || 0 
+                }
+            });
+            
+            if (mainChest) {
+                // Привязываем предмет к "Основное" сундуку
+                await prisma.chestItemLink.create({
+                    data: {
+                        id_chest: mainChest.id,
+                        id_inventory: inventory.id
+                    }
+                });
+                
+                await Logger(`In a private chat, bought item ${input.id} by user ${user.idvk}, added to chest ${mainChest.id} ("Основное")`);
+                text = `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘\n📦 Предмет добавлен в сундук "Основное" (ID: ${mainChest.id})`;
+            } else {
+                // Если "Основное" не найдено (что странно), просто создаем инвентарь
+                await Logger(`In a private chat, bought item ${input.id} by user ${user.idvk}, but "Основное" chest not found`);
+                text = `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘\n⚠ Сундук "Основное" не найден, предмет добавлен в общий инвентарь`;
+            }
+            
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
                 message: `🛍 @id${user.idvk}(${user.name}) покупает ${input.name}`
-            })
-            if (context?.eventPayload?.command == "shop_buy") {
-                text = `🔔 Доставлено ${input.name}. Списано: ${input.price}🔘`
-            }
-            await Analyzer_Buying_Counter(context)
+            });
             
-            //await Shop_Enter(context)
+            await Analyzer_Buying_Counter(context);
         } else {
-            await Logger(`In a private chat, can't bought a new item ${input.id} by user ${user.idvk}`)
+            await Logger(`In a private chat, can't bought item ${input.id} by user ${user.idvk} - insufficient funds or already owned`);
             if (context?.eventPayload?.command == "shop_buy") {
-                text = !item_inventory || input.type == 'unlimited' ? `💡 У вас  недостаточно средств для покупки ${input.name}!!` : `💡 У вас уже есть ${input.name}!`
+                text = !item_inventory || input.type == 'unlimited' ? 
+                    `💡 У вас недостаточно средств для покупки ${input.name}!!` : 
+                    `💡 У вас уже есть ${input.name}!`;
             }
         }       
-        const attached = input.image
-        let keyboard = new KeyboardBuilder()
-        keyboard.callbackButton({ label: 'ОК', payload: { command: 'shop_enter_multi', item: "id", value: context.eventPayload.value, current: context.eventPayload.current, id_builder_sent: id_builder_sent }, color: 'secondary' }).inline().oneTime()
-        await Send_Message(context.peerId, text, keyboard, attached)
+        const attached = input.image;
+        let keyboard = new KeyboardBuilder();
+        keyboard.callbackButton({ 
+            label: 'ОК', 
+            payload: { 
+                command: 'shop_enter_multi', 
+                item: "id", 
+                value: context.eventPayload.value, 
+                current: context.eventPayload.current, 
+                id_builder_sent: id_builder_sent 
+            }, 
+            color: 'secondary' 
+        }).inline().oneTime();
+        await Send_Message(context.peerId, text, keyboard, attached);
     }
 }
+
 export async function Shop_Cancel(context: any) {
     await Logger(`In a private chat, left in shopping is viewed by user ${context.peerId}`)
     await Shop_Category_Enter(context)

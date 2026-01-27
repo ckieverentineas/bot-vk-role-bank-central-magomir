@@ -75,7 +75,7 @@ export async function Keyboard_User_Main(context: Context) {
     return keyboard_user
 }
 
-async function Keyboard_Admin_Main(context: Context) {
+export async function Keyboard_Admin_Main(context: Context) {
     await Person_Detector(context)
     const admin = await Person_Get(context)
     const alliance = await prisma.alliance.findFirst({ where: { id: admin?.id_alliance ?? 0 } })

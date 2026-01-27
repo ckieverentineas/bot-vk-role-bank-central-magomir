@@ -5,7 +5,6 @@ import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
 import { Accessed, Antivirus_VK, Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv'
-import { Exit, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
 import { Admin_Enter, Card_Enter, Comment_Person_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
 import { Service_Cancel, Service_Enter, Service_Kvass_Open } from './engine/events/module/service';
@@ -23,6 +22,8 @@ import { Monitor_Select_Person_Handler } from './engine/events/module/person/mon
 import { Alliance_Topic_Monitor_Printer } from './engine/events/module/alliance/alliance_topic_monitor';
 import { Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Search_Topic_Process, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Weeks } from './engine/events/module/topic_rank_v2';
 import { CleanupOldPostStatistics } from './cleanup_old_posts';
+import { button_alliance_return } from './engine/events/module/data_center/standart';
+import { Exit, Keyboard_Admin_Main, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
 
 // Загрузка конфигурации
 const envConfig = dotenv.config();
@@ -129,7 +130,6 @@ initializeGroupId().then(async () => {
         
         const config: Record<string, (ctx: any) => Promise<void>> = {
             "system_call": Main_Menu_Init,
-            "system_call_admin": Main_Menu_Admin_Init,
             "card_enter": Card_Enter,
             "exit": Exit,
             "admin_enter": Admin_Enter,
@@ -150,7 +150,6 @@ initializeGroupId().then(async () => {
             "alliance_control": Alliance_Control,
             "alliance_controller": Alliance_Controller,
             'alliance_enter': Alliance_Enter,
-            'alliance_enter_admin': Alliance_Enter_Admin,
             'alliance_rank_enter': Alliance_Rank_Enter,
             'alliance_rank_coin_enter': Alliance_Rank_Coin_Enter,
             'comment_person_enter': Comment_Person_Enter,
@@ -160,7 +159,23 @@ initializeGroupId().then(async () => {
             "topic_rank_v2_search_topic": Topic_Rank_V2_Search_Topic,
             "topic_rank_v2_weeks": Topic_Rank_V2_Weeks,
             "topic_rank_v2_select_monitor": Topic_Rank_V2_Select_Monitor,
-            "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,         
+            "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,    
+            "admin_page": async (ctx: any) => {
+                const page = ctx.eventPayload?.page || 1;
+                await Alliance_Enter_Admin(ctx, page);
+                await ctx.answer();
+            },
+            
+            "alliance_enter_admin": async (ctx: any) => {
+                await Alliance_Enter_Admin(ctx, 1);
+                await ctx.answer();
+            },
+            
+            "system_call_admin": async (ctx: any) => {
+                await Main_Menu_Admin_Init(ctx);
+                await ctx.answer();
+            },
+            
             "systemok_call": async (ctx: any) => {
                 try {
                     const messageId = ctx.eventPayload?.messageId;

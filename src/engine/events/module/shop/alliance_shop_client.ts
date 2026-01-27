@@ -1,7 +1,7 @@
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit } from "../../../..";
-import { Confirm_User_Success, Input_Number, Input_Text, Keyboard_Index, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
+import { Confirm_User_Success, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 import { getTerminology } from "../alliance/terminology_helper";
@@ -181,102 +181,244 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         await context.send(`❌ Не удалось получить данные о товаре`);
         return res;
     }
+    
     const item_category_check = await prisma.allianceShopCategory.findFirst({ where: { id: item.id_shop } })
     if (!item_category_check) { 
         await context.send(`❌ Не удалось получить данные о категории товара`);
         return res;
     }
+    
     const item_shop_check = await prisma.allianceShop.findFirst({ where: { id: item_category_check?.id_alliance_shop } })
     if (!item_shop_check) { 
         await context.send(`❌ Не удалось получить данные о магазине товара`);
         return res;
     }
+    
     const item_alliance_check = await prisma.alliance.findFirst({ where: { id: item_shop_check?.id_alliance } })
     if (!item_alliance_check) { 
         await context.send(`❌ Не удалось получить данные об альянсе товара`);
         return res;
     }
-    let answer_log = ''
-    if (!item) {
-        await context.send(`❌ Товар не найден.`);
-        return res;
-    }
-    const coin_get = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin}})
-    if (!coin_get) {
-        await context.send(`❌ Валюта не найдена.`);
-        return res;
-    }
+    
     // Проверяем баланс пользователя
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     if (!account) { 
         await context.send(`❌ Аккаунт не найден.`);
         return res;
     }
+    
     const user = await prisma.user.findFirst({ where: { id: account.select_user } })
     if (!user) {
         await context.send(`❌ Игрок не найден.`);
         return res;
     }
-    const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: item.id_coin ?? 0, id_user: user.id }})
+    
+    const coin_get = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin } })
+    if (!coin_get) {
+        await context.send(`❌ Валюта не найдена.`);
+        return res;
+    }
+    
+    const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: item.id_coin ?? 0, id_user: user.id } })
     if (!balance) { 
         await context.send(`❌ Валютный счет ${coin_get.name}${coin_get.smile} не открыт.`);
         return res;
     }
     
-    // подготавливаем внешний вид товара
-    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n🛍 Товар: ${item.name}\n📜 Описание: ${item.description || 'Нет описания'}\n${coin_get?.smile ?? '💰'} Цена: ${item.price}\n👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
-    const attached = item?.image?.includes('photo') ? item.image : null
-    await Send_Message(context.senderId, `${text_item}`, undefined, attached)
+    // Показываем информацию о товаре с указанием сундука
+    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n`;
+    text_item += `🛍 Товар: ${item.name}\n`;
+    text_item += `📜 Описание: ${item.description || 'Нет описания'}\n`;
+    text_item += `${coin_get?.smile ?? '💰'} Цена: ${item.price}\n`;
+    
+    // ✅ ИСПРАВЛЕНИЕ: Информация о сундуке сразу после информации о покупке
+    text_item += `👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`;
+    
+    // Показываем в какой сундук попадет предмет
+    const categoryChest = await prisma.categoryChest.findFirst({
+        where: { id_category: item.id_shop },
+        include: { chest: true }
+    });
+    
+    if (categoryChest?.chest && item.inventory_tr) {
+        text_item += `🎒 Попадет в сундук: ${categoryChest.chest.name}\n`;
+    } else if (item.inventory_tr) {
+        text_item += `🎒 Попадет в сундук: Основное\n`;
+    }
+    
+    text_item += `\n📦 Осталось: ${item.limit_tr ? `${item.limit}` : '♾️'}`;
+    
+    const attached = item?.image?.includes('photo') ? item.image : null;
+    
+    // Отправляем информацию о товаре
+    await Send_Message(context.senderId, `${text_item}`, undefined, attached);
+    
+    // Подтверждение покупки
     const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный товар?`);
-        //await context.send(confirm.text);
-    if (!confirm_ask.status) { return res }
+    if (!confirm_ask.status) { 
+        await context.send(`❌ Покупка отменена.`);
+        return res; 
+    }
+    
     // задаем количество товара
-    const item_count = await Input_Number(context, `Введите желаемое количество товаров ${item.name} к покупке, в наличии есть ${item.limit_tr ? item.limit : 'дофига' }:`, false, 2)
-    if (!item_count) { return res }
+    const item_count = await Input_Number(context, `Введите желаемое количество товаров ${item.name} к покупке, в наличии есть ${item.limit_tr ? item.limit : 'дофига' }:`, false, 2);
+    if (!item_count) { 
+        await context.send(`❌ Количество не указано.`);
+        return res; 
+    }
+    
     if (item_count == 0) {
         await context.send(`💸 Увы, но воздух купить можно только у межгалактических корпораций.`);
         return res;
     }
+    
     // Проверяем наличие лимита
     if (item.limit_tr && item.limit <= 0) {
         await context.send(`⚠️ Этот товар закончился.`);
         return res;
     }
-     // Проверяем наличие лимита
-     if (item.limit_tr && item.limit - item_count < 0) {
+    
+    // Проверяем наличие лимита
+    if (item.limit_tr && item.limit - item_count < 0) {
         await context.send(`⚠️ На складе магазина нет столько товаров.`);
         return res;
     }
+    
     // Проверяем наличие денег
-    if (balance.amount < item.price*item_count) {
+    if (balance.amount < item.price * item_count) {
         await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки [${item.name}].`);
         return res;
     }
+    
     // Добавление комментария к покупке
-    const item_comment = await Input_Text(context, `Введите комментарий к покупке`)
-    if (!item_comment) { return res }
+    const item_comment = await Input_Text(context, `Введите комментарий к покупке`);
+    if (!item_comment) { 
+        await context.send(`❌ Комментарий не указан.`);
+        return res; 
+    }
+    
     // Списание средств
-    const buying_act = await prisma.balanceCoin.update({ where: { id: balance.id }, data: { amount: { decrement: item.price*item_count } } });
-    answer_log += `Совершена покупка товара "${item.name}"x${item_count} за ${item.price*item_count}${coin_get.smile}.\n${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price*item_count}=${buying_act.amount}\n💬 Комментарий: ${item_comment}`
+    const buying_act = await prisma.balanceCoin.update({ 
+        where: { id: balance.id }, 
+        data: { amount: { decrement: item.price * item_count } } 
+    });
+    
+    let answer_log = `Совершена покупка товара "${item.name}"x${item_count} за ${item.price * item_count}${coin_get.smile}.\n`;
+    answer_log += `${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price * item_count}=${buying_act.amount}\n`;
+    answer_log += `💬 Комментарий: ${item_comment}`;
+    
     // Списание баллов факультета
-    const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })
-    const balance_facult_check = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } })
+    const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } });
+    const balance_facult_check = await prisma.balanceFacult.findFirst({ 
+        where: { id_coin: item.id_coin ?? 0, id_facult: user.id_facult ?? 0 } 
+    });
+    
     const alliance = await prisma.alliance.findFirst({ 
         where: { id: user.id_alliance ?? 0 } 
     });
+    
     const singular = await getTerminology(alliance?.id || 0, 'singular');
     const genitive = await getTerminology(alliance?.id || 0, 'genitive');
+    
     if (coin_get?.point == true && balance_facult_check) {
-        const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: item.price*item_count } } })
+        const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ 
+            where: { id: balance_facult_check.id }, 
+            data: { amount: { decrement: item.price * item_count } } 
+        });
+        
         if (balance_facult_plus) {
-            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price*item_count} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price * item_count} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`;
         }
     }
-    // Выдача предмета
+    
+    // ВЫДАЧА ПРЕДМЕТА С ПРАВИЛЬНЫМ ВЫБОРОМ СУНДУКА
+    let chestNameForLog = "Основное";
+    let targetChestId = 0;
+    
     if (item.inventory_tr) {
-        for (let i=0; i<item_count; i++) {
-            const save_item = await prisma.inventory.create({ data: { id_user: user.id, id_item: item.id, type: InventoryType.ITEM_SHOP_ALLIANCE, comment: item_comment } });
+        // 1. Проверяем привязку категории к сундуку
+        if (categoryChest?.chest) {
+            targetChestId = categoryChest.id_chest;
+            chestNameForLog = categoryChest.chest.name;
+        } else {
+            // 2. Если нет привязки категории - ищем "Основное"
+            const mainChest = await prisma.allianceChest.findFirst({
+                where: { 
+                    name: "Основное",
+                    id_alliance: user.id_alliance || 0
+                }
+            });
+            
+            if (mainChest) {
+                targetChestId = mainChest.id;
+                chestNameForLog = "Основное";
+            } else {
+                // Создаем "Основное" если нет
+                const newMainChest = await prisma.allianceChest.create({
+                    data: {
+                        name: "Основное",
+                        id_alliance: user.id_alliance || 0,
+                        id_parent: null,
+                        order: 0
+                    }
+                });
+                targetChestId = newMainChest.id;
+                chestNameForLog = "Основное";
+            }
         }
+        
+        // 3. Проверяем, что сундук существует
+        const targetChest = await prisma.allianceChest.findFirst({
+            where: { id: targetChestId }
+        });
+        
+        // Если сундук не найден, используем "Основное"
+        if (!targetChest) {
+            const mainChest = await prisma.allianceChest.findFirst({
+                where: { 
+                    name: "Основное",
+                    id_alliance: user.id_alliance || 0
+                }
+            });
+            
+            if (mainChest) {
+                targetChestId = mainChest.id;
+                chestNameForLog = "Основное";
+            } else {
+                const newMainChest = await prisma.allianceChest.create({
+                    data: {
+                        name: "Основное",
+                        id_alliance: user.id_alliance || 0,
+                        id_parent: null,
+                        order: 0
+                    }
+                });
+                targetChestId = newMainChest.id;
+                chestNameForLog = "Основное";
+            }
+        }
+        
+        // 4. Выдаем предметы и привязываем к сундуку
+        for (let i = 0; i < item_count; i++) {
+            const save_item = await prisma.inventory.create({ 
+                data: { 
+                    id_user: user.id, 
+                    id_item: item.id, 
+                    type: InventoryType.ITEM_SHOP_ALLIANCE, 
+                    comment: item_comment 
+                } 
+            });
+            
+            // 5. Привязываем к выбранному сундуку
+            await prisma.chestItemLink.create({
+                data: {
+                    id_chest: targetChestId,
+                    id_inventory: save_item.id
+                }
+            });
+        }
+        
+        answer_log += `\n📦 Предметы добавлены в сундук "${chestNameForLog}"`;
     }
     
     // Получаем обновленную информацию о товаре (после списания лимита)
@@ -297,54 +439,96 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
 
     // 1. Отправляем короткое сообщение пользователю
-    const userMessage = `🛒 Покупка в магазине "${item_shop_check.name}":\nСовершена покупка товара "${item.name}"x${item_count} за ${item.price*item_count}${coin_get.smile}.\n${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price*item_count}=${buying_act.amount}\n💬 Комментарий: ${item_comment}`;
+    let userMessage = `🛒 Покупка в магазине "${item_shop_check.name}":\n`;
+    userMessage += `Совершена покупка товара "${item.name}"x${item_count} за ${item.price * item_count}${coin_get.smile}.\n`;
+    userMessage += `${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price * item_count}=${buying_act.amount}\n`;
+    userMessage += `💬 Комментарий: ${item_comment}\n`;
+    userMessage += `📦 Предметы добавлены в сундук "${chestNameForLog}"`;
+    
     await Send_Message(context.senderId, userMessage);
 
     // 2. Отправляем полное сообщение в лог-чат покупок, если настроен
     const allianceForPurchase = await prisma.alliance.findFirst({ 
         where: { id: item_alliance_check.id } 
-    })
+    });
     
-    // ДОБАВЛЕНО: название магазина в лог-сообщение
-    let logMessage = `👤 Клиент @id${user.idvk}(${user.name}) (UID: ${user.id})\n🛍 Магазин: "${item_shop_check.name}"\n🔧 ${answer_log}\n📦 Осталось товара в магазине: ${remaining_items}`;
+    let logMessage = `👤 Клиент @id${user.idvk}(${user.name}) (UID: ${user.id})\n`;
+    logMessage += `🛍 Магазин: "${item_shop_check.name}"\n`;
+    logMessage += `🔧 ${answer_log}\n`;
+    logMessage += `📦 Осталось товара в магазине: ${remaining_items}`;
     
     // Добавляем предупреждение о том, что товар закончился
     if (item_finished) {
-        logMessage += `\n\n⚠️ ТОВАР ЗАКОНЧИЛСЯ!\n🛍 Товар: "${item.name}"\n📁 Категория: "${item_category_check.name}"\n🏪 Магазин: "${item_shop_check.name}"\n🚨 Админы, пополните запасы!`;
+        logMessage += `\n\n⚠️ ТОВАР ЗАКОНЧИЛСЯ!\n`;
+        logMessage += `🛍 Товар: "${item.name}"\n`;
+        logMessage += `📁 Категория: "${item_category_check.name}"\n`;
+        logMessage += `🏪 Магазин: "${item_shop_check.name}"\n`;
+        logMessage += `🚨 Админы, пополните запасы!`;
     }
     
     if (allianceForPurchase?.id_chat_shop && allianceForPurchase.id_chat_shop > 0) {
         await Send_Message(allianceForPurchase.id_chat_shop, logMessage);
     }
 
-    //модуль откатов
-    let answer_owner_alliance_log = ''
-    const user_payed_check = await prisma.user.findFirst({ where: { id: item_shop_check.id_user_owner} })
-    if (!user_payed_check) { return res; }
-    const user_payed_balance_check = await prisma.balanceCoin.findFirst({ where: { id_user: user_payed_check.id, id_coin: item.id_coin } })
-    if (!user_payed_balance_check) { return res; }
-    const user_paying = await prisma.balanceCoin.update({ where: { id: user_payed_balance_check.id }, data: { amount: { increment: item.price*item_count } } })
-    if (!user_paying) { return res; }
-    const alli_fac_owner = await prisma.allianceFacult.findFirst({ where: { id: user_payed_check.id_facult ?? 0 } })
-    const balance_facult_check_owner = await prisma.balanceFacult.findFirst({ where: { id_coin: item.id_coin ?? 0, id_facult: user_payed_check.id_facult ?? 0 } })
+    // модуль откатов
+    let answer_owner_alliance_log = '';
+    const user_payed_check = await prisma.user.findFirst({ where: { id: item_shop_check.id_user_owner } });
+    if (!user_payed_check) { 
+        await context.send(`⚠️ Владелец магазина не найден, но покупка завершена.`);
+        return res; 
+    }
+    
+    const user_payed_balance_check = await prisma.balanceCoin.findFirst({ 
+        where: { id_user: user_payed_check.id, id_coin: item.id_coin } 
+    });
+    
+    if (!user_payed_balance_check) { 
+        await context.send(`⚠️ У владельца магазина не открыт валютный счет, но покупка завершена.`);
+        return res; 
+    }
+    
+    const user_paying = await prisma.balanceCoin.update({ 
+        where: { id: user_payed_balance_check.id }, 
+        data: { amount: { increment: item.price * item_count } } 
+    });
+    
+    if (!user_paying) { 
+        await context.send(`⚠️ Ошибка при начислении средств владельцу магазина, но покупка завершена.`);
+        return res; 
+    }
+    
+    const alli_fac_owner = await prisma.allianceFacult.findFirst({ where: { id: user_payed_check.id_facult ?? 0 } });
+    const balance_facult_check_owner = await prisma.balanceFacult.findFirst({ 
+        where: { id_coin: item.id_coin ?? 0, id_facult: user_payed_check.id_facult ?? 0 } 
+    });
+    
     if (coin_get?.point == true && balance_facult_check_owner) {
-        const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check_owner.id }, data: { amount: { increment: item.price*item_count } } })
+        const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ 
+            where: { id: balance_facult_check_owner.id }, 
+            data: { amount: { increment: item.price * item_count } } 
+        });
+        
         if (balance_facult_plus_owner) {
-            answer_owner_alliance_log += `🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price*item_count} = ${balance_facult_plus_owner.amount} для ${genitive} [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`
+            answer_owner_alliance_log += `\n🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price * item_count} = ${balance_facult_plus_owner.amount} для ${genitive} [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`;
         }
     }
+    
     const allianceForSale = await prisma.alliance.findFirst({ 
         where: { id: item_alliance_check.id } 
-    })
+    });
     
-    // ДОБАВЛЕНО: название магазина в уведомление о продаже
-    const notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}]\n💰 Баланс: ${user_payed_balance_check?.amount} + ${item.price*item_count} = ${user_paying?.amount}\n${answer_owner_alliance_log}`
+    let notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}]\n`;
+    notificationMessage += `💰 Баланс: ${user_payed_balance_check?.amount} + ${item.price * item_count} = ${user_paying?.amount}`;
+    notificationMessage += answer_owner_alliance_log;
 
     if (allianceForSale?.id_chat_shop && allianceForSale.id_chat_shop > 0) {
-        await Send_Message(allianceForSale.id_chat_shop, notificationMessage)
+        await Send_Message(allianceForSale.id_chat_shop, notificationMessage);
     } else {
-        await Send_Message_Smart(context, notificationMessage, 'client_callback', user_payed_check)
+        await Send_Message_Smart(context, notificationMessage, 'client_callback', user_payed_check);
     }
+    
+    // Логируем успешную покупку
+    await Logger(`Покупка: ${user.name} купил ${item.name}x${item_count} за ${item.price * item_count}${coin_get.smile}, добавлено в сундук "${chestNameForLog}"`);
     
     return res;
 }

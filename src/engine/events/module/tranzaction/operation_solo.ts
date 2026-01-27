@@ -1,6 +1,6 @@
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, ItemStorage, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart, Send_Coin_Operation_Notification } from "../../../core/helper"
+import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart, Send_Coin_Operation_Notification, Input_Number } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -108,6 +108,128 @@ export async function Operation_Solo(context: any) {
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
 }
 
+// В файле operation_solo.ts замените импорт или добавьте этот код
+async function selectChestForItem(context: any, user_get: User, allianceId: number): Promise<number> {
+    // Получаем все сундуки альянса
+    const allChests = await prisma.allianceChest.findMany({
+        where: { id_alliance: allianceId },
+        include: { Children: true },
+        orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
+    });
+    
+    // Ищем "Основное" сундук
+    const mainChest = allChests.find(c => c.name === "Основное");
+    const mainChests = allChests.filter(c => c.id_parent === null);
+    
+    // Формируем текст для выбора сундука
+    let text = `🎒 Выберите сундук для выдачи предмета\n\n`;
+    text += `Получатель: ${user_get.name}\n\n`;
+    text += `Доступные сундуки:\n`;
+    
+    // ВАЖНОЕ ИСПРАВЛЕНИЕ: используем реальный ID "Основное"
+    if (mainChest) {
+        text += `🔘 [${mainChest.id}] Основное\n`;
+    } else {
+        text += `🔘 [0] Основное (будет создан)\n`;
+    }
+    
+    for (const chest of mainChests) {
+        if (chest.name !== "Основное") {
+            text += `🎒 [${chest.id}] ${chest.name}\n`;
+        }
+    }
+    
+    text += `\nВведите ID сундука${mainChest ? ` (или ${mainChest.id} для "Основное")` : ' (или 0 для "Основное")'}:`;
+    
+    // Запрашиваем выбор сундука
+    const chestIdInput = await Input_Number(context, text, true);
+    if (chestIdInput === false) {
+        // Возвращаем ID "Основное" или создаем его
+        if (mainChest) return mainChest.id;
+        
+        const newMainChest = await prisma.allianceChest.create({
+            data: {
+                name: "Основное",
+                id_alliance: allianceId,
+                id_parent: null,
+                order: 0
+            }
+        });
+        return newMainChest.id;
+    }
+    
+    let selectedChestId: number;
+    
+    if (chestIdInput === 0 || (mainChest && chestIdInput === mainChest.id)) {
+        // Ищем или создаем "Основное"
+        if (!mainChest) {
+            const newMainChest = await prisma.allianceChest.create({
+                data: {
+                    name: "Основное",
+                    id_alliance: allianceId,
+                    id_parent: null,
+                    order: 0
+                }
+            });
+            selectedChestId = newMainChest.id;
+        } else {
+            selectedChestId = mainChest.id;
+        }
+    } else {
+        const selectedChest = allChests.find(c => c.id === chestIdInput);
+        if (!selectedChest) {
+            await context.send(`❌ Сундук с ID ${chestIdInput} не найден.`);
+            // Возвращаем "Основное"
+            if (mainChest) return mainChest.id;
+            
+            const newMainChest = await prisma.allianceChest.create({
+                data: {
+                    name: "Основное",
+                    id_alliance: allianceId,
+                    id_parent: null,
+                    order: 0
+                }
+            });
+            return newMainChest.id;
+        }
+        selectedChestId = chestIdInput;
+    }
+    
+    // Проверяем, есть ли сундучки в выбранном сундуке
+    const childChests = allChests.filter(c => c.id_parent === selectedChestId);
+    
+    if (childChests.length > 0) {
+        let childText = `🎒 Выбран сундук: ${allChests.find(c => c.id === selectedChestId)?.name}\n\n`;
+
+        childText += `\nВыберите сундучок:\n`;
+        childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
+        
+        for (const child of childChests) {
+            childText += `🧳 [${child.id}] ${child.name}\n`;
+        }
+        
+        childText += `\nВведите ID сундучка (или ${selectedChestId} сундука):`;
+        
+        const childIdInput = await Input_Number(context, childText, true);
+        if (childIdInput === false) return selectedChestId;
+        
+        if (childIdInput === selectedChestId) {
+            // Оставляем выбранный сундук
+            return selectedChestId;
+        } else {
+            // Проверяем, существует ли сундучок
+            const selectedChild = childChests.find(c => c.id === childIdInput);
+            if (!selectedChild) {
+                await context.send(`❌ Сундучок с ID ${childIdInput} не найден.`);
+                return selectedChestId;
+            }
+            return childIdInput;
+        }
+    }
+    
+    return selectedChestId;
+}
+
 async function Comment_Person(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
     if (!user_get) {
@@ -126,6 +248,7 @@ async function Comment_Person(id: number, context: any, user_adm: User) {
     if (!update_com) { return }
     await Send_Message_Smart(context, `"🔊" --> изменение комментария к персонажу ${user_get.name}\n🧷 Комментарий: ${update_com.comment}`, 'admin_and_client', user_get)
 }
+
 async function Storage_Engine(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
     if (!user_get) {
@@ -140,16 +263,133 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         return await context.send("❌ Союз не найден.");
     }
 
-    let cursor = 0;
-    const limit = 5;
+    // Вспомогательная функция для выбора сундука
+    async function selectChestForStorage(allianceId: number): Promise<{chestId: number, chestName: string}> {
+        // Получаем все сундуки альянса
+        const allChests = await prisma.allianceChest.findMany({
+            where: { id_alliance: allianceId },
+            include: { Children: true },
+            orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
+        });
+        
+        // Ищем "Основное" сундук
+        const mainChest = allChests.find(c => c.name === "Основное");
+        const mainChests = allChests.filter(c => c.id_parent === null);
+        
+        // Формируем текст для выбора сундука
+        let text = `🎒 Выберите сундук для выдачи предмета\n\n`;
+        text += `Получатель: ${user_get!.name}\n\n`;
+        text += `Доступные сундуки:\n`;
+        
+        if (mainChest) {
+            text += `🔘 [${mainChest.id}] Основное\n`;
+        } else {
+            text += `🔘 [0] Основное (будет создан)\n`;
+        }
+        
+        for (const chest of mainChests) {
+            if (chest.name !== "Основное") {
+                text += `🎒 [${chest.id}] ${chest.name}\n`;
+            }
+        }
+        
+        text += `\nВведите ID сундука${mainChest ? ` (или ${mainChest.id} для "Основное")` : ' (или 0 для "Основное")'}:`;
+        
+        const chestIdInput = await Input_Number(context, text, true);
+        if (chestIdInput === false) {
+            if (mainChest) return {chestId: mainChest.id, chestName: "Основное"};
+            
+            const newMainChest = await prisma.allianceChest.create({
+                data: {
+                    name: "Основное",
+                    id_alliance: allianceId,
+                    id_parent: null,
+                    order: 0
+                }
+            });
+            return {chestId: newMainChest.id, chestName: "Основное"};
+        }
+        
+        let selectedChestId: number;
+        let selectedChestName: string;
+        
+        if (chestIdInput === 0 || (mainChest && chestIdInput === mainChest.id)) {
+            if (!mainChest) {
+                const newMainChest = await prisma.allianceChest.create({
+                    data: {
+                        name: "Основное",
+                        id_alliance: allianceId,
+                        id_parent: null,
+                        order: 0
+                    }
+                });
+                selectedChestId = newMainChest.id;
+                selectedChestName = "Основное";
+            } else {
+                selectedChestId = mainChest.id;
+                selectedChestName = "Основное";
+            }
+        } else {
+            const selectedChest = allChests.find(c => c.id === chestIdInput);
+            if (!selectedChest) {
+                await context.send(`❌ Сундук с ID ${chestIdInput} не найден. Используется "Основное".`);
+                if (mainChest) return {chestId: mainChest.id, chestName: "Основное"};
+                
+                const newMainChest = await prisma.allianceChest.create({
+                    data: {
+                        name: "Основное",
+                        id_alliance: allianceId,
+                        id_parent: null,
+                        order: 0
+                    }
+                });
+                return {chestId: newMainChest.id, chestName: "Основное"};
+            }
+            selectedChestId = selectedChest.id;
+            selectedChestName = selectedChest.name;
+        }
+        
+        // Проверяем, есть ли сундучки в выбранном сундуке
+        const childChests = allChests.filter(c => c.id_parent === selectedChestId);
+        
+        if (childChests.length > 0) {
+            let childText = `🎒 Выбран сундук: ${selectedChestName}\n\n`;
+            
+            childText += `\nВыберите сундучок:\n`;
+            childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
+            
+            for (const child of childChests) {
+                childText += `🧳 [${child.id}] ${child.name}\n`;
+            }
+            
+            childText += `\nВведите ID сундучка (или ${selectedChestId} для выбора текущего сундука):`;
+            
+            const childIdInput = await Input_Number(context, childText, true);
+            if (childIdInput === false) return {chestId: selectedChestId, chestName: selectedChestName};
+            
+            if (childIdInput === selectedChestId) {
+                // Оставляем выбранный сундук
+                return {chestId: selectedChestId, chestName: selectedChestName};
+            } else {
+                // Проверяем, существует ли сундучок
+                const selectedChild = childChests.find(c => c.id === childIdInput);
+                if (!selectedChild) {
+                    await context.send(`❌ Сундучок с ID ${childIdInput} не найден. Используется основной сундук.`);
+                    return {chestId: selectedChestId, chestName: selectedChestName};
+                }
+                return {chestId: childIdInput, chestName: selectedChild.name};
+            }
+        }
+        
+        return {chestId: selectedChestId, chestName: selectedChestName};
+    }
+
+    let page = 0;
+    const itemsPerPage = 4;
 
     while (true) {
-        const batchSize = 5;
-        let counter = 0;
-        let limiter = 0;
-        let items_storage: ItemStorage[] = [];
-
-        const items= await prisma.itemStorage.findMany({
+        // Получаем все предметы
+        const allItems = await prisma.itemStorage.findMany({
             where: {
                 id_alliance: user_get.id_alliance ?? 0,
                 hidden: false
@@ -157,46 +397,63 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             orderBy: { id: "desc" }
         });
 
-        for (const item of items) {
-            if ((cursor <= counter && batchSize + cursor >= counter) && limiter < batchSize) {
-                items_storage.push(item);
-                limiter++;
+        // Рассчитываем пагинацию
+        const totalItems = allItems.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const startIndex = page * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const itemsOnPage = allItems.slice(startIndex, endIndex);
+
+        if (itemsOnPage.length === 0 && totalItems > 0) {
+            page = Math.max(0, totalPages - 1);
+            continue;
+        }
+
+        // Формируем текст сообщения
+        let messageText = `📦 Выберите предмет для выдачи`;
+        if (totalPages > 1) {
+            messageText += ` (Страница ${page + 1}/${totalPages})`;
+        }
+        messageText += `\n\n`;
+
+        // Создаем клавиатуру
+        const keyboard = new KeyboardBuilder();
+
+        // Кнопки для предметов (максимум 5)
+        for (let i = 0; i < itemsOnPage.length; i++) {
+            const item = itemsOnPage[i];
+            const buttonLabel = `${item.name} (${item.id})`;
+            keyboard.textButton({
+                label: buttonLabel.length > 40 ? buttonLabel.slice(0, 37) + '...' : buttonLabel,
+                payload: { command: 'give_item', item_id: item.id, page: page },
+                color: 'secondary'
+            }).row();
+        }
+
+        // Навигация (если нужно)
+        if (totalPages > 1) {
+            if (page > 0) {
+                keyboard.textButton({
+                    label: '←',
+                    payload: { command: 'navigate', page: page - 1 },
+                    color: 'secondary'
+                });
             }
-            counter++;
+
+            if (page < totalPages - 1) {
+                keyboard.textButton({
+                    label: '→',
+                    payload: { command: 'navigate', page: page + 1 },
+                    color: 'secondary'
+                });
+            }
+            
+            if (page > 0 || page < totalPages - 1) {
+                keyboard.row();
+            }
         }
 
-        if (items_storage.length === 0) {
-            await context.send("📦 В хранилище пока нет доступных предметов.");
-        }
-
-	const keyboard = new KeyboardBuilder();
-
-	for (const item of items_storage) {
-	    const buttonLabel = `${item.name} (${item.id})`;
-	    keyboard.textButton({
-	        label: buttonLabel.length > 40 ? buttonLabel.slice(0, 37) + '...' : buttonLabel,
-        	payload: { command: 'give_item', item_id: item.id },
-        	color: 'secondary'
-    	    }).row();
-	}
-
-        // Навигация
-        if (cursor >= 5) {
-            keyboard.textButton({
-                label: '<',
-                payload: { command: 'navigate', cursor: cursor - 5 },
-                color: 'secondary'
-            });
-        }
-
-        if (5 + cursor < items.length) {
-            keyboard.textButton({
-                label: '>',
-                payload: { command: 'navigate', cursor: cursor + 5 },
-                color: 'secondary'
-            });
-        }
-
+        // Основные кнопки
         keyboard
             .textButton({
                 label: '🆕 Создать',
@@ -207,9 +464,9 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 label: '❌ Выход',
                 payload: { command: 'exit' },
                 color: 'negative'
-            });
+            }).row();
 
-        const answer = await context.question("📦 Выберите предмет для выдачи:", {
+        const answer = await context.question(messageText, {
             keyboard: keyboard.inline(),
             answerTimeLimit
         });
@@ -220,7 +477,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         }
 
         if (answer.payload?.command === 'navigate') {
-            cursor = answer.payload.cursor;
+            page = answer.payload.page;
             continue;
         }
 
@@ -236,22 +493,28 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 continue;
             }
 
-            let res = { status: false, text: `` }
-            const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать предмет "${item?.name}" игроку ${user_get.name}?`,
+            // ВЫБОР СУНДУКА ПЕРЕД ВЫДАЧЕЙ
+            const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
+            
+            const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать предмет "${item?.name}" игроку ${user_get.name} в сундук "${chestName}"?`,
                 {
                     keyboard: Keyboard.builder()
                     .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
                     .textButton({ label: 'Нет', payload: { command: 'not' }, color: 'secondary' }).row()
                     .textButton({ label: 'Скрыть', payload: { command: 'hidden' }, color: 'secondary' }).row()
-                    //.textButton({ label: 'Удалить', payload: { command: 'delete' }, color: 'secondary' }).row()
                     .oneTime().inline(),
                     answerTimeLimit
                 }
-            )
-            if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение операции выдачи предмета в хранилище игрока истекло!`) }
+            );
+            
+            if (confirmq.isTimeout) { 
+                await context.send(`⏰ Время ожидания на подтверждение операции выдачи предмета в хранилище игрока истекло!`);
+                continue;
+            }
+            
             if (confirmq?.payload?.command === 'confirm') {
-                res.status = true
-                await prisma.inventory.create({
+                // Создаем инвентарную запись
+                const inventory = await prisma.inventory.create({
                     data: {
                         id_user: user_get.id,
                         id_item: item.id,
@@ -259,35 +522,63 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                         comment: `Получено от ${user_adm.name}`
                     }
                 });
-                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
-                await Send_Message_Smart(context, notif, 'client_callback', user_get)
-                if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+                
+                // Создаем связь предмета с сундуком
+                await prisma.chestItemLink.create({
+                    data: {
+                        id_chest: targetChestId,
+                        id_inventory: inventory.id
+                    }
+                });
+                
+                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n📦 Сундук: ${chestName}`;
+                await Send_Message_Smart(context, notif, 'client_callback', user_get);
+                if (user_adm) { 
+                    await Send_Message(user_adm.idvk, notif); 
+                }
+                
+                await context.send(`✅ Предмет "${item.name}" выдан игроку ${user_get.name} в сундук "${chestName}"`);
             }
+            
             if (confirmq?.payload?.command === 'hidden') {
-                const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `скрыть предмет "${item?.name}" для выдачи игрокам? Соглашайтесь, если вы больше не планируете выдавать данный предмет игрокам, но их необходимо оставить в инвентарях`);
-                if (!confirm.status) return;
-                await prisma.itemStorage.update({ where: { id: item.id }, data: { hidden: true } })
-                const notif = `"🎁" --> СКРЫТ для выдачи товар "${item?.name}" ${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
-                await Send_Message_Smart(context, notif, 'admin_solo', user_adm)
+                const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+                    context, 
+                    `скрыть предмет "${item?.name}" для выдачи игрокам? Соглашайтесь, если вы больше не планируете выдавать данный предмет игрокам, но их необходимо оставить в инвентарях`
+                );
+                if (!confirm.status) continue;
+                
+                await prisma.itemStorage.update({ 
+                    where: { id: item.id }, 
+                    data: { hidden: true } 
+                });
+                
+                const notif = `"🎁" --> СКРЫТ для выдачи товар "${item?.name}" ${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`;
+                await Send_Message_Smart(context, notif, 'admin_solo', user_adm);
+                
+                await context.send(`✅ Предмет "${item.name}" скрыт и больше не будет отображаться для выдачи`);
             }
+            
             continue;
         }
 
         if (answer.payload?.command === 'create_item') {
-            const name_answer = await context.question("✏ Введите название нового предмета:");
+            const name_answer = await context.question("✏ Введите название нового предмета:", { answerTimeLimit });
             if (name_answer.isTimeout) {
                 await context.send("⏰ Время ввода истекло.");
                 continue;
             }
 
-            const desc_answer = await context.question("✏ Введите описание предмета:");
+            const desc_answer = await context.question("✏ Введите описание предмета:", { answerTimeLimit });
             if (desc_answer.isTimeout) {
                 await context.send("⏰ Время ввода истекло.");
                 continue;
             }
-            const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"):`, timer_text);
-            if (imageUrl.isTimeout) return;
+            
+            const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"):`, { answerTimeLimit });
+            if (imageUrl.isTimeout) continue;
+            
             const image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
+            
             const newItem = await prisma.itemStorage.create({
                 data: {
                     name: name_answer.text.trim(),
@@ -311,8 +602,17 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 }
             );
 
+            if (confirm_answer.isTimeout) {
+                await context.send("⏰ Время ожидания истекло.");
+                continue;
+            }
+
             if (confirm_answer.payload?.command === 'give_created') {
-                await prisma.inventory.create({
+                // ВЫБОР СУНДУКА ПЕРЕД ВЫДАЧЕЙ НОВОГО ПРЕДМЕТА
+                const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
+                
+                // Создаем инвентарную запись
+                const inventory = await prisma.inventory.create({
                     data: {
                         id_user: user_get.id,
                         id_item: newItem.id,
@@ -320,9 +620,26 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                         comment: `Выдан админом @id${context.senderId}`
                     }
                 });
-                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`
-                await Send_Message_Smart(context, notif, 'client_callback', user_get)
-                if (user_adm) { await Send_Message(user_adm.idvk, notif) }
+                
+                // Создаем связь предмета с сундуком
+                await prisma.chestItemLink.create({
+                    data: {
+                        id_chest: targetChestId,
+                        id_inventory: inventory.id
+                    }
+                });
+                
+                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n📦 Сундук: ${chestName}`;
+                await Send_Message_Smart(context, notif, 'client_callback', user_get);
+                if (user_adm) { 
+                    await Send_Message(user_adm.idvk, notif); 
+                }
+                
+                await context.send(`✅ Новый предмет "${newItem.name}" создан и выдан игроку ${user_get.name} в сундук "${chestName}"`);
+            } else if (confirm_answer.payload?.command === 'skip_give') {
+                await context.send(`✅ Новый предмет "${newItem.name}" создан, но не выдан.`);
+            } else {
+                await context.send(`✅ Новый предмет "${newItem.name}" создан, но не выдан.`);
             }
 
             continue;
@@ -335,6 +652,16 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
     }
 
     await Keyboard_Index(context, "💡 Как насчет еще одной операции?");
+}
+
+async function getChestName(chestId: number): Promise<string> {
+    if (chestId === 0) return "Основное";
+    
+    const chest = await prisma.allianceChest.findFirst({
+        where: { id: chestId }
+    });
+    
+    return chest?.name || "Основное";
 }
 
 async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: User) {

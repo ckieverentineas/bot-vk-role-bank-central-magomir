@@ -32,6 +32,9 @@ import { Alliance_Topic_Monitor_Printer } from "./events/module/alliance/allianc
 import { createReadStream } from "fs";
 import * as path from 'path';
 import { join } from "path";
+import { AllianceChest_Manager } from "./events/module/alliance/alliance_chest_manager";
+import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/alliance_menu";
+import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -551,6 +554,28 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Class_Settings_Printer(context)
     })
+    hearManager.hear(/⚙ !сундуки настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType == 'chat') return;
+        
+        const account = await prisma.account.findFirst({ 
+            where: { idvk: context.senderId } 
+        });
+        if (!account) return;
+        
+        const user_check = await prisma.user.findFirst({ 
+            where: { id: account.select_user } 
+        });
+        if (!user_check) return;
+        
+        if (await Accessed(context) == 1) {
+            await context.send(`❌ У вас нет прав администратора для этой команды.`);
+            return;
+        }
+        
+        await AllianceChest_Manager(context);
+    });
     hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -812,13 +837,22 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (context.peerType == 'chat') { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        //if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
-        const keyboard = new KeyboardBuilder()
-        await Inventory_Printer(context, user_check);
-        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
-    })
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        // Проверяем, есть ли у альянса настроенные сундуки
+        const allianceChests = await prisma.allianceChest.findMany({
+            where: { id_alliance: user_check.id_alliance || 0 }
+        });
+        
+        if (allianceChests.length === 0) {
+            // Если сундуков нет, используем старый инвентарь
+            await Inventory_Printer(context, user_check);
+        } else {
+            // Если есть сундуки, используем новый инвентарь с сундуками
+            await Inventory_With_Chests(context, user_check);
+        }
+    });
     hearManager.hear(/!gpt/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }

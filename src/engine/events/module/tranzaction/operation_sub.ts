@@ -8,6 +8,7 @@ import { Editor } from "./person_editor"
 import { User } from "@prisma/client"
 import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
 import { getTerminology } from "../alliance/terminology_helper"
+import { Inventory_With_Chests } from "../shop/alliance_inventory_with_chests"
 
 //Модуль доп клавиатуры
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
@@ -37,7 +38,47 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
 
 async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
-    await Inventory_Printer(context, user_get, user_adm);
+    if (!user_get) {
+        await context.send("❌ Пользователь не найден.");
+        return;
+    }
+    
+    // Проверяем, состоит ли игрок в альянсе
+    if (!user_get.id_alliance || user_get.id_alliance <= 0) {
+        // Если игрок сольник - используем старый инвентарь без сундуков
+        await context.send("📦 У соло-игроков нет сундуков. Открывается стандартный инвентарь...");
+        
+        // Здесь нужно импортировать и использовать старую функцию
+        // Или просто показать сообщение
+        const oldInventory = await prisma.inventory.findMany({
+            where: { id_user: user_get.id },
+            take: 10
+        });
+        
+        if (oldInventory.length === 0) {
+            await context.send("📭 Инвентарь пуст.");
+        } else {
+            let itemsText = "🎒 Инвентарь:\n\n";
+            for (const item of oldInventory) {
+                // Получаем информацию о предмете
+                let itemInfo = null;
+                if (item.type === "ITEM_SHOP_ALLIANCE") {
+                    itemInfo = await prisma.allianceShopItem.findFirst({ where: { id: item.id_item } });
+                } else if (item.type === "ITEM_SHOP") {
+                    itemInfo = await prisma.item.findFirst({ where: { id: item.id_item } });
+                } else if (item.type === "ITEM_STORAGE") {
+                    itemInfo = await prisma.itemStorage.findFirst({ where: { id: item.id_item } });
+                }
+                
+                itemsText += `🧳 ${itemInfo?.name || "Неизвестный предмет"} (ID: ${item.id})\n`;
+            }
+            
+            await context.send(itemsText);
+        }
+    } else {
+        // Если игрок в альянсе - используем новый инвентарь с сундуками
+        await Inventory_With_Chests(context, user_get, user_adm);
+    }
 }
 
 async function User_Drop(id: number, context: any, user_adm: User) {

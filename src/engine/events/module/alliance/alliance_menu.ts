@@ -3,7 +3,7 @@ import { Person_Get } from "../person/person"
 import prisma from "../prisma_client"
 import { Person_Coin_Printer } from "../person/person_coin"
 import { Facult_Rank_Printer } from "./facult_rank"
-import { KeyboardBuilder } from "vk-io"
+import { Keyboard, KeyboardBuilder } from "vk-io"
 import { Accessed, Logger, Send_Message } from "../../../core/helper"
 import { ico_list } from "../data_center/icons_lib"
 
@@ -31,26 +31,97 @@ export async function Alliance_Enter(context:any) {
     await Send_Message(context.peerId, text, keyboard)
 }
 
-export async function Alliance_Enter_Admin(context:any) {
+export async function Alliance_Enter_Admin(context:any, page: number = 1) {
     const get_user: User | null | undefined = await Person_Get(context)
     if (get_user) {
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const coin = await Person_Coin_Printer(context)
         const facult_rank = await Facult_Rank_Printer(context)
         const text = `${ico_list['alliance'].ico} Добро пожаловать в меню администрирования ролевого проекта [${alli_get?.name}] --> \n`
-        const keyboard = new KeyboardBuilder()
+        
+        const keyboard = Keyboard.builder().inline();
+        
         if (await Accessed(context) != 1) {
-            keyboard.textButton({ label: `${ico_list['config'].ico} !факультеты настроить`, color: 'secondary' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !магазины настроить`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !валюты настроить`, color: 'secondary' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !положения настроить`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !конвертацию настроить`, color: 'secondary' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !S-coins настроить`, color: 'secondary' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !закончить учебный год`, color: 'negative' }).row()
-            keyboard.textButton({ label: `${ico_list['config'].ico} !мониторы настроить`, color: 'positive' })
-            keyboard.textButton({ label: `${ico_list['config'].ico} !отслеживание обсуждений`, payload: { command: 'alliance_topic_monitor_enter' }, color: 'secondary' }).row()
+            if (page === 1) {
+                // ========== СТРАНИЦА 1 ==========
+                // Кнопки для отправки в чат используем textButton
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !факультеты настроить`, 
+                    payload: { command: "alliance_config_facult" }, 
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !положения настроить`, 
+                    payload: { command: "alliance_config_rules" }, 
+                    color: 'secondary' 
+                }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !валюты настроить`, 
+                    payload: { command: "alliance_config_coin" }, 
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !магазины настроить`, 
+                    payload: { command: "alliance_config_shop" }, 
+                    color: 'secondary' 
+                }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !конвертацию настроить`, 
+                    payload: { command: "alliance_config_convert" }, 
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !S-coins настроить`, 
+                    payload: { command: "alliance_config_scoins" }, 
+                    color: 'secondary' 
+                }).row()
+                
+                // Стрелочка навигации оставляем callbackButton
+                keyboard.callbackButton({ 
+                    label: `→`, 
+                    payload: { command: "admin_page", page: 2 }, 
+                    color: 'secondary' 
+                }).row()
+                
+            } else if (page === 2) {
+                // ========== СТРАНИЦА 2 ==========
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !сундуки настроить`, 
+                    payload: { command: "alliance_config_chest" },
+                    color: 'secondary' 
+                }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !мониторы настроить`, 
+                    payload: { command: "alliance_config_monitor" },
+                    color: 'positive' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !отслеживание обсуждений`, 
+                    payload: { command: 'alliance_topic_monitor_enter' }, 
+                    color: 'secondary' 
+                }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !закончить учебный год`, 
+                    payload: { command: "alliance_config_end_year" },
+                    color: 'negative' 
+                }).row()
+                
+                // Стрелочка навигации оставляем callbackButton
+                keyboard.callbackButton({ 
+                    label: `←`, 
+                    payload: { command: "admin_page", page: 1 }, 
+                    color: 'secondary' 
+                }).row()
+            }
         }
-        keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: "system_call_admin" }, color: 'secondary' }).inline().oneTime()
+        
+        // Кнопка закрытия тоже остается callbackButton
+        keyboard.callbackButton({ 
+            label: `${ico_list['stop'].ico}`, 
+            payload: { command: "system_call_admin" }, 
+            color: 'secondary' 
+        }).row()
+        
         await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
         await Send_Message(context.peerId, text, keyboard)
     }

@@ -167,6 +167,7 @@ model Inventory {
   type    String @default("item_shop")
   comment String?
   user    User @relation(fields: [id_user], references: [id], onDelete: Cascade)
+  ChestItemLink ChestItemLink?
 }
 
 model Item {
@@ -246,6 +247,7 @@ model Alliance {
   MonitorSelection MonitorSelection[]
   classSettings   AllianceClassSetting? 
   id_chat_topic   Int                     @default(0)
+  Chests          AllianceChest[]
 }
 
 model AllianceCoin {
@@ -354,4 +356,40 @@ model AllianceClassSetting {
   option5     String?  @default("Бизнесвумен(мэн)")
   option6     String?  @default("Другое")
   updatedAt   DateTime @default(now())
+}
+
+model AllianceChest {
+  id              Int                 @id @default(autoincrement())
+  name            String
+  id_alliance     Int
+  alliance        Alliance            @relation(fields: [id_alliance], references: [id], onDelete: Cascade)
+  id_parent       Int?
+  order           Int                 @default(0)
+  
+  ChestItemLink   ChestItemLink[]
+  CategoryChest   CategoryChest[]
+  Children        AllianceChest[]     @relation("ParentChild")
+  Parent          AllianceChest?      @relation("ParentChild", fields: [id_parent], references: [id])
+  
+  @@unique([id_alliance, name])
+}
+
+model ChestItemLink {
+  id              Int           @id @default(autoincrement())
+  id_chest        Int
+  id_inventory    Int
+  chest           AllianceChest @relation(fields: [id_chest], references: [id], onDelete: Cascade)
+  inventory       Inventory     @relation(fields: [id_inventory], references: [id], onDelete: Cascade)
+  
+  @@unique([id_inventory])
+}
+
+model CategoryChest {
+  id              Int                @id @default(autoincrement())
+  id_category     Int                // id категории магазина (allianceShopCategory)
+  id_chest        Int
+  chest           AllianceChest      @relation(fields: [id_chest], references: [id], onDelete: Cascade)
+  
+  @@unique([id_category])
+  @@index([id_chest])
 }

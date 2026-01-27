@@ -323,6 +323,49 @@ async function Mass_Present_Multiple(context: any, data: any, user: User, user_a
     return { cursor: data.cursor, group_mode: data.group_mode };
 }
 
+// В alliance_inventory_shop_alliance.ts, после импортов:
+async function findRecipientChest(recipientId: number, itemChestId: number, allianceId: number): Promise<number> {
+    if (allianceId === 0 || allianceId === -1) {
+        return 0;
+    }
+    
+    // Проверяем, есть ли у получателя сундук с таким ID
+    const recipientChest = await prisma.allianceChest.findFirst({
+        where: { 
+            id: itemChestId,
+            id_alliance: allianceId
+        }
+    });
+    
+    if (recipientChest) {
+        return itemChestId; // Возвращаем тот же сундук, если есть
+    }
+    
+    // Ищем "Основное" сундук
+    const mainChest = await prisma.allianceChest.findFirst({
+        where: { 
+            name: "Основное",
+            id_alliance: allianceId
+        }
+    });
+    
+    if (mainChest) {
+        return mainChest.id;
+    }
+    
+    // Создаем "Основное" если нет
+    const newMainChest = await prisma.allianceChest.create({
+        data: {
+            name: "Основное",
+            id_alliance: allianceId,
+            id_parent: null,
+            order: 0
+        }
+    });
+    
+    return newMainChest.id;
+}
+
 // Исправленная функция выбора предмета для массового дарения нескольким персонажам
 async function Mass_Present_Select_Item_Multi(context: any, data: any, user: User, user_adm?: User) {
     // Используем переданный курсор из payload
@@ -598,6 +641,35 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
 
             if (updated_item) {
                 success_count++;
+                
+                // ===== НОВЫЙ КОД: ОБНОВЛЕНИЕ СУНДУКА У ПОЛУЧАТЕЛЯ =====
+                // Находим исходную связь с сундуком
+                const chestLink = await prisma.chestItemLink.findFirst({
+                    where: { id_inventory: inventory_id }
+                });
+                
+                // Находим подходящий сундук у получателя
+                const recipientChestId = await findRecipientChest(
+                    person_goten_check.id,
+                    chestLink?.id_chest || 0,
+                    person_goten_check.id_alliance || 0
+                );
+                
+                // Обновляем связь
+                if (chestLink) {
+                    await prisma.chestItemLink.update({
+                        where: { id: chestLink.id },
+                        data: { id_chest: recipientChestId }
+                    });
+                } else {
+                    await prisma.chestItemLink.create({
+                        data: {
+                            id_chest: recipientChestId,
+                            id_inventory: inventory_id
+                        }
+                    });
+                }
+                // ===== КОНЕЦ НОВОГО КОДА =====
             } else {
                 failed_count++;
             }
@@ -891,7 +963,7 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         itemName = item.name;
         text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n🧲 Где куплено: в Маголавке`;
     }
-    else if (inv.type == InventoryType.ITEM_STORAGE) { // ← ДОБАВЛЕНО!
+    else if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
         if (!item) {
             await context.send(`❌ Предмет из хранилища не найден.`);
@@ -992,12 +1064,40 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
         return res; 
     }
     
+    // ===== НОВЫЙ КОД: ОБНОВЛЕНИЕ СУНДУКА У ПОЛУЧАТЕЛЯ =====
+    // Находим исходную связь с сундуком
+    const chestLink = await prisma.chestItemLink.findFirst({
+        where: { id_inventory: inv.id }
+    });
+    
+    // Находим подходящий сундук у получателя
+    const recipientChestId = await findRecipientChest(
+        person_goten_check.id,
+        chestLink?.id_chest || 0,
+        person_goten_check.id_alliance || 0
+    );
+    
+    // Обновляем связь для получателя
+    if (chestLink) {
+        await prisma.chestItemLink.update({
+            where: { id: chestLink.id },
+            data: { id_chest: recipientChestId }
+        });
+    } else {
+        // Создаем новую связь, если ее не было
+        await prisma.chestItemLink.create({
+            data: {
+                id_chest: recipientChestId,
+                id_inventory: inv.id
+            }
+        });
+    }
+    // ===== КОНЕЦ НОВОГО КОДА =====
+    
     const notif = `"<🎁>" --> передача товара "${itemName}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`;
     
     // УВЕДОМЛЕНИЕ ДЛЯ ПОЛУЧАТЕЛЯ С КОММЕНТАРИЕМ
-    const receiver_message = `🎁 Вам подарен предмет от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n` +
-        `🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n` +
-        `📦 Предмет: ${itemName}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
+    const receiver_message = `🎁 Вам подарен предмет от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n📦 Предмет: ${itemName}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
     
     await Send_Message(person_goten_check.idvk, receiver_message);
     
