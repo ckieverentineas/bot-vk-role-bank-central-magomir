@@ -108,128 +108,6 @@ export async function Operation_Solo(context: any) {
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
 }
 
-// В файле operation_solo.ts замените импорт или добавьте этот код
-async function selectChestForItem(context: any, user_get: User, allianceId: number): Promise<number> {
-    // Получаем все сундуки альянса
-    const allChests = await prisma.allianceChest.findMany({
-        where: { id_alliance: allianceId },
-        include: { Children: true },
-        orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
-    });
-    
-    // Ищем "Основное" сундук
-    const mainChest = allChests.find(c => c.name === "Основное");
-    const mainChests = allChests.filter(c => c.id_parent === null);
-    
-    // Формируем текст для выбора сундука
-    let text = `🎒 Выберите сундук для выдачи предмета\n\n`;
-    text += `Получатель: ${user_get.name}\n\n`;
-    text += `Доступные сундуки:\n`;
-    
-    // ВАЖНОЕ ИСПРАВЛЕНИЕ: используем реальный ID "Основное"
-    if (mainChest) {
-        text += `🔘 [${mainChest.id}] Основное\n`;
-    } else {
-        text += `🔘 [0] Основное (будет создан)\n`;
-    }
-    
-    for (const chest of mainChests) {
-        if (chest.name !== "Основное") {
-            text += `🎒 [${chest.id}] ${chest.name}\n`;
-        }
-    }
-    
-    text += `\nВведите ID сундука${mainChest ? ` (или ${mainChest.id} для "Основное")` : ' (или 0 для "Основное")'}:`;
-    
-    // Запрашиваем выбор сундука
-    const chestIdInput = await Input_Number(context, text, true);
-    if (chestIdInput === false) {
-        // Возвращаем ID "Основное" или создаем его
-        if (mainChest) return mainChest.id;
-        
-        const newMainChest = await prisma.allianceChest.create({
-            data: {
-                name: "Основное",
-                id_alliance: allianceId,
-                id_parent: null,
-                order: 0
-            }
-        });
-        return newMainChest.id;
-    }
-    
-    let selectedChestId: number;
-    
-    if (chestIdInput === 0 || (mainChest && chestIdInput === mainChest.id)) {
-        // Ищем или создаем "Основное"
-        if (!mainChest) {
-            const newMainChest = await prisma.allianceChest.create({
-                data: {
-                    name: "Основное",
-                    id_alliance: allianceId,
-                    id_parent: null,
-                    order: 0
-                }
-            });
-            selectedChestId = newMainChest.id;
-        } else {
-            selectedChestId = mainChest.id;
-        }
-    } else {
-        const selectedChest = allChests.find(c => c.id === chestIdInput);
-        if (!selectedChest) {
-            await context.send(`❌ Сундук с ID ${chestIdInput} не найден.`);
-            // Возвращаем "Основное"
-            if (mainChest) return mainChest.id;
-            
-            const newMainChest = await prisma.allianceChest.create({
-                data: {
-                    name: "Основное",
-                    id_alliance: allianceId,
-                    id_parent: null,
-                    order: 0
-                }
-            });
-            return newMainChest.id;
-        }
-        selectedChestId = chestIdInput;
-    }
-    
-    // Проверяем, есть ли сундучки в выбранном сундуке
-    const childChests = allChests.filter(c => c.id_parent === selectedChestId);
-    
-    if (childChests.length > 0) {
-        let childText = `🎒 Выбран сундук: ${allChests.find(c => c.id === selectedChestId)?.name}\n\n`;
-
-        childText += `\nВыберите сундучок:\n`;
-        childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
-        
-        for (const child of childChests) {
-            childText += `🧳 [${child.id}] ${child.name}\n`;
-        }
-        
-        childText += `\nВведите ID сундучка (или ${selectedChestId} сундука):`;
-        
-        const childIdInput = await Input_Number(context, childText, true);
-        if (childIdInput === false) return selectedChestId;
-        
-        if (childIdInput === selectedChestId) {
-            // Оставляем выбранный сундук
-            return selectedChestId;
-        } else {
-            // Проверяем, существует ли сундучок
-            const selectedChild = childChests.find(c => c.id === childIdInput);
-            if (!selectedChild) {
-                await context.send(`❌ Сундучок с ID ${childIdInput} не найден.`);
-                return selectedChestId;
-            }
-            return childIdInput;
-        }
-    }
-    
-    return selectedChestId;
-}
-
 async function Comment_Person(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
     if (!user_get) {
@@ -359,7 +237,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
             
             for (const child of childChests) {
-                childText += `🧳 [${child.id}] ${child.name}\n`;
+                childText += `      🧳 [${child.id}] ${child.name}\n`;
             }
             
             childText += `\nВведите ID сундучка (или ${selectedChestId} для выбора текущего сундука):`;
@@ -531,7 +409,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     }
                 });
                 
-                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n📦 Сундук: ${chestName}`;
+                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n🎒 Сундук: ${chestName}`;
                 await Send_Message_Smart(context, notif, 'client_callback', user_get);
                 if (user_adm) { 
                     await Send_Message(user_adm.idvk, notif); 
@@ -629,7 +507,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     }
                 });
                 
-                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n📦 Сундук: ${chestName}`;
+                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}\n🎒 Сундук: ${chestName}`;
                 await Send_Message_Smart(context, notif, 'client_callback', user_get);
                 if (user_adm) { 
                     await Send_Message(user_adm.idvk, notif); 

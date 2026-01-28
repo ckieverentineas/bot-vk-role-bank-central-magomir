@@ -89,6 +89,11 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     label: `${ico_list['config'].ico} !сундуки настроить`, 
                     payload: { command: "alliance_config_chest" },
                     color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !легаси настроить`, 
+                    payload: { command: "alliance_config_legacy" }, 
+                    color: 'secondary' 
                 }).row()
                 keyboard.textButton({ 
                     label: `${ico_list['config'].ico} !мониторы настроить`, 

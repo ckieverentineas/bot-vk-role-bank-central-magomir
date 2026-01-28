@@ -35,6 +35,7 @@ import { join } from "path";
 import { AllianceChest_Manager } from "./events/module/alliance/alliance_chest_manager";
 import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/alliance_menu";
 import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
+import { Legacy_Category_Printer } from "./events/module/shop/legacy_category_manager";
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -513,6 +514,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Scoopins_Converter_Editor_Printer(context)
     })
+    hearManager.hear(/⚙ !легаси настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        
+        await Legacy_Category_Printer(context, user_check.id_alliance!);
+    })
     hearManager.hear(/⚙ !отслеживание обсуждений/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
@@ -783,6 +797,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [⚙ !магазины настроить] — управление магазинами ролевой
                     \n⭐ [⚙ !валюты настроить] — создание и настройка валют
                     \n⭐ [⚙ !положения настроить] — кастомизация кнопок положений персонажей
+                    \n⭐ [⚙ !сундуки настроить] — создание и настройка сундуков, сундучков
+                    \n⭐ [⚙ !легаси настроить] — привязка удалённых категорий магазинов к сундукам
                     \n⭐ [⚙ !конвертацию настроить] — настройка курсов конвертации валют
                     \n⭐ [⚙ !S-coins настроить] — управление S-коинами
                     \n⭐ [⚙ !мониторы настроить] — вызов меню конфигурации мониторов

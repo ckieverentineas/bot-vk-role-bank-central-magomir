@@ -282,27 +282,27 @@ async function startMonitor(monitor: any) {
 
         // ДОПОЛНИТЕЛЬНЫЕ ОБРАБОТЧИКИ для совместимости
         vks.updates.on('board_post_new' as any, async (context: any, next: any) => {
-            console.log('📘 Обработчик board_post_new сработал');
+            //console.log('📘 Обработчик board_post_new сработал');
             return next();
         });
 
         vks.updates.on('board_comment_new' as any, async (context: any, next: any) => {
-            console.log('📘 Обработчик board_comment_new сработал');
+            //console.log('📘 Обработчик board_comment_new сработал');
             return next();
         });
 
         vks.updates.on('board_post_edit' as any, async (context: any, next: any) => {
-            console.log('📘 Обработчик board_post_edit сработал');
+            //console.log('📘 Обработчик board_post_edit сработал');
             return next();
         });
 
         vks.updates.on('board_post_delete' as any, async (context: any, next: any) => {
-            console.log('📘 Обработчик board_post_delete сработал');
+            //console.log('📘 Обработчик board_post_delete сработал');
             return next();
         });
 
         vks.updates.on('board_post_restore' as any, async (context: any, next: any) => {
-            console.log('📘 Обработчик board_post_restore сработал');
+            //console.log('📘 Обработчик board_post_restore сработал');
             return next();
         });
 

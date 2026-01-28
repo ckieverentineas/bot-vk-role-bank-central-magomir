@@ -94,9 +94,9 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
             childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
             
             for (const child of childChests) {
-                childText += `🧳 [${child.id}] ${child.name}\n`;
+                childText += `      🧳 [${child.id}] ${child.name}\n`;
             }
-            
+
             childText += `\nВведите ID сундучка (или ${selectedChestId} сундука):`;
             
             const childIdInput = await Input_Number(context, childText, true);
@@ -129,7 +129,7 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
         if (currentBinding?.id_chest !== selectedChestId) {
             const migrateText = `🔄 Хотите перенести уже купленные товары этой категории в новый сундук "${selectedChest.name}"?\n\n` +
                 `✅ Да — все существующие покупки этой категории будут перенесены\n` +
-                `❌ Нет С только новые покупки будут попадать в новый сундук\n\n` +
+                `❌ Нет — только новые покупки будут попадать в новый сундук\n\n` +
                 `💡 Рекомендуется выполнить миграцию, чтобы у всех игроков предметы были в одном сундуке.`;
             
             const migrateResponse = await context.question(migrateText, {
@@ -159,7 +159,7 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
         
         // Сохраняем привязку
         try {
-            //console.log(`DEBUG: Saving category chest binding: categoryId=${categoryId}, chestId=${selectedChestId}`);
+            ////console.log(`DEBUG: Saving category chest binding: categoryId=${categoryId}, chestId=${selectedChestId}`);
             
             // Просто создаем/обновляем привязку
             // Теперь разные категории могут быть привязаны к одному сундуку!
@@ -172,7 +172,7 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
                 }
             });
             
-            //console.log(`DEBUG: Category chest binding saved successfully`);
+            ////console.log(`DEBUG: Category chest binding saved successfully`);
             
         } catch (error: any) {
             console.error('Error saving category chest binding:', error);
@@ -218,7 +218,7 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
         // Логируем
         const logMessage = `🧷 Привязка категории магазина\n\n` +
             `📁 Категория: "${category.name}" (ID: ${categoryId})\n` +
-            `📦 Сундук: "${selectedChest.name}" (ID: ${selectedChestId})\n` +
+            `🎒 Сундук: "${selectedChest.name}" (ID: ${selectedChestId})\n` +
             `👤 Админ: @id${context.senderId}`;
         
         // Отправляем в чат магазина если настроен
