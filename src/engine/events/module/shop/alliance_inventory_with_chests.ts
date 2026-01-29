@@ -1630,15 +1630,7 @@ async function handleChestMassByIdsMulti(context: any, data: any, user: User, us
     };
     
     await context.send(
-        `👥 Для дарения нескольким получателям по ID предметов:\n\n` +
-        `1. Используйте формат:\n` +
-        `UID_получателя ID1 ID2 ID3\n\n` +
-        `Пример:\n` +
-        `44 1670 1671\n` +
-        `55 1676 1677\n\n` +
-        `💡 Каждая строка — отдельный получатель\n` +
-        `💡 ID предметов через пробел\n` +
-        `💡 Предметы должны быть в сундуке "${chest.name}"`
+        `👥 Приступаем к инициации дарения нескольким получателям по ID предметов...`
     );
     
     // Запрашиваем комментарий (общий для всех получателей)
@@ -1866,7 +1858,7 @@ async function handleChestMassByIdsMulti(context: any, data: any, user: User, us
     let resultMessage = `🎁 Массовое дарение завершено!\n\n` +
         `✅ Успешно передано: ${totalSuccessCount} предметов\n` +
         `❌ Не удалось передать: ${totalFailedCount} предметов\n\n` +
-        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n`;
+        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n`;
     
     if (globalComment) {
         resultMessage += `💬 Комментарий: "${globalComment}"\n\n`;
@@ -1912,7 +1904,7 @@ async function handleChestMassByIdsMulti(context: any, data: any, user: User, us
                     `🎯 Получатель: @id${recipient.idvk}(${recipient.name}) (UID: ${recipient.id})\n` +
                     `📦 Передано: ${result.success} предметов\n` +
                     (globalComment ? `💬 Комментарий: "${globalComment}"\n` : '') +
-                    `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+                    `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
                     `📁 В сундук: ${result.chestName} (ID: ${await findRecipientChest(parseInt(recipientId), chest.id, chest.id_alliance || user.id_alliance || 0)})`;
                 
                 // Используем функцию для определения чата логирования
@@ -1926,7 +1918,7 @@ async function handleChestMassByIdsMulti(context: any, data: any, user: User, us
                     const adminMessage =
                         `🎁 Передача товаров (${result.success} шт.) от игрока ${user.name} (UID: ${user.id}) игроку ${recipient.name} (UID: ${recipient.id})\n` +
                         (globalComment ? `💬 Комментарий: "${globalComment}"\n` : '') +
-                        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+                        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
                         `📁 В сундук: ${result.chestName} (ID: ${await findRecipientChest(parseInt(recipientId), chest.id, chest.id_alliance || user.id_alliance || 0)})`;
                     
                     await Send_Message(user_adm.idvk, adminMessage);
@@ -1983,7 +1975,7 @@ async function handleChestMassByTypeMulti(
     text += `💡 Показаны только предметы, которых у вас больше 1 штуки\n`;
     text += `📊 Найдено предметов: ${multipleItems.length}\n`;
     text += `📄 Страница ${currentPage + 1} из ${totalPages}\n\n`;
-    text += `📁 Из сундука: "${chest.name}"\n\n`;
+    text += `📁 Из сундука: ${chest.name}\n\n`;
     
     for (let i = 0; i < pageItems.length; i++) {
         const item = pageItems[i];
@@ -2403,7 +2395,7 @@ async function handleChestMassSelectItemMulti(context: any, data: any, user: Use
         `✅ Успешно передано: ${successCount} предметов\n` +
         `❌ Не удалось передать: ${failedCount} предметов\n\n` +
         `📦 Предмет: ${group.name}\n` +
-        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n`;
+        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n`;
     
     if (globalComment) {
         resultMessage += `💬 Комментарий: "${globalComment}"\n\n`;
@@ -2442,7 +2434,7 @@ async function handleChestMassSelectItemMulti(context: any, data: any, user: Use
                     `🎯 Получатель: @id${recipient.idvk}(${recipient.name}) (UID: ${recipient.id})\n` +
                     `📦 Предмет: ${group.name} × ${result.count}\n` +
                     (globalComment ? `💬 Комментарий: "${globalComment}"\n` : '') +
-                    `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+                    `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
                     `📁 В сундук: ${result.chestName} (ID: ${await findRecipientChest(parseInt(recipientId), chest.id, chest.id_alliance || user.id_alliance || 0)})`;
                 
                 // Используем функцию для определения чата логирования
@@ -2456,7 +2448,7 @@ async function handleChestMassSelectItemMulti(context: any, data: any, user: Use
                     const adminMessage =
                         `🎁 Передача товара "${group.name}" от игрока ${user.name} (UID: ${user.id}) игроку ${recipient.name} (UID: ${recipient.id})\n` +
                         (globalComment ? `💬 Комментарий: "${globalComment}"\n` : '') +
-                        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+                        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
                         `📁 В сундук: ${result.chestName} (ID: ${await findRecipientChest(parseInt(recipientId), chest.id, chest.id_alliance || user.id_alliance || 0)})`;
                     
                     await Send_Message(user_adm.idvk, adminMessage);
@@ -2778,7 +2770,7 @@ async function handleChestMassByType(
     text += `💡 Показаны только предметы, которых у вас больше 1 штуки\n`;
     text += `📊 Найдено предметов: ${multipleItems.length}\n`;
     text += `📄 Страница ${currentPage + 1} из ${totalPages}\n\n`;
-    text += `📁 Из сундука: "${chest.name}"\n\n`;
+    text += `📁 Из сундука: ${chest.name}\n\n`;
     
     for (let i = 0; i < pageItems.length; i++) {
         const item = pageItems[i];
@@ -3166,7 +3158,7 @@ async function handleChestMassSelectItemSingle(context: any, data: any, user: Us
         `❌ Не удалось передать: ${failedCount} предметов\n\n` +
         `📦 Предмет: ${group.name} × ${successCount}\n` +
         `👤 Получатель: ${recipient.name} (UID: ${recipient.id})\n` +
-        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"`;
+        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})`;
     
     if (comment) {
         resultMessage += `\n💬 Комментарий: "${comment}"`;
@@ -3195,7 +3187,7 @@ async function handleChestMassSelectItemSingle(context: any, data: any, user: Us
             `🎯 Получатель: @id${recipient.idvk}(${recipient.name}) (UID: ${recipient.id})\n` +
             `📦 Предмет: ${group.name} × ${successCount}\n` +
             `${comment ? `💬 Комментарий: "${comment}"\n` : ''}` +
-            `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+            `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
             `📁 В сундук: ${finalRecipientChestName} (ID: ${finalRecipientChestId || 'N/A'})`;
         
         // Используем функцию для определения чата логирования
@@ -3377,7 +3369,7 @@ async function handleChestMassSelectItem(context: any, data: any, user: User, us
         `❌ Не удалось передать: ${failedCount} предметов\n\n` +
         `📦 Предмет: ${group.name} × ${successCount}\n` +
         `👤 Получатель: ${recipient.name} (UID: ${recipient.id})\n` +
-        `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"`;
+        `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})`;
     
     await context.send(resultMessage);
     
@@ -3397,7 +3389,7 @@ async function handleChestMassSelectItem(context: any, data: any, user: User, us
             `👤 Отправитель: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
             `🎯 Получатель: @id${recipient.idvk}(${recipient.name}) (UID: ${recipient.id})\n` +
             `📦 Предмет: ${group.name} × ${successCount}\n` +
-            `📁 Из сундука: "${chest.name} (ID: ${chest?.id || 'N/A'})"\n` +
+            `📁 Из сундука: ${chest.name} (ID: ${chest?.id || 'N/A'})\n` +
             `📁 В сундук: ${finalRecipientChestName} (ID: ${finalRecipientChestId || 'N/A'})`;
         
         // Используем функцию для определения чата логирования
@@ -3419,15 +3411,14 @@ async function handleChestMassMultiple(context: any, data: any, user: User, user
     };
     
     await context.send(
-        `👥 Для дарения нескольким получателям:\n\n` +
-        `1. Используйте режим "По ID предметов"\n` +
-        `2. Введите данные в формате:\n` +
+        `👥 Для дарения нескольким получателям введите данные в формате:\n\n` +
         `UID_получателя ID1 ID2 ID3\n\n` +
         `Пример:\n` +
         `44 1670 1671\n` +
         `55 1676 1677\n\n` +
         `💡 Каждая строка — отдельный получатель\n` +
-        `💡 ID предметов через пробел`
+        `💡 ID предметов через пробел\n` +
+        `💡 Предметы должны быть в сундуке "${chest.name}"`
     );
     
     return res;
@@ -3833,7 +3824,7 @@ async function migrateHiddenItems(context: any, categoryId: number, newChestId: 
 // ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
 
 async function getChestInventoryItems(userId: number, chestId: number, group_mode: boolean): Promise<InventoryDisplayItem[]> {
-    //////console.log(`DEBUG getChestInventoryItems: userId=${userId}, chestId=${chestId}, group_mode=${group_mode}`);
+    //console.log(`DEBUG getChestInventoryItems: userId=${userId}, chestId=${chestId}, group_mode=${group_mode}`);
     
     // Получаем пользователя, чтобы узнать его альянс
     const user = await prisma.user.findFirst({ 
@@ -3841,7 +3832,7 @@ async function getChestInventoryItems(userId: number, chestId: number, group_mod
     });
     
     if (!user) {
-        ////console.log(`DEBUG: User ${userId} not found`);
+        //console.log(`DEBUG: User ${userId} not found`);
         return [];
     }
     
@@ -3857,11 +3848,11 @@ async function getChestInventoryItems(userId: number, chestId: number, group_mod
     });
     
     if (!chest) {
-        ////console.log(`DEBUG: Chest ${chestId} not found in alliance ${user.id_alliance}`);
+        //console.log(`DEBUG: Chest ${chestId} not found in alliance ${user.id_alliance}`);
         return [];
     }
     
-    ////console.log(`DEBUG: Using chestId=${chestId} for chest "${chest.name}"`);
+    //console.log(`DEBUG: Using chestId=${chestId} for chest "${chest.name}"`);
     
     // ИСПРАВЛЕННЫЙ ЗАПРОС: Получаем предметы с проверкой привязки к сундуку
     const inventoryItems = await prisma.inventory.findMany({
@@ -3875,7 +3866,7 @@ async function getChestInventoryItems(userId: number, chestId: number, group_mod
         }
     });
     
-    ////console.log(`DEBUG: Found ${inventoryItems.length} inventory items for user ${userId} in chest ${chestId}`);
+    //console.log(`DEBUG: Found ${inventoryItems.length} inventory items for user ${userId} in chest ${chestId}`);
     
     if (group_mode) {
         // Группируем предметы
@@ -3956,6 +3947,7 @@ async function getChestInventoryItems(userId: number, chestId: number, group_mod
         return items;
     }
 }
+
 async function findRecipientChest(recipientId: number, itemChestId: number, senderAllianceId: number): Promise<number> {
     //console.log(`DEBUG findRecipientChest: recipientId=${recipientId}, itemChestId=${itemChestId}, senderAllianceId=${senderAllianceId}`);
     
@@ -3976,9 +3968,9 @@ async function findRecipientChest(recipientId: number, itemChestId: number, send
         //console.log(`DEBUG: Original chest ID ${itemChestId} belongs to alliance: ${originalChest?.id_alliance}, name: "${originalChest?.name}"`);
     }
     
-    // ВАЖНОЕ ИСПРАВЛЕНИЕ: Если дарят из сундука "Основное", то ВСЕГДА ищем "Основное" получателя
-    if (originalChest && originalChest.name === "Основное") {
-        //console.log(`DEBUG: Gifting from "Основное" chest, finding recipient's "Основное"`);
+    // ВАЖНОЕ ИСПРАВЛЕНИЕ: Если челы из разных альянсов
+    if (recipient?.id_alliance !== originalChest?.id_alliance) {
+        //console.log(`DEBUG: Different alliances - recipient in ${recipient?.id_alliance}, item from alliance ${originalChest?.id_alliance}`);
         
         // Ищем "Основное" сундук в альянсе получателя
         const recipientMainChest = await prisma.allianceChest.findFirst({
@@ -4006,75 +3998,66 @@ async function findRecipientChest(recipientId: number, itemChestId: number, send
         }
     }
     
-    // Для всех остальных случаев (не "Основное") используем старую логику
-    // Определяем, какой альянс использовать для поиска сундука
-    const allianceIdToUse = originalChest?.id_alliance || recipient?.id_alliance || senderAllianceId;
-    //console.log(`DEBUG: Using alliance ID for search: ${allianceIdToUse} (from: ${originalChest ? 'chest' : recipient ? 'recipient' : 'sender'})`);
-    
     // Если получатель в том же альянсе, что и сундук - ищем сундук с таким же ID
-    if (recipient?.id_alliance === allianceIdToUse && itemChestId) {
-        //console.log(`DEBUG: Checking if same chest exists in alliance ${allianceIdToUse}`);
+    if (recipient && recipient.id_alliance === originalChest?.id_alliance && itemChestId) {
+        //console.log(`DEBUG: Same alliance, checking if same chest exists`);
         
         const sameChest = await prisma.allianceChest.findFirst({
             where: { 
                 id: itemChestId,
-                id_alliance: allianceIdToUse
+                id_alliance: recipient.id_alliance
             }
         });
         
         if (sameChest) {
-            //console.log(`DEBUG: Found same chest ID ${itemChestId} in alliance ${allianceIdToUse}: "${sameChest.name}"`);
+            //console.log(`DEBUG: Found same chest ID ${itemChestId} in alliance: "${sameChest.name}"`);
             return itemChestId;
-        } else {
-            //console.log(`DEBUG: Chest ID ${itemChestId} not found in alliance ${allianceIdToUse}`);
         }
     }
     
     // Если нет такого же сундука, ищем сундук с таким же названием в альянсе получателя
-    if (originalChest && recipient?.id_alliance === allianceIdToUse) {
-        //console.log(`DEBUG: Looking for chest with same name "${originalChest.name}" in alliance ${allianceIdToUse}`);
+    if (originalChest && recipient?.id_alliance === originalChest.id_alliance) {
+        //console.log(`DEBUG: Looking for chest with same name "${originalChest.name}" in alliance`);
         
         const sameNameChest = await prisma.allianceChest.findFirst({
             where: { 
                 name: originalChest.name,
-                id_alliance: allianceIdToUse
+                id_alliance: recipient.id_alliance
             }
         });
         
         if (sameNameChest) {
-            //console.log(`DEBUG: Found chest with same name "${originalChest.name}" (ID: ${sameNameChest.id}) in alliance ${allianceIdToUse}`);
+            //console.log(`DEBUG: Found chest with same name "${originalChest.name}" (ID: ${sameNameChest.id})`);
             return sameNameChest.id;
-        } else {
-            //console.log(`DEBUG: No chest with name "${originalChest.name}" in alliance ${allianceIdToUse}`);
         }
     }
     
-    // Если нет сундука с таким же названием, ищем "Основное" в нужном альянсе
-    //console.log(`DEBUG: Looking for "Основное" in alliance ${allianceIdToUse}`);
+    // Если нет сундука с таким же названием, ищем "Основное" в альянсе получателя
+    //console.log(`DEBUG: Looking for "Основное" in recipient's alliance ${recipient?.id_alliance}`);
     const mainChest = await prisma.allianceChest.findFirst({
         where: { 
             name: "Основное",
-            id_alliance: allianceIdToUse
+            id_alliance: recipient?.id_alliance || 0
         }
     });
     
     if (mainChest) {
-        //console.log(`DEBUG: Found "Основное" (ID: ${mainChest.id}) in alliance ${allianceIdToUse}`);
+        //console.log(`DEBUG: Found "Основное" (ID: ${mainChest.id}) in alliance ${recipient?.id_alliance}`);
         return mainChest.id;
     }
     
     // Если "Основное" не найдено, создаем его
-    //console.log(`DEBUG: "Основное" not found, creating new one for alliance ${allianceIdToUse}`);
+    //console.log(`DEBUG: "Основное" not found, creating new one for alliance ${recipient?.id_alliance}`);
     const newMainChest = await prisma.allianceChest.create({
         data: {
             name: "Основное",
-            id_alliance: allianceIdToUse,
+            id_alliance: recipient?.id_alliance || 0,
             id_parent: null,
             order: 0
         }
     });
     
-    //console.log(`DEBUG: Created new "Основное" with ID: ${newMainChest.id} for alliance ${allianceIdToUse}`);
+    //console.log(`DEBUG: Created new "Основное" with ID: ${newMainChest.id}`);
     return newMainChest.id;
 }
 
@@ -4310,6 +4293,15 @@ async function handleItemPresent(context: any, data: any, user: User, user_adm?:
         await Send_Message(logChatId, log_message);
     }
     
+    if (!user_adm) {
+        const senderMessage = `🎁 Вы подарили предмет игроку ${recipient.name} (UID: ${recipient.id})!\n\n` +
+            `📦 Предмет: ${itemName}\n` +
+            `📁 Из сундука: ${chest?.name || 'Основное'} (ID: ${chest?.id || 'N/A'})\n` +
+            (comment ? `💬 Ваш комментарий: "${comment}"` : '');
+        
+        await Send_Message(user.idvk, senderMessage);
+    }
+
     // Уведомление для админа (если это админ операция)
     if (user_adm) {
         const admin_message = 
