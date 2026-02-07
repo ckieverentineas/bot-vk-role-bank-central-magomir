@@ -43,7 +43,22 @@ export async function Card_Enter(context:any) {
         
         //console.log(`[DEBUG Card_Enter] Monitor status: ${monitorStatus.status}, description: ${monitorStatus.description}`);
         
-        const attached = await Image_Text_Add_Card(context, 50, 650, get_user)
+        // Проверяем, есть ли уже сохраненная карточка
+        let attached = get_user.card_image;
+        
+        if (!attached) {
+            // Генерируем новую карточку
+            const newAttachment = await Image_Text_Add_Card(context, 50, 650, get_user);
+            if (newAttachment) {
+                // Формируем ссылку на фото в VK
+                attached = `photo${newAttachment.ownerId}_${newAttachment.id}`;
+                // Сохраняем ссылку в базе данных
+                await prisma.user.update({
+                    where: { id: get_user.id },
+                    data: { card_image: attached }
+                });
+            }
+        }
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
         const coin = await Person_Coin_Printer(context)
         const facult_rank = await Facult_Rank_Printer(context)
