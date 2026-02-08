@@ -50,8 +50,11 @@ export async function Card_Enter(context:any) {
             // Генерируем новую карточку
             const newAttachment = await Image_Text_Add_Card(context, 50, 650, get_user);
             if (newAttachment) {
-                // Формируем ссылку на фото в VK
-                attached = `photo${newAttachment.ownerId}_${newAttachment.id}`;
+                // Image_Text_Add_Card возвращает строку формата "photo{ownerId}_{id}"
+                // Проверяем, что это строка и имеет правильный формат
+                if (typeof newAttachment === 'string' && newAttachment.startsWith('photo')) {
+                    attached = newAttachment;
+                }
                 // Сохраняем ссылку в базе данных
                 await prisma.user.update({
                     where: { id: get_user.id },
