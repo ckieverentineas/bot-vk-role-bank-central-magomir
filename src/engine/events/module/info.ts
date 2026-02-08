@@ -10,62 +10,44 @@ import { Facult_Rank_Printer } from "./alliance/facult_rank"
 import { image_admin } from "./data_center/system_image"
 import { getTerminology } from "./alliance/terminology_helper"
 import { Get_Person_Monitor_Status } from "./person/monitor_select"
+import { CardSystem } from "../../core/card_system"
 
 export async function Card_Enter(context:any) {
-    //console.log(`[DEBUG Card_Enter] START: senderId=${context.senderId}, userId=${context.userId}, peerId=${context.peerId}`);
-    
     const get_user: User | null | undefined = await Person_Get(context)
     if (get_user) {
-        //console.log(`[DEBUG Card_Enter] User found: ${get_user.id} - ${get_user.name}, alliance: ${get_user.id_alliance}, idvk: ${get_user.idvk}, id_account: ${get_user.id_account}`);
-        
-        // ВАЖНО: Используем id_account из пользователя, а не ищем по idvk
         const account = await prisma.account.findFirst({ 
-            where: { id: get_user.id_account }  // Используем id_account из User
+            where: { id: get_user.id_account }
         });
         
-        //console.log(`[DEBUG Card_Enter] Account by user.id_account (${get_user.id_account}): ${account?.id}, idvk: ${account?.idvk}, monitor_select_user: ${account?.monitor_select_user}`);
-        
         if (!account) {
-            //console.log(`[DEBUG Card_Enter] ERROR: Account not found for id ${get_user.id_account}`);
             await Send_Message(context.peerId, "Ошибка: аккаунт не найден");
             return;
         }
         
         const isMonitorSelected = account?.monitor_select_user === get_user.id;
-        //console.log(`[DEBUG Card_Enter] isMonitorSelected: ${isMonitorSelected} (account.monitor_select_user=${account.monitor_select_user}, user.id=${get_user.id})`);
         
-        // Получаем статус мониторов
         const monitorStatus = await Get_Person_Monitor_Status(
             account.id, 
             get_user.id, 
             get_user.id_alliance
         );
         
-        //console.log(`[DEBUG Card_Enter] Monitor status: ${monitorStatus.status}, description: ${monitorStatus.description}`);
-        
-        // Проверяем, есть ли уже сохраненная карточка
-        let attached = get_user.card_image;
+        // ИСПОЛЬЗУЕМ НОВУЮ СИСТЕМУ КАРТОЧЕК
+        let attached = await CardSystem.getUserCard(get_user);
         
         if (!attached) {
-            // Генерируем новую карточку
-            const newAttachment = await Image_Text_Add_Card(context, 50, 650, get_user);
-            if (newAttachment) {
-                // Image_Text_Add_Card возвращает строку формата "photo{ownerId}_{id}"
-                // Проверяем, что это строка и имеет правильный формат
-                if (typeof newAttachment === 'string' && newAttachment.startsWith('photo')) {
-                    attached = newAttachment;
-                }
-                // Сохраняем ссылку в базе данных
-                await prisma.user.update({
-                    where: { id: get_user.id },
-                    data: { card_image: attached }
-                });
-            }
+            console.error('[CARD_ENTER] Failed to get card from CardSystem');
+            attached = ''; // Пустая строка, если карточка не сгенерировалась
         }
-        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
-        const coin = await Person_Coin_Printer(context)
-        const facult_rank = await Facult_Rank_Printer(context)
-        const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
+        
+        const alli_get: Alliance | null = await prisma.alliance.findFirst({ 
+            where: { id: Number(get_user.id_alliance) } 
+        });
+        const coin = await Person_Coin_Printer(context);
+        const facult_rank = await Facult_Rank_Printer(context);
+        const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ 
+            where: { id: Number(get_user.id_facult) } 
+        });
         
         // Получаем отдельные значения
         const singular = await getTerminology(alli_get?.id || 0, 'singular');
@@ -75,33 +57,31 @@ export async function Card_Enter(context:any) {
         const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
         const withoutFaculty = `Без ${genitive}`;
 
-        const text = `✉ Вы достали свою карточку: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}\n${coin}\n\n🔔 Мониторы: ${get_user.notification ? '✅' : '❌'} | 🔔 РП-посты: ${get_user.notification_topic ? '✅' : '❌'}\n${monitorStatus.description}`
+        const text = `✉ Вы достали свою карточку: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}\n${coin}\n\n🔔 Мониторы: ${get_user.notification ? '✅' : '❌'} | 🔔 РП-посты: ${get_user.notification_topic ? '✅' : '❌'}\n${monitorStatus.description}`;
         
         const keyboard = new KeyboardBuilder()
-            .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row();
         
         if (await prisma.user.count({ where: { idvk: get_user.idvk } }) > 1) {
-            keyboard.textButton({ label: '🔃👥 Сменить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+            keyboard.textButton({ label: '🔃👥 Сменить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row();
         }
         
-        // Добавляем кнопку выбора для мониторов, только если персонаж в альянсе
         if (get_user.id_alliance && get_user.id_alliance > 0) {
             keyboard.callbackButton({ 
                 label: isMonitorSelected ? '✅👥 Выбран для мониторов' : '👥 Выбрать для мониторов', 
                 payload: { command: 'monitor_select_person', personId: get_user.id }, 
                 color: isMonitorSelected ? 'positive' : 'secondary' 
-            }).row()
+            }).row();
         }
         
         keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
             .callbackButton({ label: '💬', payload: { command: 'comment_person_enter' }, color: 'secondary' }).row()
             .textButton({ label: '🔔 Мониторы', payload: { command: 'notification_controller' }, color: 'secondary' })
             .textButton({ label: '📝 Обсуждения', payload: { command: 'topic_notification_controller' }, color: 'secondary' }).row()
-            .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+            .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime();
         
-        await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
+        await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`);
         
-        // Проверяем, есть ли у пользователя другие персонажи в этом альянсе
         const otherPersonsInAlliance = await prisma.user.count({
             where: { 
                 id_account: get_user.id_account,
@@ -120,7 +100,8 @@ export async function Card_Enter(context:any) {
             }
         }
         
-        await Send_Message(context.peerId, text, keyboard, attached)
+        // Отправляем сообщение с карточкой
+        await Send_Message(context.peerId, text, keyboard, attached);
         
         if (context?.eventPayload?.command == "card_enter") {
             await vk?.api.messages.sendMessageEventAnswer({
@@ -131,7 +112,7 @@ export async function Card_Enter(context:any) {
                     type: "show_snackbar",
                     text: `🔔 ${snackbarText}`
                 })
-            })
+            });
         }
     }
 }
