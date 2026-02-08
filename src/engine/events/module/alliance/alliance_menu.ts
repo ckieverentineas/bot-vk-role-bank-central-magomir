@@ -76,7 +76,7 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     color: 'secondary' 
                 }).row()
                 
-                // Стрелочка навигации оставляем callbackButton
+                // Стрелочка навигации
                 keyboard.callbackButton({ 
                     label: `→`, 
                     payload: { command: "admin_page", page: 2 }, 
@@ -108,13 +108,48 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                 keyboard.textButton({ 
                     label: `${ico_list['config'].ico} !закончить учебный год`, 
                     payload: { command: "alliance_config_end_year" },
-                    color: 'negative' 
+                    color: 'primary' 
                 }).row()
                 
-                // Стрелочка навигации оставляем callbackButton
+                // Стрелочки навигации
                 keyboard.callbackButton({ 
                     label: `←`, 
                     payload: { command: "admin_page", page: 1 }, 
+                    color: 'secondary' 
+                })
+                keyboard.callbackButton({ 
+                    label: `→`, 
+                    payload: { command: "admin_page", page: 3 }, 
+                    color: 'secondary' 
+                }).row()
+                
+            } else if (page === 3) {
+                // ========== СТРАНИЦА 3 ========== (НОВАЯ)
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !основу настроить`, 
+                    payload: { command: "alliance_config_menu_bg" },
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !основу удалить`, 
+                    payload: { command: "alliance_config_menu_bg_remove" }, 
+                    color: 'negative' 
+                }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !карту настроить`, 
+                    payload: { command: "alliance_config_card_bg" },
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !карту удалить`, 
+                    payload: { command: "alliance_config_card_bg_remove" }, 
+                    color: 'negative' 
+                }).row()
+                
+                // Стрелочка навигации
+                keyboard.callbackButton({ 
+                    label: `←`, 
+                    payload: { command: "admin_page", page: 2 }, 
                     color: 'secondary' 
                 }).row()
             }

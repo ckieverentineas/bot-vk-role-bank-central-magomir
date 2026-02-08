@@ -165,6 +165,26 @@ initializeGroupId().then(async () => {
                 await Alliance_Enter_Admin(ctx, page);
                 await ctx.answer();
             },
+
+            "alliance_config_menu_bg": async (ctx: any) => {
+                await ctx.send('!основу настроить');
+                await ctx.answer();
+            },
+            
+            "alliance_config_menu_bg_remove": async (ctx: any) => {
+                await ctx.send('!основу удалить');
+                await ctx.answer();
+            },
+            
+            "alliance_config_card_bg": async (ctx: any) => {
+                await ctx.send('!карту настроить');
+                await ctx.answer();
+            },
+            
+            "alliance_config_card_bg_remove": async (ctx: any) => {
+                await ctx.send('!карту удалить');
+                await ctx.answer();
+            },
             
             "alliance_enter_admin": async (ctx: any) => {
                 await Alliance_Enter_Admin(ctx, 1);

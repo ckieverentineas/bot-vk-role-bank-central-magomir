@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, vk } from '../index';
-import { Accessed, Antivirus_VK, Keyboard_Index, Logger, Send_Message } from "./core/helper";
+import { Accessed, Antivirus_VK, Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "./core/helper";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, User } from "@prisma/client";
@@ -36,6 +36,7 @@ import { AllianceChest_Manager } from "./events/module/alliance/alliance_chest_m
 import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/alliance_menu";
 import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
 import { Legacy_Category_Printer } from "./events/module/shop/legacy_category_manager";
+import { CardSystem } from "./core/card_system";
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -514,6 +515,272 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         await Alliance_Scoopins_Converter_Editor_Printer(context)
     })
+    hearManager.hear(/⚙ !основу настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        
+        if (await Accessed(context) === 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        
+        const account = await prisma.account.findFirst({ 
+            where: { idvk: context.senderId } 
+        });
+        if (!account) return;
+        
+        const user = await prisma.user.findFirst({ 
+            where: { id: account.select_user } 
+        });
+        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+            await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
+            return;
+        }
+        
+        // Получаем текущий фон (если есть)
+        const background = await CardSystem.getAllianceMenuBackground(user.id_alliance);
+        
+        let message = `🎨 Настройка фона главного меню\n\n`;
+        
+        if (background) {
+            message += `📂 Текущий фон: "${background.name}"\n`;
+            message += `📅 Добавлен: ${background.created_at.toLocaleDateString('ru-RU')}\n\n`;
+        } else {
+            message += `📂 Фон еще не установлен\n\n`;
+        }
+        
+        message += `📷 Отправьте фотографию для фона:\n`;
+        message += `• Заменит текущий фон (если есть)\n`;
+        message += `• Используется в главном меню участников альянса\n\n`;
+        message += `❌ Для удаления фона используйте команду !основу удалить`;
+        
+        await context.send(message);
+        
+        try {
+            // Ждем ответ с фото
+            const photoAnswer = await context.question('Отправьте фотографию для фона:', {
+                answerTimeLimit: 60000
+            });
+            
+            if (photoAnswer.isTimeout) {
+                await context.send('⏰ Время ожидания истекло.');
+                return;
+            }
+            
+            // Проверяем вложения
+            if (!photoAnswer.attachments || photoAnswer.attachments.length === 0) {
+                await context.send('❌ Фотография не получена. Отправьте фото.');
+                return;
+            }
+            
+            // Используем функцию setMenuBackgroundForAlliance
+            const success = await CardSystem.setMenuBackgroundForAlliance(
+                user.id_alliance,
+                photoAnswer,
+                `Фон главного меню`
+            );
+            
+            if (success) {
+                const alliance = await prisma.alliance.findFirst({
+                    where: { id: user.id_alliance }
+                });
+                
+                await context.send(
+                    `✅ Фон главного меню ${background ? 'обновлен' : 'добавлен'}!\n\n` +
+                    `📌 Участники альянса "${alliance?.name}" будут видеть новый фон в главном меню.`
+                );
+                
+            } else {
+                await context.send('❌ Ошибка при сохранении фона.');
+            }
+            
+        } catch (error) {
+            console.error('[MENU_BG SETUP] Error:', error);
+            await context.send('❌ Произошла ошибка.');
+        }
+        
+        await Keyboard_Index(context, '💡 Новый фон — новые впечатления!');
+    });
+
+    hearManager.hear(/⚙ !основу удалить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        
+        if (await Accessed(context) === 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        
+        const account = await prisma.account.findFirst({ 
+            where: { idvk: context.senderId } 
+        });
+        if (!account) return;
+        
+        const user = await prisma.user.findFirst({ 
+            where: { id: account.select_user } 
+        });
+        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+            await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
+            return;
+        }
+        
+        const background = await CardSystem.getAllianceMenuBackground(user.id_alliance);
+        
+        if (!background) {
+            await context.send('❌ Фон для этого альянса не найден.');
+            return;
+        }
+        
+        const confirm = await Confirm_User_Success(context, 'удалить фон главного меню?');
+        
+        if (confirm.status) {
+            const success = await CardSystem.deleteMenuBackgroundForAlliance(user.id_alliance);
+            
+            if (success) {
+                await context.send('✅ Фон главного меню удален. Участники будут использовать стандартный фон.');
+            } else {
+                await context.send('❌ Ошибка при удалении фона.');
+            }
+        } else {
+            await context.send('🚫 Удаление отменено.');
+        }
+        
+        await Keyboard_Index(context, '💡 Управление фоном меню');
+    });
+    hearManager.hear(/⚙ !карту настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        
+        if (await Accessed(context) === 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        
+        const account = await prisma.account.findFirst({ 
+            where: { idvk: context.senderId } 
+        });
+        if (!account) return;
+        
+        const user = await prisma.user.findFirst({ 
+            where: { id: account.select_user } 
+        });
+        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+            await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
+            return;
+        }
+        
+        // Получаем текущий шаблон (если есть)
+        const template = await CardSystem.getAllianceTemplate(user.id_alliance);
+        
+        let message = `🎨 Настройка фона карточек\n\n`;
+        
+        if (template) {
+            message += `📂 Текущий фон: "${template.name}"\n`;
+            message += `📅 Добавлен: ${template.created_at.toLocaleDateString('ru-RU')}\n\n`;
+        } else {
+            message += `📂 Фон еще не установлен\n\n`;
+        }
+        
+        message += `📷 Отправьте фотографию для фона:\n`;
+        message += `• Заменит текущий фон (если есть)\n`;
+        message += `• Карточки всех участников автоматически обновятся\n\n`;
+        message += `❌ Для удаления фона используйте команду !карту удалить`;
+        
+        await context.send(message);
+        
+        try {
+            // Ждем ответ с фото
+            const photoAnswer = await context.question('Отправьте фотографию для фона:', {
+                answerTimeLimit: 60000
+            });
+            
+            if (photoAnswer.isTimeout) {
+                await context.send('⏰ Время ожидания истекло.');
+                return;
+            }
+            
+            // Проверяем вложения
+            if (!photoAnswer.attachments || photoAnswer.attachments.length === 0) {
+                await context.send('❌ Фотография не получена. Отправьте фото.');
+                return;
+            }
+            
+            // Используем новую функцию setTemplateForAlliance (принимает context)
+            const success = await CardSystem.setTemplateForAlliance(
+                user.id_alliance,
+                photoAnswer, // передаем контекст с фото
+                `Фон карточки`
+            );
+            
+            if (success) {
+                const alliance = await prisma.alliance.findFirst({
+                    where: { id: user.id_alliance }
+                });
+                
+                await context.send(
+                    `✅ Фон карточки ${template ? 'обновлен' : 'добавлен'}!\n\n` +
+                    `📌 Участники альянса "${alliance?.name}" получат новые карточки при следующем открытии.`
+                );
+                
+            } else {
+                await context.send('❌ Ошибка при сохранении фона.');
+            }
+            
+        } catch (error) {
+            console.error('[CARD SETUP] Error:', error);
+            await context.send('❌ Произошла ошибка.');
+        }
+        
+        await Keyboard_Index(context, '💡 Новый фон — новые впечатления!');
+    });
+
+    // Добавьте также команду для удаления фона:
+    hearManager.hear(/⚙ !карту удалить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        
+        if (await Accessed(context) === 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        
+        const account = await prisma.account.findFirst({ 
+            where: { idvk: context.senderId } 
+        });
+        if (!account) return;
+        
+        const user = await prisma.user.findFirst({ 
+            where: { id: account.select_user } 
+        });
+        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+            await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
+            return;
+        }
+        
+        const template = await CardSystem.getAllianceTemplate(user.id_alliance);
+        
+        if (!template) {
+            await context.send('❌ Фон для этого альянса не найден.');
+            return;
+        }
+        
+        // Подтверждение удаления
+        const confirm = await Confirm_User_Success(context, 'удалить фон карточек?');
+        
+        if (confirm.status) {
+            const success = await CardSystem.deleteAllianceTemplate(user.id_alliance);
+            
+            if (success) {
+                await context.send('✅ Фон карточек удален. Участники будут использовать стандартный фон.');
+            } else {
+                await context.send('❌ Ошибка при удалении фона.');
+            }
+        } else {
+            await context.send('🚫 Удаление отменено.');
+        }
+        
+        await Keyboard_Index(context, '💡 Управление фоном карточек');
+    });
     hearManager.hear(/⚙ !легаси настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -792,7 +1059,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n👤 [📊 Отчатор] — меню получения информации внутри ролевого проекта
                     \n👤 [➕👤] — создание нового персонажа
                     \n👤 [🔃👥] — смена персонажа
-                    \n👤 [🧳 Инвентарь ролевой] — просмотр покупок из ролевых магазинов
                     \n⭐ [⚙ !факультеты настроить] — настройка факультетов/фракций ролевой
                     \n⭐ [⚙ !магазины настроить] — управление магазинами ролевой
                     \n⭐ [⚙ !валюты настроить] — создание и настройка валют
@@ -802,6 +1068,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [⚙ !конвертацию настроить] — настройка курсов конвертации валют
                     \n⭐ [⚙ !S-coins настроить] — управление S-коинами
                     \n⭐ [⚙ !мониторы настроить] — вызов меню конфигурации мониторов
+                    \n⭐ [⚙ !отслеживание обсуждений] — настройка мониторинга обсуждений альянса
                     \n⭐ [!привязать мониторы] — привязать чат для логов с мониторов ролевого проекта
                     \n⭐ [!привязать финансы] — привязать чат для логов внутрифинансовых операций
                     \n⭐ [!привязать покупки] — привязать чат для логов о покупках из магазинов
@@ -810,6 +1077,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [🚫 !моники_off] — остановка мониторов ролевого проекта
                     \n⭐ [!обновить ролки] — синхронизация названий ролевых проектов с базой данных
                     \n⭐ [⚙ !закончить учебный год] — завершение учебного года/сезона ролевой
+                    \n⭐ [⚙ !основу настроить] — установка/изменение фона главного меню альянса
+                    \n⭐ [⚙ !основу удалить] — удаление фона главного меню альянса
+                    \n⭐ [⚙ !карту настроить] — установка/изменение фона карточек персонажей
+                    \n⭐ [⚙ !карту удалить] — удаление фона карточек персонажей
 
                     \n📞 Контакты поддержки:
 • @dj.federation — по любым багам и техническим вопросам

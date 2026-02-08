@@ -17,6 +17,38 @@ model Account {
   MonitorSelection   MonitorSelection[]
 }
 
+model CardTemplate {
+  id          Int       @id @default(autoincrement())
+  alliance    Alliance  @relation(fields: [alliance_id], references: [id], onDelete: Cascade)
+  alliance_id Int
+  name        String
+  image_url   String
+  image_path  String?
+  is_default  Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  UserCard    UserCard[]
+}
+
+model UserCard {
+  id          Int         @id @default(autoincrement())
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id     Int         @unique
+  attachment  String
+  template    CardTemplate? @relation(fields: [template_id], references: [id])
+  template_id Int?
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+}
+
+model AllianceBackground {
+  id          Int       @id @default(autoincrement())
+  alliance    Alliance  @relation(fields: [alliance_id], references: [id], onDelete: Cascade)
+  alliance_id Int       @unique
+  name        String
+  attachment  String
+  created_at  DateTime  @default(now())
+}
+
 model MonitorSelection {
   id         Int      @id @default(autoincrement())
   account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -137,6 +169,7 @@ model User {
   BalanceCoin           BalanceCoin[]
   Limiter               Limiter[]
   MonitorSelection      MonitorSelection[]
+  UserCard              UserCard?
 }
 
 model BlackBox {
@@ -248,6 +281,8 @@ model Alliance {
   classSettings   AllianceClassSetting? 
   id_chat_topic   Int                     @default(0)
   Chests          AllianceChest[]
+  CardTemplate CardTemplate[]
+  AllianceBackground AllianceBackground?
 }
 
 model AllianceCoin {

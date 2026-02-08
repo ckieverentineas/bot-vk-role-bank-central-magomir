@@ -56,9 +56,25 @@ async function Edit_Name(id: number, context: any, user_adm: User){
         if (name.isTimeout) { return await context.send(`⏰ Время ожидания на изменение имени для ${user.name} истекло!`) }
         if (name.text.length <= 64) {
             name_check = true
+            
+            // ==== ДОБАВЛЕНО: Удаляем старую карточку перед сменой имени ====
+            try {
+                await prisma.userCard.delete({
+                    where: { user_id: user.id }
+                }).catch(() => {
+                    // Игнорируем ошибку если карточки не существует
+                    console.log(`[EDIT_NAME] Card not found for user ${user.id}, skipping deletion`);
+                });
+                console.log(`[EDIT_NAME] Deleted old card for user ${user.id} before name change`);
+            } catch (error) {
+                console.error(`[EDIT_NAME] Error deleting card for user ${user.id}:`, error);
+            }
+            // ================================================================
+            
             const update_name = await prisma.user.update({ where: { id: user.id }, data: { name: name.text } })
             if (update_name) {
-                await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена имени с ${user.name} на ${update_name.name}.`)
+                await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена имени с ${user.name} на ${update_name.name}. Карточка пользователя будет перегенерирована с новым именем при следующем запросе.`)
+                
                 const notif_ans = await Send_Message(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`

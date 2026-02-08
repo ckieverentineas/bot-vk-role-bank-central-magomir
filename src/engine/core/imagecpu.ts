@@ -1,49 +1,13 @@
-import { randomInt } from "crypto";
-import Jimp = require("jimp")
-import { vk } from "../..";
-import { promises as fs } from 'fs';
-import prisma from "../events/module/prisma_client";
+import { CardSystem } from "./card_system";
 
-export async function Image_Text_Add_Card(context: any, x: number, y: number, text: any) {
-    const check = await prisma.user.findFirst({ where: { idvk: context.peerId } })
-    //if (check?.id_role == 2) { return }
-    const dir = `./src/art/template/card`
-    const file_name: any = await readDir(dir)
-    const lenna = await Jimp.read(`${dir}/${file_name[randomInt(0, file_name.length)]}`)
-    const font = await Jimp.loadFont('./src/art/font/impact_medium/impact.fnt')
-    const font_big = await Jimp.loadFont('./src/art/font/impact_big/impact.fnt') 
-    
-    const imageWidth = 1687; // Ширина после resize
-    
-    const cardNumber = (`${text.idvk * Math.pow(10, 16-String(text.idvk).length)+text.id}`).slice(-16).replace(/\d{4}(?=.)/g, '$& ').replace(/ /g, `${' '.repeat(7)}`);
-    
-    // Пробуем разные значения для центрирования номера
-    // Если номер ушел вправо, уменьшаем это значение
-    const cardNumberX = 100; // Уменьшили с 500/300 до 200
-    
-    const res = await lenna
-        .resize(1687, 1077)
-        // Номер карты - смещаем левее
-        .print(font_big, cardNumberX, y, cardNumber)
-        // Имя - оставляем как было (слева)
-        .print(font, x + 50, y + 250, text.name, 1200)
-        // Дата - оставляем как было (справа)
-        .print(font, imageWidth - 400, y + 250, text.crdate.toLocaleDateString('de-DE', { 
-            year: "numeric", 
-            month: "2-digit", 
-            day: "2-digit" 
-        }))
-    
-    const attachment = await vk?.upload.messagePhoto({
-        source: {
-            value: await res.getBufferAsync(Jimp.MIME_JPEG)
-        }
-    });
-    
-    return attachment
+// Теперь эта функция просто использует систему карточек
+export async function Image_Text_Add_Card(context: any, x: number, y: number, userData: any) {
+  const attachment = await CardSystem.getUserCard(userData);
+  
+  if (!attachment) {
+    console.error('[IMAGE CPU] Failed to get card');
+    return null;
+  }
+  
+  return attachment;
 }
-
-async function readDir(path: string) {
-    try { const files = await fs.readdir(path); return files } catch (err) { console.error(err); }
-}
-    

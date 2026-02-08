@@ -8,11 +8,15 @@ import { image_bank } from "./module/data_center/system_image";
 import { ico_list } from "./module/data_center/icons_lib";
 import { Person_Coin_Printer } from "./module/person/person_coin";
 import { Facult_Rank_Printer } from "./module/alliance/facult_rank";
+import { CardSystem } from "../core/card_system";
 
 export async function Main_Menu_Init(context: any) {
-    const attached = image_bank
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
+    
+    // Получаем фон меню (автоматически определяет альянс или дефолт)
+    const attached = await CardSystem.getMenuBackground(user);
+    
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
@@ -92,9 +96,9 @@ export async function Keyboard_Admin_Main(context: Context) {
 }
 
 export async function Main_Menu_Admin_Init(context: any) {
-    const attached = image_bank
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
+    const attached = await CardSystem.getMenuBackground(user);
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
