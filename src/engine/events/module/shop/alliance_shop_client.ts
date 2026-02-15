@@ -290,12 +290,48 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         return res;
     }
     
-    // Добавление комментария к покупке
-    const item_comment = await Input_Text(context, `Введите комментарий к покупке`);
-    if (!item_comment) { 
-        await context.send(`❌ Комментарий не указан.`);
-        return res; 
+    // ===== ИСПРАВЛЕННЫЙ БЛОК: Добавление комментария к покупке с кнопкой "Без комментария" =====
+    let item_comment = "";
+    
+    const comment_keyboard = new KeyboardBuilder()
+        .textButton({ 
+            label: `Без комментария`, 
+            payload: { command: 'skip_comment' }, 
+            color: 'secondary' 
+        })
+        .inline().oneTime();
+    
+    const comment_response = await context.question(
+        `💬 Введите комментарий к покупке:`,
+        {
+            keyboard: comment_keyboard,
+            answerTimeLimit
+        }
+    );
+    
+    if (comment_response.isTimeout) {
+        await context.send(`⏰ Время ожидания истекло!`);
+        return res;
     }
+    
+    // Проверяем, нажата ли кнопка "Без комментария"
+    if (comment_response.payload?.command === 'skip_comment') {
+        item_comment = "Без комментария";
+    } else {
+        // Если введен текст вручную
+        if (comment_response.text && comment_response.text.trim()) {
+            if (comment_response.text.length <= 200) {
+                item_comment = comment_response.text;
+            } else {
+                await context.send(`⚠ Комментарий слишком длинный (${comment_response.text.length}/200). Комментарий не будет добавлен.`);
+                item_comment = "Без комментария";
+            }
+        } else {
+            // Если пустой ввод
+            item_comment = "Без комментария";
+        }
+    }
+    // ===== КОНЕЦ ИСПРАВЛЕННОГО БЛОКА =====
     
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ 
