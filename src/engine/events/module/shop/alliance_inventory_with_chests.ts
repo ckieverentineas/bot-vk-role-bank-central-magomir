@@ -4074,19 +4074,24 @@ async function handleItemSelect(context: any, data: any, user: User, user_adm?: 
     
     let item = null;
     let text = '';
+    let image = undefined; // Используем undefined вместо null
     
     if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
         item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
         text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n💰 Стоимость: ${item?.price}\n📦 Версия: ${item?.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        image = item?.image || undefined; // Если image есть, используем его, иначе undefined
     } else if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })
         text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n🧲 Как получено: Артефакт\n💬 Комментарий: ${inv.comment}\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        image = item?.image || undefined;
     } else if (inv.type == InventoryType.ITEM_SHOP) {
         item = await prisma.item.findFirst({ where: { id: inv.id_item } })
         text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n💰 Стоимость: ${item?.price}\n🧲 Где куплено: в Маголавке\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        image = item?.image || undefined;
     }
     
-    await Send_Message(context.peerId, text);
+    // Отправляем сообщение с изображением, но без клавиатуры (undefined)
+    await Send_Message(context.peerId, text, undefined, image);
     
     return { cursor: data.cursor, group_mode: data.group_mode };
 }
@@ -4110,7 +4115,8 @@ async function handleGroupItemSelect(context: any, data: any, user: User, user_a
         text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.description || 'Нет описания'}\n💰 Стоимость: ${group.price || 'N/A'}\n🧲 Где куплено: в Маголавке\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
     }
     
-    await Send_Message(context.peerId, text);
+    // Отправляем сообщение с изображением, но без клавиатуры (undefined)
+    await Send_Message(context.peerId, text, undefined, group.image);
     
     return { cursor: data.cursor, group_mode: data.group_mode };
 }
