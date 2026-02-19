@@ -266,7 +266,7 @@ async function showChestSelection(
         
         // Ограничиваем длину названия для кнопки
         let displayName = chest.name;
-        if (displayName.length > 15) {
+        if (displayName.length > 25) {
             displayName = displayName.slice(0, 12) + '...';
         }
         
@@ -493,7 +493,7 @@ async function showChestContents(
     if (hasChildChests) {
         for (let i = 0; i < pageChildChests.length; i++) {
             const child = pageChildChests[i];
-            const label = child.name.length > 10 ? 
+            const label = child.name.length > 25 ? 
                 `🧳 ${child.name.slice(0, 8)}...` : 
                 `🧳 ${child.name}`;
             
@@ -552,7 +552,7 @@ async function showChestContents(
             let label = '';
             
             if (group_mode) {
-                const truncatedName = item.name.length > 15 ? 
+                const truncatedName = item.name.length > 25 ? 
                     item.name.slice(0, 12) + '...' : item.name;
                 label = `📦 ${truncatedName} × ${item.count}`;
                 
@@ -616,7 +616,7 @@ async function showChestContents(
                     color: 'negative'
                 }).row();
             } else {
-                const truncatedName = item.name.length > 20 ? 
+                const truncatedName = item.name.length > 25 ? 
                     item.name.slice(0, 17) + '...' : item.name;
                 label = `📦 ${truncatedName}`;
                 
@@ -1989,7 +1989,7 @@ async function handleChestMassByTypeMulti(
     for (let i = 0; i < pageItems.length; i++) {
         const item = pageItems[i];
         const itemNumber = startIndex + i + 1;
-        const label = item.name.length > 10 ? 
+        const label = item.name.length > 25 ? 
             `${itemNumber}. ${item.name.slice(0, 8)}... × ${item.count}` : 
             `${itemNumber}. ${item.name} × ${item.count}`;
         
@@ -2784,7 +2784,7 @@ async function handleChestMassByType(
     for (let i = 0; i < pageItems.length; i++) {
         const item = pageItems[i];
         const itemNumber = startIndex + i + 1;
-        const label = item.name.length > 10 ? 
+        const label = item.name.length > 25 ? 
             `${itemNumber}. ${item.name.slice(0, 8)}... × ${item.count}` : 
             `${itemNumber}. ${item.name} × ${item.count}`;
         
