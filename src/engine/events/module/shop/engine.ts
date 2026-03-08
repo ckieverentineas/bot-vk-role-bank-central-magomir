@@ -130,12 +130,12 @@ export async function Shop_Buy(context: any) {
         if ((!item_inventory || input.type == 'unlimited') && user.medal >= input.price) {
             const money = await prisma.user.update({ data: { medal: user.medal - input.price }, where: { id: user.id } });
             
-            // Создаем запись в инвентаре
             const inventory = await prisma.inventory.create({ 
                 data: { 
                     id_user: user.id, 
                     id_item: input.id,
-                    type: InventoryType.ITEM_SHOP 
+                    type: InventoryType.ITEM_SHOP,
+                    purchaseDate: new Date()
                 } 
             });
             

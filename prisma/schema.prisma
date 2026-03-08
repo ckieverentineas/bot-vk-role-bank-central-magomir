@@ -195,12 +195,13 @@ model Artefact {
 }
 
 model Inventory {
-  id      Int  @id @default(autoincrement())
-  id_user Int
-  id_item Int
-  type    String @default("item_shop")
-  comment String?
-  user    User @relation(fields: [id_user], references: [id], onDelete: Cascade)
+  id            Int            @id @default(autoincrement())
+  id_user       Int
+  id_item       Int
+  type          String         @default("item_shop")
+  comment       String?
+  purchaseDate  DateTime?     
+  user          User           @relation(fields: [id_user], references: [id], onDelete: Cascade)
   ChestItemLink ChestItemLink?
 }
 

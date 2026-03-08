@@ -4072,21 +4072,49 @@ async function handleItemSelect(context: any, data: any, user: User, user_adm?: 
         return { cursor: data.cursor, group_mode: data.group_mode };
     }
     
+    // ==== ФОРМАТИРУЕМ ДАТУ ====
+    let dateString = 'Неизвестно';
+    if (inv.purchaseDate) {
+        const date = new Date(inv.purchaseDate);
+        dateString = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()} в ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    }
+    // ==========================
+    
     let item = null;
     let text = '';
-    let image = undefined; // Используем undefined вместо null
+    let image = undefined;
     
     if (inv.type == InventoryType.ITEM_SHOP_ALLIANCE) {
         item = await prisma.allianceShopItem.findFirst({ where: { id: inv.id_item } })
-        text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n💰 Стоимость: ${item?.price}\n📦 Версия: ${item?.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
-        image = item?.image || undefined; // Если image есть, используем его, иначе undefined
+        text = `🛍 Предмет: ${item?.name}\n` +
+               `🧾 ID: ${item?.id}\n` +
+               `📜 Описание: ${item?.description || 'Нет описания'}\n` +
+               `💰 Стоимость: ${item?.price}\n` +
+               `📦 Версия: ${item?.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n` +
+               `🧲 Где куплено: в Ролевом магазине\n` +
+               `💬 Комментарий: ${inv.comment}\n` +
+               `🎒 Сундук: ${chest?.name || 'Неизвестно'}\n` +
+               `📅 Дата приобретения: ${dateString}`;
+        image = item?.image || undefined;
     } else if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })
-        text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n🧲 Как получено: Артефакт\n💬 Комментарий: ${inv.comment}\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        text = `🛍 Предмет: ${item?.name}\n` +
+               `🧾 ID: ${item?.id}\n` +
+               `📜 Описание: ${item?.description || 'Нет описания'}\n` +
+               `🧲 Как получено: Артефакт\n` +
+               `💬 Комментарий: ${inv.comment}\n` +
+               `🎒 Сундук: ${chest?.name || 'Неизвестно'}\n` +
+               `📅 Дата получения: ${dateString}`;
         image = item?.image || undefined;
     } else if (inv.type == InventoryType.ITEM_SHOP) {
         item = await prisma.item.findFirst({ where: { id: inv.id_item } })
-        text = `🛍 Предмет: ${item?.name}\n🧾 ID: ${item?.id}\n📜 Описание: ${item?.description || 'Нет описания'}\n💰 Стоимость: ${item?.price}\n🧲 Где куплено: в Маголавке\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        text = `🛍 Предмет: ${item?.name}\n` +
+               `🧾 ID: ${item?.id}\n` +
+               `📜 Описание: ${item?.description || 'Нет описания'}\n` +
+               `💰 Стоимость: ${item?.price}\n` +
+               `🧲 Где куплено: в Маголавке\n` +
+               `🎒 Сундук: ${chest?.name || 'Неизвестно'}\n` +
+               `📅 Дата приобретения: ${dateString}`;
         image = item?.image || undefined;
     }
     

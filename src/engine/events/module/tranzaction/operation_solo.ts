@@ -397,7 +397,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                         id_user: user_get.id,
                         id_item: item.id,
                         type: InventoryType.ITEM_STORAGE,
-                        comment: `Получено от ${user_adm.name}`
+                        comment: `Получено от ${user_adm.name}`,
+                        purchaseDate: new Date()
                     }
                 });
                 
@@ -495,7 +496,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                         id_user: user_get.id,
                         id_item: newItem.id,
                         type: InventoryType.ITEM_STORAGE,
-                        comment: `Выдан админом @id${context.senderId}`
+                        comment: `Выдан админом @id${context.senderId}`,
+                        purchaseDate: new Date()
                     }
                 });
                 

@@ -441,11 +441,12 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
                     id_user: user.id, 
                     id_item: item.id, 
                     type: InventoryType.ITEM_SHOP_ALLIANCE, 
-                    comment: item_comment 
+                    comment: item_comment,
+                    purchaseDate: new Date()
                 } 
             });
             
-            // 5. Привязываем к выбранному сундуку
+            // Привязываем к выбранному сундуку
             await prisma.chestItemLink.create({
                 data: {
                     id_chest: targetChestId,

@@ -37,6 +37,7 @@ import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/a
 import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
 import { Legacy_Category_Printer } from "./events/module/shop/legacy_category_manager";
 import { CardSystem } from "./core/card_system";
+import { Operation_Kick_Mass } from './events/module/tranzaction/operation_kick_mass';
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -218,6 +219,15 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         await Operation_Group(context)
     })                
+    hearManager.hear(/!кикмасс/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (await Accessed(context) == 1) { 
+            await context.send('❌ У вас нет прав на массовые исключения.');
+            return; 
+        }
+        await Operation_Kick_Mass(context)
+    })
     hearManager.hear(/!опсоло/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1081,6 +1091,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [⚙ !основу удалить] — удаление фона главного меню альянса
                     \n⭐ [⚙ !карту настроить] — установка/изменение фона карточек персонажей
                     \n⭐ [⚙ !карту удалить] — удаление фона карточек персонажей
+                    \n⭐ [!кикмасс] — массовое исключение игроков из ролевой
 
                     \n📞 Контакты поддержки:
 • @dj.federation — по любым багам и техническим вопросам
