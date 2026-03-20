@@ -86,6 +86,7 @@ model Monitor {
   
   TopicMonitor TopicMonitor[]
   Limiter      Limiter[]
+  hashtags     MonitorHashtag[]
 }
 
 model TopicMonitor {
@@ -124,11 +125,36 @@ model PostStatistic {
   action          String      
   rewardGiven     Boolean     @default(false)
   rewardAmount    Float?
+  hashtags        PostHashtag[]
 
   @@index([topicMonitorId])
   @@index([userId])
   @@index([date])
   @@unique([topicMonitorId, postId])
+}
+
+model PostHashtag {
+  id              Int           @id @default(autoincrement())
+  postStatistic   PostStatistic @relation(fields: [postStatisticId], references: [id], onDelete: Cascade)
+  postStatisticId Int
+  hashtag         String
+  monitorId       Int
+  allianceId      Int
+  
+  @@unique([postStatisticId, hashtag])
+  @@index([hashtag])
+  @@index([monitorId])
+  @@index([allianceId])
+}
+
+model MonitorHashtag {
+  id        Int      @id @default(autoincrement())
+  monitor   Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  monitorId Int
+  hashtag   String
+  
+  @@unique([monitorId, hashtag])
+  @@index([hashtag])
 }
 
 model Limiter {

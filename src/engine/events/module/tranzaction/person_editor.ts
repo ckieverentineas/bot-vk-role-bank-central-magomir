@@ -293,7 +293,7 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
     const person: { id_alliance: null | number, alliance: null | string,  } = { id_alliance: null, alliance: null }
     let answer_check = false
     while (answer_check == false) {
-        const answer_selector = await context.question(`🧷 Укажите статус в Министерстве Магии для ${user.name}-${user.id}:`,
+        const answer_selector = await context.question(`🧷 Укажите статус для ${user.name}-${user.id}:`,
             {	
                 keyboard: Keyboard.builder()
                 .textButton({ label: 'Союзник Кнопки', payload: { command: 'student' }, color: 'secondary' }).row()

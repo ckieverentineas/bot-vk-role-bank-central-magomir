@@ -4,11 +4,13 @@ import { Person_Get } from "./person/person";
 import { Logger, Send_Message, Input_Text } from "../../core/helper";
 import { getTerminology } from "./alliance/terminology_helper";
 import { ico_list } from "./data_center/icons_lib";
+import { getHashtagRank, getMonitorHashtags } from "./alliance/hashtag_manager";
 
 type SortBy = 'posts' | 'characters' | 'words' | 'pc' | 'mb';
 type PeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4';
 type ViewType = 'all' | 'monitor' | 'topic' | 'facult';
 
+// В начале функции Topic_Rank_V2_Enter нужно получить хештеги монитора
 export async function Topic_Rank_V2_Enter(context: any) {
     const user = await Person_Get(context);
     if (!user) return;
@@ -25,47 +27,74 @@ export async function Topic_Rank_V2_Enter(context: any) {
     const monitorId = context.eventPayload?.monitorId || null;
     const topicId = context.eventPayload?.topicId || null;
     const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null; // НОВОЕ
     const page = context.eventPayload?.page || 0;
     const perPage = 10;
 
-    // Получаем данные
-    const { stats, totalCount, filters, allUsers, allStats } = await getActivityStatsWithRanking(
-        alliance.id, user.id, period, sortBy, viewType, monitorId, topicId, facultId, page, perPage
-    );
+    // Получаем хештеги монитора (если выбран конкретный монитор)
+    let monitorHashtags: string[] = [];
+    if (monitorId) {
+        monitorHashtags = await getMonitorHashtags(monitorId);
+    }
+
+    // Получаем данные с учетом хештега
+    let stats, totalCount, filters, allUsers, allStats;
     
-    // Получаем терминологию
-    const prepositional = await getTerminology(alliance.id, 'prepositional'); // факультете/фракции
-    
+    if (hashtag) {
+        // Получаем данные по конкретному хештегу
+        const periodStart = getPeriodStartDate(period);
+        const hashtagResult = await getHashtagRank(
+            alliance.id,
+            hashtag,
+            periodStart,
+            sortBy,
+            page,
+            perPage
+        );
+        stats = hashtagResult.stats;
+        totalCount = hashtagResult.totalCount;
+        filters = { monitorName: null, topicName: null, topicUrl: null, facultName: null, hashtag: hashtag };
+        allUsers = [];
+        allStats = [];
+    } else {
+        // Стандартное получение данных
+        const result = await getActivityStatsWithRanking(
+            alliance.id, user.id, period, sortBy, viewType, monitorId, topicId, facultId, page, perPage
+        );
+        stats = result.stats;
+        totalCount = result.totalCount;
+        filters = result.filters;
+        allUsers = result.allUsers;
+        allStats = result.allStats;
+    }
+
     // Формируем заголовок
     let text = `${ico_list['statistics'].ico} Рейтинг активности за `;
-    
-    // Добавляем информацию о периоде
     const periodText = getPeriodText(period);
     text += `${periodText} `;
-    
-    // Добавляем информацию о сортировке
     const sortText = getSortText(sortBy);
     text += `(${sortText}) в ролевом проекте ${alliance.name}`;
     
-    // Добавляем информацию о фильтрах
     if (filters.monitorName) {
         text += `\n📱 Монитор: ${filters.monitorName}`;
     }
     
     if (filters.topicName && filters.topicUrl) {
-        // Добавляем ссылку на обсуждение
         text += `\n📖 Обсуждение: [${filters.topicUrl}|${filters.topicName}]`;
     } else if (filters.topicName) {
         text += `\n📖 Обсуждение: ${filters.topicName}`;
     }
     
     if (filters.facultName) {
-        text += `, 🎓 ${prepositional}: ${filters.facultName}`;
+        text += `\n🎓 Фильтр: ${filters.facultName}`;
+    }
+    
+    if (hashtag) {
+        text += `\n🏷️ Хештег: #${hashtag}`;
     }
     
     text += `:\n\n`;
     
-    // ИСПРАВЛЕНО: Показываем галочку для текущего пользователя всегда
     let counter_last = page * perPage + 1;
     let counter_limit = 0;
     
@@ -75,7 +104,6 @@ export async function Topic_Rank_V2_Enter(context: any) {
             const score = getScoreBySortType(stat_sel, sortBy);
             const scoreText = getScoreText(score, sortBy);
             
-            // ИСПРАВЛЕНО: Галочка для текущего пользователя
             text += `${isMe ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} - UID-${stat_sel.userId} @id${stat_sel.userIdvk}(${stat_sel.userName}) --> ${scoreText}\n`;
             
             counter_limit++;
@@ -83,18 +111,17 @@ export async function Topic_Rank_V2_Enter(context: any) {
         counter_last++;
     }
     
-    // Пагинация
     const totalPages = Math.ceil(totalCount / perPage);
     if (totalPages > 1) {
         text += `\n📄 Страница ${page + 1} из ${totalPages}`;
     }
     
-    text += `\n\n${ico_list['help'].ico} В статистике участвует ${allUsers.length} персонажей`;
+    text += `\n\n${ico_list['help'].ico} В статистике участвует ${totalCount} персонажей`;
     
     const keyboard = buildRankKeyboardV2(
         period, sortBy, viewType, monitorId, topicId, facultId,
-        page, totalPages,
-        context.id
+        hashtag, page, totalPages,
+        context.id, monitorHashtags
     );
 
     await Send_Message(context.peerId, text, keyboard);
@@ -108,20 +135,21 @@ function buildRankKeyboardV2(
     monitorId: number | null,
     topicId: number | null,
     facultId: number | null,
+    hashtag: string | null,
     page: number,
     totalPages: number,
-    messageId?: number
+    messageId?: number,
+    monitorHashtags: string[] = []
 ): KeyboardBuilder {
     const keyboard = new KeyboardBuilder();
 
     // === СТРОКА 1: ПЕРИОДЫ ===
-    // Нед Мес Все Недели
     keyboard.callbackButton({
         label: period === 'week' ? '📅 Нед ✅' : '📅 Нед',
         payload: {
             command: 'topic_rank_v2',
             period: 'week',
-            sortBy, viewType, monitorId, topicId, facultId, page: 0
+            sortBy, viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: period === 'week' ? 'positive' : 'secondary'
     });
@@ -131,7 +159,7 @@ function buildRankKeyboardV2(
         payload: {
             command: 'topic_rank_v2',
             period: 'month',
-            sortBy, viewType, monitorId, topicId, facultId, page: 0
+            sortBy, viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: period === 'month' ? 'positive' : 'secondary'
     });
@@ -141,7 +169,7 @@ function buildRankKeyboardV2(
         payload: {
             command: 'topic_rank_v2',
             period: 'all_time',
-            sortBy, viewType, monitorId, topicId, facultId, page: 0
+            sortBy, viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: period === 'all_time' ? 'positive' : 'secondary'
     });
@@ -150,21 +178,20 @@ function buildRankKeyboardV2(
         label: '📆 Недели',
         payload: {
             command: 'topic_rank_v2_weeks',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: 'secondary'
     }).row();
 
     // === СТРОКА 2: ОСНОВНЫЕ ФИЛЬТРЫ ===
-    // Все Мониторы Обсуждения Фильтр
-    const hasAnyFilter = monitorId || topicId || facultId;
+    const hasAnyFilter = monitorId || topicId || facultId || hashtag;
     
     keyboard.callbackButton({
         label: !hasAnyFilter ? '👁️ Все ✅' : '👁️ Все',
         payload: {
             command: 'topic_rank_v2',
             period, sortBy, viewType: 'all',
-            monitorId: null, topicId: null, facultId: null, page: 0
+            monitorId: null, topicId: null, facultId: null, hashtag: null, page: 0
         },
         color: !hasAnyFilter ? 'positive' : 'secondary'
     });
@@ -173,7 +200,7 @@ function buildRankKeyboardV2(
         label: monitorId ? '📱 Мониторы ✅' : '📱 Мониторы',
         payload: {
             command: 'topic_rank_v2_select_monitor',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: monitorId ? 'positive' : 'secondary'
     });
@@ -182,7 +209,7 @@ function buildRankKeyboardV2(
         label: topicId ? '📖 Обсуждения ✅' : '📖 Обсуждения',
         payload: {
             command: 'topic_rank_v2_search_topic',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: topicId ? 'positive' : 'secondary'
     });
@@ -191,18 +218,58 @@ function buildRankKeyboardV2(
         label: facultId ? '🎓 Фильтр ✅' : '🎓 Фильтр',
         payload: {
             command: 'topic_rank_v2_select_facult',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: facultId ? 'positive' : 'secondary'
     }).row();
 
-    // === СТРОКА 3: СОРТИРОВКА (первая часть) ===
-    // Постов Символы Слова
+    // === СТРОКА 3: ХЕШТЕГИ (если есть) ===
+    if (monitorHashtags.length > 0) {
+        // Кнопка "Без хештега"
+        keyboard.callbackButton({
+            label: !hashtag ? '🏷️ Без хештега ✅' : '🏷️ Без хештега',
+            payload: {
+                command: 'topic_rank_v2',
+                period, sortBy, viewType, monitorId, topicId, facultId,
+                hashtag: null, page: 0
+            },
+            color: !hashtag ? 'positive' : 'secondary'
+        });
+        
+        // Показываем первые 3 хештега
+        const visibleHashtags = monitorHashtags.slice(0, 3);
+        for (const tag of visibleHashtags) {
+            keyboard.callbackButton({
+                label: hashtag === tag ? `#${tag} ✅` : `#${tag}`,
+                payload: {
+                    command: 'topic_rank_v2',
+                    period, sortBy, viewType, monitorId, topicId, facultId,
+                    hashtag: tag, page: 0
+                },
+                color: hashtag === tag ? 'positive' : 'secondary'
+            });
+        }
+        keyboard.row();
+        
+        // Если хештегов больше 3, добавляем кнопку "Еще"
+        if (monitorHashtags.length > 3) {
+            keyboard.callbackButton({
+                label: `🏷️ Еще ${monitorHashtags.length - 3}`,
+                payload: {
+                    command: 'topic_rank_v2_select_hashtag',
+                    period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
+                },
+                color: 'secondary'
+            }).row();
+        }
+    }
+
+    // === СТРОКА 4: СОРТИРОВКА (первая часть) ===
     keyboard.callbackButton({
         label: sortBy === 'posts' ? '📝 ✅' : '📝',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy: 'posts', viewType, monitorId, topicId, facultId, page: 0
+            period, sortBy: 'posts', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'posts' ? 'positive' : 'secondary'
     });
@@ -211,7 +278,7 @@ function buildRankKeyboardV2(
         label: sortBy === 'characters' ? '🔤 ✅' : '🔤',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy: 'characters', viewType, monitorId, topicId, facultId, page: 0
+            period, sortBy: 'characters', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'characters' ? 'positive' : 'secondary'
     });
@@ -220,18 +287,17 @@ function buildRankKeyboardV2(
         label: sortBy === 'words' ? '📖 ✅' : '📖',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy: 'words', viewType, monitorId, topicId, facultId, page: 0
+            period, sortBy: 'words', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'words' ? 'positive' : 'secondary'
     }).row();
 
-    // === СТРОКА 4: СОРТИРОВКА (вторая часть) ===
-    // ПК МБ
+    // === СТРОКА 5: СОРТИРОВКА (вторая часть) ===
     keyboard.callbackButton({
         label: sortBy === 'pc' ? '💻 ✅' : '💻',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy: 'pc', viewType, monitorId, topicId, facultId, page: 0
+            period, sortBy: 'pc', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'pc' ? 'positive' : 'secondary'
     });
@@ -240,19 +306,19 @@ function buildRankKeyboardV2(
         label: sortBy === 'mb' ? '📱 ✅' : '📱',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy: 'mb', viewType, monitorId, topicId, facultId, page: 0
+            period, sortBy: 'mb', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'mb' ? 'positive' : 'secondary'
     }).row();
 
-    // === СТРОКА 5: ПАГИНАЦИЯ (только если есть страницы) ===
+    // === СТРОКА 6: ПАГИНАЦИЯ ===
     if (totalPages > 1) {
         if (page > 0) {
             keyboard.callbackButton({
                 label: '◀️ Назад',
                 payload: {
                     command: 'topic_rank_v2',
-                    period, sortBy, viewType, monitorId, topicId, facultId, page: page - 1
+                    period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page: page - 1
                 },
                 color: 'secondary'
             });
@@ -263,7 +329,7 @@ function buildRankKeyboardV2(
                 label: 'Вперед ▶️',
                 payload: {
                     command: 'topic_rank_v2',
-                    period, sortBy, viewType, monitorId, topicId, facultId, page: page + 1
+                    period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page: page + 1
                 },
                 color: 'secondary'
             });
@@ -272,8 +338,7 @@ function buildRankKeyboardV2(
         keyboard.row();
     }
 
-    // === СТРОКА 6: УПРАВЛЕНИЕ ===
-    // Сброс Выход
+    // === СТРОКА 7: УПРАВЛЕНИЕ ===
     keyboard.callbackButton({
         label: '🔄 Сброс',
         payload: {
@@ -284,6 +349,7 @@ function buildRankKeyboardV2(
             monitorId: null,
             topicId: null,
             facultId: null,
+            hashtag: null,
             page: 0
         },
         color: 'negative'
@@ -296,7 +362,7 @@ function buildRankKeyboardV2(
             messageId: messageId
         },
         color: 'secondary'
-    })
+    });
 
     return keyboard;
 }
@@ -1170,4 +1236,112 @@ function formatCompactNumber(num: number): string {
     if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
     return num.toString();
+}
+
+export async function Topic_Rank_V2_Select_Hashtag(context: any) {
+    const user = await Person_Get(context);
+    if (!user) return;
+
+    const alliance = await prisma.alliance.findFirst({ 
+        where: { id: user.id_alliance ?? 0 } 
+    });
+    if (!alliance) return;
+
+    // Получаем текущие параметры
+    const period = (context.eventPayload?.period || 'week') as PeriodType;
+    const sortBy = (context.eventPayload?.sortBy || 'pc') as SortBy;
+    const viewType = (context.eventPayload?.viewType || 'all') as ViewType;
+    const monitorId = context.eventPayload?.monitorId || null;
+    const topicId = context.eventPayload?.topicId || null;
+    const facultId = context.eventPayload?.facultId || null;
+    const currentHashtag = context.eventPayload?.hashtag || null;
+    const page = context.eventPayload?.page || 0;
+    const hashtagPage = context.eventPayload?.hashtagPage || 0; // страница для хештегов
+    const perPage = 5; // показываем по 5 хештегов на страницу
+
+    // Получаем все хештеги монитора
+    let monitorHashtags: string[] = [];
+    if (monitorId) {
+        monitorHashtags = await getMonitorHashtags(monitorId);
+    }
+
+    if (monitorHashtags.length === 0) {
+        await context.send(`🏷️ Нет отслеживаемых хештегов для этого монитора.`);
+        return;
+    }
+
+    // Пагинация хештегов
+    const totalPages = Math.ceil(monitorHashtags.length / perPage);
+    const startIndex = hashtagPage * perPage;
+    const visibleHashtags = monitorHashtags.slice(startIndex, startIndex + perPage);
+
+    const keyboard = new KeyboardBuilder();
+    let text = `🏷️ Выберите хештег для фильтрации (страница ${hashtagPage + 1} из ${totalPages}):\n\n`;
+
+    // Кнопки хештегов
+    for (const tag of visibleHashtags) {
+        keyboard.callbackButton({
+            label: currentHashtag === tag ? `✅ #${tag}` : `#${tag}`,
+            payload: {
+                command: 'topic_rank_v2',
+                period, sortBy, viewType, monitorId, topicId, facultId,
+                hashtag: tag, page: 0
+            },
+            color: currentHashtag === tag ? 'positive' : 'secondary'
+        }).row();
+        
+        text += `• #${tag}\n`;
+    }
+
+    // Навигация по страницам хештегов
+    if (totalPages > 1) {
+        if (hashtagPage > 0) {
+            keyboard.callbackButton({
+                label: '◀️ Назад',
+                payload: {
+                    command: 'topic_rank_v2_select_hashtag',
+                    period, sortBy, viewType, monitorId, topicId, facultId,
+                    hashtag: currentHashtag, page, hashtagPage: hashtagPage - 1
+                },
+                color: 'secondary'
+            });
+        }
+
+        if (hashtagPage < totalPages - 1) {
+            keyboard.callbackButton({
+                label: 'Вперед ▶️',
+                payload: {
+                    command: 'topic_rank_v2_select_hashtag',
+                    period, sortBy, viewType, monitorId, topicId, facultId,
+                    hashtag: currentHashtag, page, hashtagPage: hashtagPage + 1
+                },
+                color: 'secondary'
+            });
+        }
+        keyboard.row();
+    }
+
+    // Кнопка "Без хештега"
+    keyboard.callbackButton({
+        label: currentHashtag ? '🏷️ Без хештега' : '🏷️ Без хештега ✅',
+        payload: {
+            command: 'topic_rank_v2',
+            period, sortBy, viewType, monitorId, topicId, facultId,
+            hashtag: null, page: 0
+        },
+        color: !currentHashtag ? 'positive' : 'secondary'
+    }).row();
+
+    // Кнопка возврата
+    keyboard.callbackButton({
+        label: '↩️ Назад к рейтингу',
+        payload: {
+            command: 'topic_rank_v2',
+            period, sortBy, viewType, monitorId, topicId, facultId,
+            hashtag: currentHashtag, page
+        },
+        color: 'secondary'
+    }).inline().oneTime();
+
+    await Send_Message(context.peerId, text, keyboard);
 }

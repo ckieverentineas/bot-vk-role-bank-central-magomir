@@ -9,6 +9,9 @@ import { Person_Get } from "../person/person";
 import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
 import { serializeLinesRewards, parseLinesRewards } from "../topic_statistic";
+import { getMonitorHashtags, addMonitorHashtag, removeMonitorHashtag, extractHashtags } from "./hashtag_manager";
+
+const processingPosts = new Map<string, number>();
 
 // Основная функция управления отслеживанием обсуждений
 export async function Alliance_Topic_Monitor_Printer(context: any) {
@@ -16,7 +19,6 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
     const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } });
     if (!alliance || !user) { return; }
 
-    // Сначала выбираем монитор
     const monitor = await selectMonitor(context, alliance, user);
     if (!monitor) { return; }
 
@@ -40,6 +42,14 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
             event_logger += `💰 Валюта наград: используется валюта монитора ${defaultCoin.smile} ${defaultCoin.name}\n`;
         } else {
             event_logger += `💰 Валюта наград: не настроена\n`;
+        }
+        
+        // ДОБАВЛЕНО: Отображение хештегов монитора
+        const monitorHashtags = await getMonitorHashtags(monitor.id);
+        if (monitorHashtags.length > 0) {
+            event_logger += `🏷️ Хештеги: #${monitorHashtags.join(', #')}\n`;
+        } else {
+            event_logger += `🏷️ Хештеги: не настроены\n`;
         }
         event_logger += `\n`;
 
@@ -86,7 +96,6 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
             }
         }
 
-        // Пагинация
         const totalCount = await prisma.topicMonitor.count({ where: { monitorId: monitor.id } });
         
         if (cursor >= 5) {
@@ -104,6 +113,13 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
                 color: 'secondary'
             });
         }
+
+        // ДОБАВЛЕНО: Кнопка "Хештеги"
+        keyboard.textButton({
+            label: `${ico_list['edit'].ico} Хештеги`,
+            payload: { command: 'topic_monitor_hashtags', cursor: cursor, monitorId: monitor.id },
+            color: 'secondary'
+        });
 
         keyboard.textButton({
             label: `${ico_list['money'].ico} Валюта`,
@@ -141,7 +157,14 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
             'topic_monitor_return': Topic_Monitor_Return,
             'topic_monitor_delete': Topic_Monitor_Delete,
             'topic_monitor_set_currency': Topic_Monitor_Set_Currency,
-            'topic_monitor_return_from_currency': Topic_Monitor_Return
+            'topic_monitor_return_from_currency': Topic_Monitor_Return,
+            'topic_monitor_hashtags': async (ctx: any, data: any) => {
+                const monitor = await prisma.monitor.findFirst({ where: { id: data.monitorId } });
+                if (monitor) {
+                    await MonitorHashtag_Manager(ctx, monitor);
+                }
+                return { cursor: data.cursor };
+            }
         };
 
         if (answer?.payload?.command in config) {
@@ -1093,6 +1116,20 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
 
         //console.log(`📊 Статистика поста: ${stats.words} слов, ${stats.characters} символов, PC=${displayPc}, checkPcLines=${checkPcLines}`);
 
+        // ===== НОВОЕ: РАБОТА С ХЕШТЕГАМИ =====
+        // Получаем отслеживаемые хештеги монитора
+        const monitorHashtags = await getMonitorHashtags(monitor.id);
+        const postHashtags = extractHashtags(text);
+        const relevantHashtags = postHashtags.filter((tag: string) => monitorHashtags.includes(tag));
+
+        // ДОБАВИТЬ ОТЛАДОЧНЫЙ ЛОГ:
+        console.log(`\n🔍 [DEBUG] Пост ${context.id}:`);
+        console.log(`   Текст: ${text.slice(0, 100)}...`);
+        console.log(`   Найденные хештеги: ${postHashtags.join(', ')}`);
+        console.log(`   Отслеживаемые хештеги монитора ${monitor.id}: ${monitorHashtags.join(', ')}`);
+        console.log(`   Релевантные хештеги: ${relevantHashtags.join(', ')}`);
+        // =====================================
+
         // Проверяем существующую запись для редактирования/восстановления
         const existingStat = await prisma.postStatistic.findFirst({
             where: {
@@ -1170,15 +1207,18 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             if (belowMinPcLines) {
                 //console.log(`⚠ Новый пост ниже минималки (${checkPcLines} < ${minPcLines}), награда НЕ начисляется`);
                 // Просто сохраняем статистику без награды
-                await savePostStats(topicMonitor, targetUser, context, stats, action, false, 0);
+                await savePostStatsWithHashtags(
+                    topicMonitor, targetUser, context, stats, action, false, 0,
+                    relevantHashtags, monitor, monitor.id_alliance
+                );
                 
                 // Уведомляем нового пользователя (если ниже минималки)
-                await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid);
+                await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
                 
                 // Логируем в чат (смена пользователя, но без награды)
                 const coinId = monitor.id_topic_coin ?? monitor.id_coin;
                 const coin = coinId ? await prisma.allianceCoin.findFirst({ where: { id: coinId } }) : undefined;
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, coin, context.id, true, uidSpecified, specifiedUid);
+                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, coin, context.id, true, uidSpecified, specifiedUid, relevantHashtags);
                 
                 processingPosts.delete(processingKey);
                 return;
@@ -1192,26 +1232,31 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                     // Начисляем награду новому пользователю
                     await addRewardToUser(targetUser, newRewardAmount, monitor, topicMonitor, context);
                     
-                    // Сохраняем статистику с наградой
-                    await savePostStats(topicMonitor, targetUser, context, stats, action, true, newRewardAmount);
+                    await savePostStatsWithHashtags(
+                        topicMonitor, targetUser, context, stats, action, true, newRewardAmount,
+                        relevantHashtags, monitor, monitor.id_alliance
+                    );
                     
                     // Уведомляем нового пользователя
                     await notifyUserOfEditWithTransfer(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid);
                     
                     // Логируем в чат (смена пользователя с наградой)
-                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, undefined, context.id, false, uidSpecified, specifiedUid);
+                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, undefined, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
                     
                     processingPosts.delete(processingKey);
                     return;
                 } else {
                     // Награда 0 (ниже rewardMinLines)
                     //console.log(`ℹ️ Объем достаточный, но награда 0 (ниже rewardMinLines)`);
-                    await savePostStats(topicMonitor, targetUser, context, stats, action, false, 0);
+                    await savePostStatsWithHashtags(
+                        topicMonitor, targetUser, context, stats, action, false, 0,
+                        relevantHashtags, monitor, monitor.id_alliance
+                    );
                     
                     // Уведомление о посте без награды
                     await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid);
                     
-                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, undefined, context.id, false, uidSpecified, specifiedUid);
+                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, undefined, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
                     
                     processingPosts.delete(processingKey);
                     return;
@@ -1248,16 +1293,19 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                     } else {
                         // Для 'new' используем другую логику
                         //console.log(`ℹ️ Новый пост ниже минималки, награда не начислена`);
-                        await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid);
+                        await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
                     }
                 } else {
                     // Не было награды или её не было
-                    await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid);
+                    await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
                 }
                 
                 // Сохраняем статистику без награды
-                await savePostStats(topicMonitor, targetUser, context, stats, action, false, 0);
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, existingStat?.rewardAmount ? -existingStat.rewardAmount : 0, null, context.id, true, uidSpecified, specifiedUid);
+                await savePostStatsWithHashtags(
+                    topicMonitor, targetUser, context, stats, action, false, 0,
+                    relevantHashtags, monitor, monitor.id_alliance
+                );
+                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, existingStat?.rewardAmount ? -existingStat.rewardAmount : 0, null, context.id, true, uidSpecified, specifiedUid, relevantHashtags);
                 
                 processingPosts.delete(processingKey);
                 return;
@@ -1267,9 +1315,12 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             const newRewardAmount = calculateReward(topicMonitor, stats.characters);
             const rewardGiven = newRewardAmount > 0;
             
-            // Сохраняем статистику
-            await savePostStats(topicMonitor, targetUser, context, stats, action, rewardGiven, newRewardAmount);
-            
+            // Сохраняем статистику с хештегами
+            await savePostStatsWithHashtags(
+                topicMonitor, targetUser, context, stats, action, rewardGiven, newRewardAmount,
+                relevantHashtags, monitor, monitor.id_alliance
+            );            
+
             // Рассчитываем изменение награды
             const rewardChange = newRewardAmount - (existingStat?.rewardAmount || 0);
             
@@ -1281,24 +1332,42 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             const currentBalanceAmount = currentBalance?.amount || 0;
             
             //console.log(`💰 Расчет награды: старая=${oldReward}, новая=${newRewardAmount}, изменение=${rewardChange}, текущий баланс=${currentBalanceAmount}`);
-            
+                        
             if (action === 'edit' || action === 'restore') {
-                // Обрабатываем изменение награды при редактировании
+                // Получаем старые хештеги
+                let oldHashtagsForEdit: string[] = [];
+                if (existingStat) {
+                    const oldHashtagRecords = await prisma.postHashtag.findMany({
+                        where: { postStatisticId: existingStat.id },
+                        select: { hashtag: true }
+                    });
+                    oldHashtagsForEdit = oldHashtagRecords.map(h => h.hashtag);
+                }
+                const hashtagsChangedForEdit = JSON.stringify(oldHashtagsForEdit.sort()) !== JSON.stringify(relevantHashtags.sort());
+                
                 await handlePostRewardsAndNotifications(
                     topicMonitor, targetUser, context, stats, displayPc, monitor, action, 
                     existingStat?.rewardAmount || 0, oldDisplayPc, newRewardAmount,
                     uidSpecified, specifiedUid, false, oldTargetUserId,
-                    currentBalanceAmount // Передаем текущий баланс
+                    currentBalanceAmount,
+                    oldHashtagsForEdit,
+                    relevantHashtags,
+                    hashtagsChangedForEdit
                 );
             } else if (action === 'new') {
                 // Новый пост
+                const newRewardAmount = calculateReward(topicMonitor, stats.characters);
+                const rewardGiven = newRewardAmount > 0;
+                
                 if (rewardGiven) {
                     await addRewardToUser(targetUser, newRewardAmount, monitor, topicMonitor, context);
-                    await notifyUserOfNewPost(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid);
+                    await savePostStatsWithHashtags(
+                        topicMonitor, targetUser, context, stats, action, rewardGiven, newRewardAmount,
+                        relevantHashtags, monitor, monitor.id_alliance
+                    );
+                    await notifyUserOfNewPost(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid, relevantHashtags);
                 } else {
-                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid);
-                }
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, null, context.id, false, uidSpecified, specifiedUid);
+                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid, relevantHashtags);}
             }
         }
 
@@ -1316,9 +1385,6 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         }
     }
 }
-
-// Глобальная мапа для отслеживания обрабатываемых постов
-const processingPosts = new Map<string, number>();
 
 // Снять награду у пользователя
 async function deductRewardFromUser(user: any, amount: number, monitor: any, topicMonitor: any, context: BoardPostContext) {
@@ -1476,7 +1542,7 @@ async function notifyUserOfEditWithTransfer(user: any, topicMonitor: any, monito
 }
 
 // Уведомить о новом посте с наградой
-async function notifyUserOfNewPost(user: any, topicMonitor: any, monitor: any, context: BoardPostContext, stats: any, displayPc: number, amount: number, uidSpecified: boolean, specifiedUid: number | null) {
+async function notifyUserOfNewPost(user: any, topicMonitor: any, monitor: any, context: BoardPostContext, stats: any, displayPc: number, amount: number, uidSpecified: boolean, specifiedUid: number | null, hashtags: string[] = []) {
     const account = await prisma.account.findFirst({ 
         where: { idvk: user.idvk } 
     });
@@ -1489,6 +1555,12 @@ async function notifyUserOfNewPost(user: any, topicMonitor: any, monitor: any, c
         });        
         const uidInfo = uidSpecified && specifiedUid ? 
             `\n🎯 Начисление по указанному UID: ${specifiedUid}` : '';
+        
+        // Добавляем информацию о хештегах
+        let hashtagText = '';
+        if (hashtags && hashtags.length > 0) {
+            hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
+        }
         
         let balanceText = '';
         if (balance && coin) {
@@ -1506,7 +1578,7 @@ async function notifyUserOfNewPost(user: any, topicMonitor: any, monitor: any, c
             }
         }
         
-        const message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}\n` +
+        const message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}${hashtagText}\n` +
                        `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
                        `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n` +
                        balanceText +
@@ -1517,7 +1589,7 @@ async function notifyUserOfNewPost(user: any, topicMonitor: any, monitor: any, c
 }
 
 // Уведомить о новом посте без награды
-async function notifyUserOfNewPostNoReward(user: any, topicMonitor: any, monitor: any, context: BoardPostContext, stats: any, displayPc: number, uidSpecified: boolean, specifiedUid: number | null) {
+async function notifyUserOfNewPostNoReward(user: any, topicMonitor: any, monitor: any, context: BoardPostContext, stats: any, displayPc: number, uidSpecified: boolean, specifiedUid: number | null, hashtags: string[] = []) {
     const account = await prisma.account.findFirst({ 
         where: { idvk: user.idvk } 
     });
@@ -1531,6 +1603,12 @@ async function notifyUserOfNewPostNoReward(user: any, topicMonitor: any, monitor
         
         const uidInfo = uidSpecified && specifiedUid ? 
             `\n🎯 Начисление по указанному UID: ${specifiedUid}` : '';
+        
+        // Добавляем информацию о хештегах
+        let hashtagText = '';
+        if (hashtags && hashtags.length > 0) {
+            hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
+        }
         
         let balanceText = '';
         if (balance && coin) {
@@ -1547,7 +1625,7 @@ async function notifyUserOfNewPostNoReward(user: any, topicMonitor: any, monitor
             }
         }
         
-        const message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}\n` +
+        const message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}${hashtagText}\n` +
                        `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
                        `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n` +
                        `ℹ️ Пост зафиксирован, но не принес награды\n` +
@@ -1602,6 +1680,82 @@ async function savePostStats(
     });
 }
 
+async function savePostStatsWithHashtags(
+    topicMonitor: any, 
+    targetUser: any,
+    context: BoardPostContext, 
+    stats: any, 
+    action: string,
+    rewardGiven: boolean,
+    rewardAmount: number,
+    relevantHashtags: string[],
+    monitor: any,
+    allianceId: number
+): Promise<any> {
+    const saved = await prisma.postStatistic.upsert({
+        where: {
+            topicMonitorId_postId: {
+                topicMonitorId: topicMonitor.id,
+                postId: context.id
+            }
+        },
+        update: {
+            characters: stats.characters,
+            words: stats.words,
+            pc: stats.pc,
+            mb: stats.mb,
+            date: new Date(),
+            action: action,
+            userId: targetUser.id,
+            rewardGiven: rewardGiven,
+            rewardAmount: rewardAmount
+        },
+        create: {
+            topicMonitorId: topicMonitor.id,
+            userId: targetUser.id,
+            postId: context.id,
+            characters: stats.characters,
+            words: stats.words,
+            pc: stats.pc,
+            mb: stats.mb,
+            date: new Date(),
+            action: action,
+            rewardGiven: rewardGiven,
+            rewardAmount: rewardAmount
+        }
+    });
+    
+    // ДОБАВИТЬ ОТЛАДОЧНЫЙ ЛОГ:
+    console.log(`💾 [DEBUG] Сохраняем статистику поста ${saved.id}, хештегов: ${relevantHashtags.length}`);
+    
+    // Сохраняем хештеги для поста
+    if (relevantHashtags.length > 0) {
+        // Удаляем старые
+        await prisma.postHashtag.deleteMany({
+            where: { postStatisticId: saved.id }
+        });
+        
+        for (const hashtag of relevantHashtags) {
+            await prisma.postHashtag.create({
+                data: {
+                    postStatisticId: saved.id,
+                    hashtag,
+                    monitorId: monitor.id,
+                    allianceId
+                }
+            });
+            console.log(`   ✅ Сохранен хештег: #${hashtag} для поста ${saved.id}`);
+        }
+    } else {
+        await prisma.postHashtag.deleteMany({
+            where: { postStatisticId: saved.id }
+        });
+        console.log(`   ⚠ Нет релевантных хештегов для поста ${saved.id}`);
+    }
+    
+    return saved;
+}
+
 // Обработка удаления поста
 async function handlePostDeletion(topicMonitor: any, postId: number, monitor: any, fromId?: number, topicId?: number) {
     // Находим статистику поста
@@ -1611,6 +1765,16 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
             postId: postId
         }
     });
+
+    // Получаем хештеги поста
+    let postHashtags: string[] = [];
+    if (postStat) {
+        const hashtagRecords = await prisma.postHashtag.findMany({
+            where: { postStatisticId: postStat.id },
+            select: { hashtag: true }
+        });
+        postHashtags = hashtagRecords.map((h: { hashtag: any; }) => h.hashtag);
+    }
 
     let user = null;
     
@@ -1676,6 +1840,14 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     let newBalance = balance.amount;
     let rewardAmount = 0;
     
+    // Формируем информацию о хештегах
+    let hashtagText = '';
+    if (postHashtags.length > 0) {
+        hashtagText = `\n🏷️ Хештеги: #${postHashtags.join(', #')}`;
+    } else {
+        hashtagText = `\n🏷️ Хештеги: отсутствовали`;
+    }
+    
     if (postStat && postStat.rewardGiven && postStat.rewardAmount && postStat.rewardAmount > 0) {
         // Если была награда - снимаем ее
         rewardAmount = postStat.rewardAmount;
@@ -1696,25 +1868,25 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
             });
             
             if (facult) {
-                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!\n` +
+                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
                          `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
                          `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
                          `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]`;
             } else {
-                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!\n` +
+                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
                          `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
                          `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
                          `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile}`;
             }
         } else {
-            message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!\n` +
+            message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
                      `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
                      `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
                      `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile}`;
         }
     } else if (postStat) {
         // Была статистика, но без награды
-        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!\n` +
+        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
                  `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
                  `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
                  `ℹ️ Пост был зафиксирован, но не принес награды\n` +
@@ -1725,7 +1897,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         const hasMinPcLines = minPcLines > 0;
         const minPcText = hasMinPcLines ? ` (минимальный объем: ${minPcLines} ПК строк)` : '';
         
-        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!\n` +
+        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
                  `ℹ️ Пост был удален${minPcText}\n` +
                  `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile}`;
     }
@@ -1733,6 +1905,13 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     // Добавляем ссылку если есть topicId
     if (topicId) {
         message += `\n🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${topicId}?post=${postId}`;
+    }
+    
+    // Удаляем хештеги поста
+    if (postStat) {
+        await prisma.postHashtag.deleteMany({
+            where: { postStatisticId: postStat.id }
+        });
     }
     
     // Удаляем статистику если она была
@@ -1770,7 +1949,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
             characters: postStat.characters,
             pc: postStat.pc,
             mb: postStat.mb
-        }, getPcLinesForDisplay(postStat.pc), rewardChange, coin, postId);
+        }, getPcLinesForDisplay(postStat.pc), rewardChange, coin, postId, false, false, null, postHashtags);
     }
 }
 
@@ -1868,14 +2047,14 @@ async function sendBelowMinNotification(
     displayPc: number,
     action: 'new' | 'edit' | 'restore',
     uidSpecified: boolean = false,
-    specifiedUid: number | null = null
+    specifiedUid: number | null = null,
+    relevantHashtags: string[] = []
 ) {
     const account = await prisma.account.findFirst({ 
         where: { idvk: targetUser.idvk } 
     });
     
     if (!account || !targetUser.notification_topic) {
-        //console.log(`⚠ Уведомления об обсуждениях отключены для пользователя ${targetUser.name}`);
         return;
     }
     
@@ -1894,12 +2073,12 @@ async function sendBelowMinNotification(
             });
             
             if (facult) {
-                balanceText = `💳 Ваш баланс: ${balance.amount}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
+                balanceText = `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
             } else {
-                balanceText = `💳 Ваш баланс: ${balance.amount}${coin.smile}\n`;
+                balanceText = `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile}\n`;
             }
         } else {
-            balanceText = `💳 Ваш баланс: ${balance.amount}${coin.smile}\n`;
+            balanceText = `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile}\n`;
         }
     }
     
@@ -1909,6 +2088,12 @@ async function sendBelowMinNotification(
     // Добавляем информацию об указанном UID
     const uidInfo = uidSpecified && specifiedUid ? 
         `\n🎯 Начисление по указанному UID: ${specifiedUid}` : '';
+    
+    // Добавляем информацию о хештегах
+    let hashtagText = '';
+    if (relevantHashtags && relevantHashtags.length > 0) {
+        hashtagText = `\n🏷️ Хештеги: #${relevantHashtags.join(', #')}`;
+    }
     
     // Проверяем, была ли награда у исходного поста (для edit/restore)
     let hadReward = false;
@@ -1950,7 +2135,7 @@ async function sendBelowMinNotification(
         case 'restore': actionText = 'восстановлен'; break;
     }
     
-    const message = `📝 ${targetUser.name} (UID: ${targetUser.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" ${actionText}!${uidInfo}\n` +
+    const message = `📝 ${targetUser.name} (UID: ${targetUser.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" ${actionText}!${uidInfo}${hashtagText}\n` +
                    `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
                    `💻 ПК: ${displayPc}${minPcText}\n` +
                    `${customMessage}\n` +
@@ -1959,7 +2144,6 @@ async function sendBelowMinNotification(
     
     try {
         await Send_Message(account.idvk, message);
-        //console.log(`📨 Уведомление о посте ниже минималки отправлено пользователю ${targetUser.name}`);
     } catch (error) {
         console.error(`❌ Ошибка отправки уведомления: ${error}`);
     }
@@ -1974,23 +2158,23 @@ async function handlePostRewardsAndNotifications(
     specifiedUid: number | null = null,
     rewardTransferNeeded: boolean = false,
     oldTargetUserId: number | null = null,
-    currentBalanceAmount: number = 0 // ДОБАВЛЕНО: текущий баланс перед изменениями
+    currentBalanceAmount: number = 0,
+    oldHashtags: string[] = [],
+    newHashtags: string[] = [],
+    hashtagsChanged: boolean = false
 ) {
     try {
         const account = await prisma.account.findFirst({ 
             where: { idvk: context.fromId } 
         });
         
-        // Получаем валюту
         const coinId = monitor.id_topic_coin ?? monitor.id_coin;
         const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
         
         if (!coin) {
-            //console.log(`⚠ Валюта не найдена для монитора ${monitor.id}`);
             return;
         }
         
-        // Получаем ТЕКУЩИЙ баланс пользователя (если не передан)
         let userBalance = currentBalanceAmount;
         if (userBalance === 0) {
             const balanceRecord = await prisma.balanceCoin.findFirst({ 
@@ -1999,19 +2183,33 @@ async function handlePostRewardsAndNotifications(
             userBalance = balanceRecord?.amount || 0;
         }
         
-        //console.log(`🎯 Обработка наград: действие=${action}, старая награда=${oldReward}, новая награда=${newRewardAmount}, текущий баланс=${userBalance}`);
-        
         let message = '';
         let rewardChange = 0;
         let newBalance = userBalance;
         
-        // Добавляем информацию об указанном UID
         const uidInfo = uidSpecified && specifiedUid ? 
             `\n🎯 Начисление по указанному UID: ${specifiedUid}` : '';
         
+        // ДОБАВЛЕНО: Информация об изменении хештегов
+        let hashtagInfo = '';
+        if (hashtagsChanged && (action === 'edit' || action === 'restore')) {
+            const added = newHashtags.filter(t => !oldHashtags.includes(t));
+            const removed = oldHashtags.filter(t => !newHashtags.includes(t));
+            if (added.length > 0) {
+                hashtagInfo += `\n➕ Добавлены хештеги: #${added.join(', #')}`;
+            }
+            if (removed.length > 0) {
+                hashtagInfo += `\n➖ Удалены хештеги: #${removed.join(', #')}`;
+            }
+        }
+        
         if (action === 'new') {
-            // Новый пост с достаточным объемом
-            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}\n` +
+            // Добавляем информацию о хештегах
+            let hashtagText = '';
+            if (newHashtags && newHashtags.length > 0) {
+                hashtagText = `\n🏷️ Хештеги: #${newHashtags.join(', #')}`;
+            }
+            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" засчитан!${uidInfo}${hashtagInfo}\n` +
                      `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
                      `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n`;
             
@@ -2019,15 +2217,12 @@ async function handlePostRewardsAndNotifications(
                 const oldBalance = userBalance;
                 newBalance = oldBalance + newRewardAmount;
                 rewardChange = newRewardAmount;
-                
-                // Обновляем баланс
                 await updateUserBalance(user.id, coinId, newBalance);
                 
                 if (user.id_facult && coin?.point) {
                     const facult = await prisma.allianceFacult.findFirst({ 
                         where: { id: user.id_facult } 
                     });
-                    
                     if (facult) {
                         message += `💳 Ваш баланс: ${oldBalance} + ${newRewardAmount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                     } else {
@@ -2036,14 +2231,11 @@ async function handlePostRewardsAndNotifications(
                 } else {
                     message += `💳 Ваш баланс: ${oldBalance} + ${newRewardAmount} = ${newBalance}${coin.smile}\n`;
                 }
-                
-                rewardChange = newRewardAmount;
             } else {
                 if (user.id_facult && coin?.point) {
                     const facult = await prisma.allianceFacult.findFirst({ 
                         where: { id: user.id_facult } 
                     });
-                    
                     if (facult) {
                         message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                     } else {
@@ -2057,31 +2249,40 @@ async function handlePostRewardsAndNotifications(
             message += `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
             
         } else if (action === 'edit') {
-            // Редактирование поста с достаточным объемом
             const volumeChange = oldDisplayPc !== displayPc ? ` (было ${oldDisplayPc} ПК строк, стало ${displayPc} ПК строк)` : '';
-            
-            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" отредактирован${volumeChange}!${uidInfo}\n` +
-                     `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
-                     `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n`;
+
+            // Информация об изменении хештегов
+            let hashtagChangeText = '';
+            if (oldHashtags && newHashtags) {
+                const added = newHashtags.filter(t => !oldHashtags.includes(t));
+                const removed = oldHashtags.filter(t => !newHashtags.includes(t));
+                
+                if (added.length > 0) {
+                    hashtagChangeText += `\n➕ Добавлены хештеги: #${added.join(', #')}`;
+                }
+                if (removed.length > 0) {
+                    hashtagChangeText += `\n➖ Удалены хештеги: #${removed.join(', #')}`;
+                }
+                if (added.length === 0 && removed.length === 0 && newHashtags.length > 0) {
+                    hashtagChangeText += `\n🏷️ Хештеги: #${newHashtags.join(', #')}`;
+                }
+            }
+
+            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" отредактирован${volumeChange}!${uidInfo}${hashtagChangeText}\n` +
+                    `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
+                    `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n`;
             
             if (rewardTransferNeeded) {
-                // Особый случай: награда переведена от другого персонажа
-                //console.log(`🔄 Обработка перевода награды от другого персонажа`);
-                
                 if (oldReward > 0 && newRewardAmount > 0) {
-                    // Переводим награду от старого к новому пользователю
                     const oldBalance = userBalance;
-                    newBalance = oldBalance + newRewardAmount; // Уже сняли у старого, начисляем новому
+                    newBalance = oldBalance + newRewardAmount;
                     rewardChange = newRewardAmount;
-                    
-                    // Обновляем баланс
                     await updateUserBalance(user.id, coinId, newBalance);
                     
                     if (user.id_facult && coin?.point) {
                         const facult = await prisma.allianceFacult.findFirst({ 
                             where: { id: user.id_facult } 
                         });
-                        
                         if (facult) {
                             message += `🔄 Награда ${oldReward} переведена с другого персонажа\n`;
                             message += `💳 Ваш баланс: ${oldBalance} + ${newRewardAmount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
@@ -2094,7 +2295,6 @@ async function handlePostRewardsAndNotifications(
                         message += `💳 Ваш баланс: ${oldBalance} + ${newRewardAmount} = ${newBalance}${coin.smile}\n`;
                     }
                 } else if (oldReward > 0 && newRewardAmount === 0) {
-                    // У старого была награда, у нового нет (уже сняли у старого)
                     message += `🔄 Награда ${oldReward} снята с другого персонажа\n`;
                     message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
                 } else {
@@ -2102,47 +2302,35 @@ async function handlePostRewardsAndNotifications(
                     message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
                 }
             } else if (newRewardAmount !== oldReward) {
-                // Обычное изменение награды (без смены пользователя)
                 rewardChange = newRewardAmount - oldReward;
                 const oldBalance = userBalance;
                 newBalance = oldBalance + rewardChange;
-                
-                //console.log(`📈 Изменение награды: ${oldReward} → ${newRewardAmount}, изменение=${rewardChange}, баланс ${oldBalance} → ${newBalance}`);
-                
-                // Обновляем баланс
                 await updateUserBalance(user.id, coinId, newBalance);
                 
                 if (user.id_facult && coin?.point) {
                     const facult = await prisma.allianceFacult.findFirst({ 
                         where: { id: user.id_facult } 
                     });
-                    
                     if (facult) {
                         const operation = rewardChange > 0 ? '+' : '-';
                         const amount = Math.abs(rewardChange);
-                        
                         message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                     } else {
                         const operation = rewardChange > 0 ? '+' : '-';
                         const amount = Math.abs(rewardChange);
-                        
                         message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile}\n`;
                     }
                 } else {
                     const operation = rewardChange > 0 ? '+' : '-';
                     const amount = Math.abs(rewardChange);
-                    
                     message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile}\n`;
                 }
             } else {
-                // Награда не изменилась
                 if (newRewardAmount > 0) {
-                    // Награда осталась той же
                     if (user.id_facult && coin?.point) {
                         const facult = await prisma.allianceFacult.findFirst({ 
                             where: { id: user.id_facult } 
                         });
-                        
                         if (facult) {
                             message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                         } else {
@@ -2152,7 +2340,6 @@ async function handlePostRewardsAndNotifications(
                         message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
                     }
                 } else {
-                    // Награды нет
                     message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
                 }
             }
@@ -2160,19 +2347,21 @@ async function handlePostRewardsAndNotifications(
             message += `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
             
         } else if (action === 'restore') {
-            // Восстановление поста с достаточным объемом
-            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" восстановлен!${uidInfo}\n` +
+            let hashtagText = '';
+            if (newHashtags && newHashtags.length > 0) {
+                hashtagText = `\n🏷️ Хештеги: #${newHashtags.join(', #')}`;
+            }        
+
+            message = `📝 ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" восстановлен!${uidInfo}${hashtagInfo}${hashtagText}\n` +
                      `📊 Статистика: ${stats.words} слов, ${stats.characters} символов\n` +
                      `💻 ПК: ${displayPc}, 📱 МБ: ${stats.mb.toFixed(2)}\n`;
             
             if (newRewardAmount > 0) {
                 if (oldReward > 0 && newRewardAmount === oldReward) {
-                    // Была награда и снова такая же
                     if (user.id_facult && coin?.point) {
                         const facult = await prisma.allianceFacult.findFirst({ 
                             where: { id: user.id_facult } 
                         });
-                        
                         if (facult) {
                             message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                         } else {
@@ -2182,68 +2371,53 @@ async function handlePostRewardsAndNotifications(
                         message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
                     }
                 } else {
-                    // Вычисляем разницу между новой и старой наградой
                     rewardChange = newRewardAmount - oldReward;
                     const oldBalance = userBalance;
                     newBalance = oldBalance + rewardChange;
-                    
-                    //console.log(`↩️ Восстановление: изменение награды ${rewardChange}, баланс ${oldBalance} → ${newBalance}`);
-                    
-                    // Обновляем баланс
                     await updateUserBalance(user.id, coinId, newBalance);
                     
                     if (user.id_facult && coin?.point) {
                         const facult = await prisma.allianceFacult.findFirst({ 
                             where: { id: user.id_facult } 
                         });
-                        
                         if (facult) {
                             const operation = rewardChange > 0 ? '+' : '-';
                             const amount = Math.abs(rewardChange);
-                            
                             message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]\n`;
                         } else {
                             const operation = rewardChange > 0 ? '+' : '-';
                             const amount = Math.abs(rewardChange);
-                            
                             message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile}\n`;
                         }
                     } else {
                         const operation = rewardChange > 0 ? '+' : '-';
                         const amount = Math.abs(rewardChange);
-                        
                         message += `💳 Ваш баланс: ${oldBalance} ${operation} ${amount} = ${newBalance}${coin.smile}\n`;
                     }
                 }
             } else if (oldReward > 0) {
-                // Была награда, теперь нет (уже обработано в handleRewardReduction)
                 message += `ℹ️ Ранее была награда ${oldReward}${coin.smile}, но сейчас не начислена\n`;
                 message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
             } else {
-                // Никогда не было награды
                 message += `💳 Ваш баланс не изменился: ${userBalance}${coin.smile}\n`;
             }
             
             message += `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
         }
         
-        // Обновляем баланс факультета если нужно
         if (rewardChange !== 0 && user.id_facult && coin?.point) {
             await updateFacultBalance(user.id_facult, coinId, rewardChange);
         }
         
-        // Отправляем уведомление пользователю если включены уведомления
         if (account && user.notification_topic) {
             try {
                 await Send_Message(account.idvk, message);
-                //console.log(`📨 Уведомление отправлено пользователю ${user.name} (${action})`);
             } catch (error) {
                 console.error(`❌ Ошибка отправки уведомления: ${error}`);
             }
         }
         
-        // ЛОГИРУЕМ В ЧАТ ОБСУЖДЕНИЙ (ВСЕГДА, независимо от notification_topic)
-        await logToTopicChat(topicMonitor, user, monitor, action, stats, displayPc, rewardChange, coin, context.id, false, uidSpecified, specifiedUid);
+        await logToTopicChat(topicMonitor, user, monitor, action, stats, displayPc, rewardChange, coin, context.id, false, uidSpecified, specifiedUid, newHashtags);
         
     } catch (error) {
         console.error(`❌ Ошибка в handlePostRewardsAndNotifications: ${error}`);
@@ -2312,21 +2486,20 @@ async function logToTopicChat(
     postId?: number,
     belowMin?: boolean,
     uidSpecified: boolean = false,
-    specifiedUid: number | null = null
+    specifiedUid: number | null = null,
+    hashtags: string[] = []  // ДОБАВИТЬ ЭТОТ ПАРАМЕТР
 ) {
     try {
         const coinId = monitor.id_topic_coin ?? monitor.id_coin;
         const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
-        // Получаем альянс
         const alliance = await prisma.alliance.findFirst({ 
             where: { id: user.id_alliance ?? 0 } 
         });
         
         if (!alliance?.id_chat_topic || alliance.id_chat_topic === 0) {
-            return; // Чат обсуждений не привязан
+            return;
         }
         
-        // Эмодзи для действий
         const actionEmoji = {
             'new': '✅',
             'edit': '✏️',
@@ -2334,19 +2507,20 @@ async function logToTopicChat(
             'restore': '↩️'
         }[action] || '📝';
         
-        // Эмодзи для награды (только если есть изменение)
         const rewardEmoji = rewardChange > 0 ? '💰' : rewardChange < 0 ? '💸' : '';
 
-        // Информация об указанном UID
         const uidInfo = uidSpecified && specifiedUid ? 
             `\n🎯 Указанный UID: ${specifiedUid}` : '';
         
-        // Формируем красивый лог как в мониторах
+        // ДОБАВИТЬ ИНФОРМАЦИЮ О ХЕШТЕГАХ
+        let hashtagText = '';
+        if (hashtags && hashtags.length > 0) {
+            hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
+        }
+        
         let logMessage = `🌐 [${alliance.name}] --> (обсуждение №${monitor.id}):\n`;
         logMessage += `📖 ${topicMonitor.name}\n`;
-        logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}\n`;
-        
-        // Добавляем статистику с округлением до 2 знаков
+        logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}${hashtagText}\n`;
         logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;
         
         // Получаем текущий баланс пользователя для отображения
@@ -2479,6 +2653,164 @@ export async function Topic_Currency_Select(context: any) {
     } catch (error) {
         console.error('❌ Ошибка в Topic_Currency_Select:', error);
         return null;
+    }
+}
+
+async function updatePostHashtagsOnEdit(
+    postStatisticId: number,
+    oldHashtags: string[],
+    newHashtags: string[],
+    monitor: any,
+    allianceId: number,
+    stats: any
+): Promise<void> {
+    // Находим хештеги, которые добавились
+    const addedHashtags = newHashtags.filter(tag => !oldHashtags.includes(tag));
+    // Находим хештеги, которые удалились
+    const removedHashtags = oldHashtags.filter(tag => !newHashtags.includes(tag));
+    
+    // Для добавленных хештегов - создаем записи
+    for (const hashtag of addedHashtags) {
+        await prisma.postHashtag.create({
+            data: {
+                postStatisticId,
+                hashtag,
+                monitorId: monitor.id,
+                allianceId
+            }
+        });
+    }
+    
+    // Для удаленных хештегов - удаляем записи
+    if (removedHashtags.length > 0) {
+        await prisma.postHashtag.deleteMany({
+            where: {
+                postStatisticId,
+                hashtag: { in: removedHashtags }
+            }
+        });
+    }
+}
+
+// Меню управления хештегами для монитора
+export async function MonitorHashtag_Manager(context: any, monitor: any) {
+    let exit = false;
+    
+    while (!exit) {
+        const currentHashtags = await getMonitorHashtags(monitor.id);
+        
+        let text = `${ico_list['monitor'].ico} Управление хештегами для монитора "${monitor.name}":\n\n`;
+        
+        if (currentHashtags.length === 0) {
+            text += `📭 Нет отслеживаемых хештегов\n\n`;
+        } else {
+            text += `📋 Отслеживаемые хештеги:\n`;
+            for (const tag of currentHashtags) {
+                text += `   #${tag}\n`;
+            }
+            text += `\n`;
+        }
+        
+        text += `💡 При обнаружении этих хештегов в постах, они будут учитываться в отдельных топа.\n`;
+        text += `💡 Примеры: работа, жизнь, квест, событие\n\n`;
+        
+        const keyboard = new KeyboardBuilder()
+            .textButton({
+                label: `➕ Добавить хештег`,
+                payload: { command: 'hashtag_add' },
+                color: 'positive'
+            })
+            .row();
+        
+        if (currentHashtags.length > 0) {
+            keyboard.textButton({
+                label: `❌ Удалить хештег`,
+                payload: { command: 'hashtag_remove' },
+                color: 'negative'
+            });
+            keyboard.row();
+        }
+        
+        keyboard.textButton({
+            label: `↩️ Назад`,
+            payload: { command: 'hashtag_back' },
+            color: 'secondary'
+        });
+        
+        const response = await context.question(text, { keyboard: keyboard.oneTime().inline() });
+        
+        if (response.isTimeout) {
+            exit = true;
+            continue;
+        }
+        
+        if (!response.payload) {
+            continue;
+        }
+        
+        switch (response.payload.command) {
+            case 'hashtag_add':
+                const newTag = await context.question(
+                    `➕ Введите название хештега (без #):\n\n` +
+                    `Примеры: работа, жизнь, квест\n\n` +
+                    `Или "отмена" для возврата`
+                );
+                
+                if (newTag.isTimeout) break;
+                if (newTag.text?.toLowerCase() === 'отмена') break;
+                
+                const tagName = newTag.text?.toLowerCase().replace(/[^a-zа-яё0-9]/g, '');
+                if (tagName && tagName.length > 0 && tagName.length <= 30) {
+                    const success = await addMonitorHashtag(monitor.id, tagName);
+                    if (success) {
+                        await context.send(`✅ Добавлен хештег #${tagName}`);
+                    } else {
+                        await context.send(`⚠ Хештег #${tagName} уже существует`);
+                    }
+                } else {
+                    await context.send(`❌ Некорректное название хештега (допустимо до 30 символов)`);
+                }
+                break;
+                
+            case 'hashtag_remove':
+                if (currentHashtags.length === 0) break;
+                
+                const removeKeyboard = new KeyboardBuilder();
+                for (let i = 0; i < currentHashtags.length; i++) {
+                    const tag = currentHashtags[i];
+                    removeKeyboard.textButton({
+                        label: `#${tag}`,
+                        payload: { command: 'remove_tag', tag: tag },
+                        color: 'secondary'
+                    });
+                    if (i < currentHashtags.length - 1) removeKeyboard.row();
+                }
+                removeKeyboard
+                    .row()
+                    .textButton({
+                        label: '↩️ Назад',
+                        payload: { command: 'back' },
+                        color: 'secondary'
+                    });
+                
+                const removeResponse = await context.question(
+                    `❌ Выберите хештег для удаления:`,
+                    { keyboard: removeKeyboard.oneTime().inline() }
+                );
+                
+                if (removeResponse.isTimeout) break;
+                if (!removeResponse.payload) break;
+                
+                if (removeResponse.payload.command === 'remove_tag') {
+                    await removeMonitorHashtag(monitor.id, removeResponse.payload.tag);
+                    await context.send(`✅ Удален хештег #${removeResponse.payload.tag}`);
+                }
+                break;
+                
+            case 'hashtag_back':
+                exit = true;
+                break;
+        }
     }
 }
 

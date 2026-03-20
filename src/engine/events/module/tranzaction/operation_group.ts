@@ -21,7 +21,6 @@ interface LightAllianceCoin {
     course_coin: number;
 }
 
-// В функции Operation_Group добавляем новую кнопку и обработку ввода 0
 export async function Operation_Group(context: any) {
     if (context.peerType == 'chat') { return }
     if (await Accessed(context) == 1) { return }
@@ -30,7 +29,8 @@ export async function Operation_Group(context: any) {
     while (name_check == false) {
         const uid: any = await context.question( 
             `🧷 Введите список 💳UID банковских счетов получателей формата:\n"UID1 UID2 .. UIDN"\n\n` +
-            `💡 Или введите 0, если хотите указать разные суммы для каждого пользователя`,
+            `💡 Или введите 0, если хотите указать разные суммы для каждого пользователя\n` +
+            `💡 Или введите "всем", чтобы начислить всем участникам ролевой`,
             {   
                 keyboard: Keyboard.builder()
                 .textButton({ label: '🚫Отмена', payload: { command: 'limited' }, color: 'secondary' })
@@ -39,6 +39,29 @@ export async function Operation_Group(context: any) {
             }
         )
         if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
+        
+        // НОВОЕ: обработка команды "всем"
+        if (uid.text.toLowerCase() === 'all' || uid.text.toLowerCase() === 'всем') {
+            const account_adm = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+            if (!account_adm) { return }
+            const person_adm = await prisma.user.findFirst({ where: { id: account_adm.select_user } })
+            if (!person_adm) { return }
+            
+            // Получаем всех пользователей альянса
+            const allUsers = await prisma.user.findMany({
+                where: { id_alliance: person_adm.id_alliance }
+            });
+            
+            if (allUsers.length === 0) {
+                await context.send(`❌ В вашей ролевой нет персонажей!`);
+                continue;
+            }
+            
+            uids_prefab = allUsers.map(u => u.id.toString());
+            await context.send(`⚙ Подготовка к массовым операциям для всех (${allUsers.length} персонажей)!`);
+            name_check = true;
+            break;
+        }
         
         if (uid.text === "0") {
             // Пользователь хочет кастомные операции - сразу переходим к выбору типа
@@ -78,15 +101,14 @@ export async function Operation_Group(context: any) {
                 const commandHandler = config[ans.payload.command];
                 const answergot = await commandHandler([], context, person_adm)
                 
-                // ДОБАВЛЕНО: После выполнения кастомных операций показываем завершающие сообщения
-                if (answergot !== false) { // Проверяем, что операция не была отменена
+                if (answergot !== false) {
                     await context.send(`✅ Процедура массовых операций под названием операция "Ы" успешно завершена!`)
                     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
                 }
             } else {
                 await context.send(`⚙ Операция отменена пользователем.`)
             }
-            return // Завершаем обработчик
+            return
         }
         
         if (/(?:^|\s)(\d+)(?=\s|$)/g.test(uid.text)) {
@@ -98,7 +120,7 @@ export async function Operation_Group(context: any) {
                 await context.send(`💡 Операции прерваны пользователем!`) 
                 return await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
             }
-            await context.send(`💡 Необходимо ввести корректные UID или 0 для разных сумм!`)
+            await context.send(`💡 Необходимо ввести корректные UID или 0 для разных сумм, или "всем" для всех!`)
         }
     }
 
@@ -119,18 +141,25 @@ export async function Operation_Group(context: any) {
         }
         uids.push(Number(ui))
     }
+    
+    // Если после фильтрации не осталось UID
+    if (uids.length === 0) {
+        await context.send(`❌ Нет корректных UID для выполнения операции!`);
+        return await Keyboard_Index(context, `💡 Попробуйте еще раз!`);
+    }
+    
     const keyboard = new KeyboardBuilder()
     if (await Accessed(context) == 3) { 
         keyboard.textButton({ label: '+🔘', payload: { command: 'medal_up_many' }, color: 'secondary' })
         .textButton({ label: '—🔘', payload: { command: 'medal_down_many' }, color: 'secondary' }).row()
-        .textButton({ label: '🎯🔘', payload: { command: 'medal_custom_many' }, color: 'primary' }).row() // Кнопка для кастомных операций с жетонами
+        .textButton({ label: '🎯🔘', payload: { command: 'medal_custom_many' }, color: 'primary' }).row()
     }
-    const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${JSON.stringify(uids)}`,
+    const ans: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${JSON.stringify(uids)} (всего: ${uids.length})`,
         {   
             keyboard: keyboard
             .textButton({ label: `➕➖${info_coin?.smile}`, payload: { command: 'coin_engine_many' }, color: 'secondary' }).row()
             .textButton({ label: `♾️${info_coin?.smile}`, payload: { command: 'coin_engine_many_infinity' }, color: 'secondary' })
-            .textButton({ label: `🎯${info_coin?.smile}`, payload: { command: 'coin_engine_many_custom' }, color: 'primary' }).row() // Кнопка для кастомных операций с валютами
+            .textButton({ label: `🎯${info_coin?.smile}`, payload: { command: 'coin_engine_many_custom' }, color: 'primary' }).row()
             .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
             .oneTime().inline(),
             answerTimeLimit                                                                       
@@ -144,13 +173,12 @@ export async function Operation_Group(context: any) {
         'coin_engine_many_custom': Coin_Engine_Many_Custom,
         'medal_up_many': Medal_Up_Many,
         'medal_down_many': Medal_Down_Many,
-        'medal_custom_many': Medal_Custom_Many // Новая функция для кастомных операций с жетонами
+        'medal_custom_many': Medal_Custom_Many
     }
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
         const answergot = await commandHandler(uids, context, person_adm)
         
-        // ДОБАВЛЕНО: Проверяем, что операция не была отменена
         if (answergot !== false && ans.payload.command !== 'back') {
             await context.send(`✅ Процедура массовых операций под названием операция "Ы" успешно завершена!`)
             await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
