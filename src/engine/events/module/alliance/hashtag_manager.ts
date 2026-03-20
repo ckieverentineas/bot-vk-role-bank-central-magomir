@@ -8,9 +8,9 @@ export async function getHashtagRank(
     page: number = 0,
     perPage: number = 10
 ): Promise<{ stats: any[], totalCount: number }> {
-    console.log(`\n📊 [DEBUG] getHashtagRank:`);
-    console.log(`   allianceId: ${allianceId}, hashtag: #${hashtag}`);
-    console.log(`   periodStart: ${periodStart}`);
+    //console.log(`\n📊 [DEBUG] getHashtagRank:`);
+    //console.log(`   allianceId: ${allianceId}, hashtag: #${hashtag}`);
+    //console.log(`   periodStart: ${periodStart}`);
     
     const whereClause: any = {
         hashtag: hashtag,

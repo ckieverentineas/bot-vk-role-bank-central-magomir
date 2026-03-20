@@ -1123,11 +1123,11 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
         const relevantHashtags = postHashtags.filter((tag: string) => monitorHashtags.includes(tag));
 
         // ДОБАВИТЬ ОТЛАДОЧНЫЙ ЛОГ:
-        console.log(`\n🔍 [DEBUG] Пост ${context.id}:`);
-        console.log(`   Текст: ${text.slice(0, 100)}...`);
-        console.log(`   Найденные хештеги: ${postHashtags.join(', ')}`);
-        console.log(`   Отслеживаемые хештеги монитора ${monitor.id}: ${monitorHashtags.join(', ')}`);
-        console.log(`   Релевантные хештеги: ${relevantHashtags.join(', ')}`);
+        //console.log(`\n🔍 [DEBUG] Пост ${context.id}:`);
+        //console.log(`   Текст: ${text.slice(0, 100)}...`);
+        //console.log(`   Найденные хештеги: ${postHashtags.join(', ')}`);
+        //console.log(`   Отслеживаемые хештеги монитора ${monitor.id}: ${monitorHashtags.join(', ')}`);
+        //console.log(`   Релевантные хештеги: ${relevantHashtags.join(', ')}`);
         // =====================================
 
         // Проверяем существующую запись для редактирования/восстановления
@@ -1726,7 +1726,7 @@ async function savePostStatsWithHashtags(
     });
     
     // ДОБАВИТЬ ОТЛАДОЧНЫЙ ЛОГ:
-    console.log(`💾 [DEBUG] Сохраняем статистику поста ${saved.id}, хештегов: ${relevantHashtags.length}`);
+    //console.log(`💾 [DEBUG] Сохраняем статистику поста ${saved.id}, хештегов: ${relevantHashtags.length}`);
     
     // Сохраняем хештеги для поста
     if (relevantHashtags.length > 0) {
