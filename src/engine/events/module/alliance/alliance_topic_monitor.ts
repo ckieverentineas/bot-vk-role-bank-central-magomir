@@ -1367,7 +1367,9 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                     );
                     await notifyUserOfNewPost(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid, relevantHashtags);
                 } else {
-                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid, relevantHashtags);}
+                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid, relevantHashtags);
+                }
+                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, null, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
             }
         }
 
