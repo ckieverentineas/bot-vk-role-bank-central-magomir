@@ -1,3 +1,4 @@
+// engine/events/module/alliance/alliance_menu.ts
 import { Alliance, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
 import prisma from "../prisma_client"
@@ -44,7 +45,6 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
         if (await Accessed(context) != 1) {
             if (page === 1) {
                 // ========== СТРАНИЦА 1 ==========
-                // Кнопки для отправки в чат используем textButton
                 keyboard.textButton({ 
                     label: `${ico_list['config'].ico} !факультеты настроить`, 
                     payload: { command: "alliance_config_facult" }, 
@@ -124,7 +124,7 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                 }).row()
                 
             } else if (page === 3) {
-                // ========== СТРАНИЦА 3 ========== (НОВАЯ)
+                // ========== СТРАНИЦА 3 ==========
                 keyboard.textButton({ 
                     label: `${ico_list['config'].ico} !основу настроить`, 
                     payload: { command: "alliance_config_menu_bg" },
@@ -146,16 +146,41 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     color: 'negative' 
                 }).row()
                 
-                // Стрелочка навигации
+                // Стрелочки навигации
                 keyboard.callbackButton({ 
                     label: `←`, 
                     payload: { command: "admin_page", page: 2 }, 
+                    color: 'secondary' 
+                })
+                keyboard.callbackButton({ 
+                    label: `→`, 
+                    payload: { command: "admin_page", page: 4 }, 
+                    color: 'secondary' 
+                }).row()
+                
+            } else if (page === 4) {
+                // ========== СТРАНИЦА 4 - НАВЫКИ ==========
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !уровни настроить`, 
+                    payload: { command: "alliance_config_skill_levels" },
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !навыки настроить`, 
+                    payload: { command: "alliance_config_skills" }, 
+                    color: 'secondary' 
+                }).row()
+                
+                // Стрелочка назад
+                keyboard.callbackButton({ 
+                    label: `←`, 
+                    payload: { command: "admin_page", page: 3 }, 
                     color: 'secondary' 
                 }).row()
             }
         }
         
-        // Кнопка закрытия тоже остается callbackButton
+        // Кнопка закрытия
         keyboard.callbackButton({ 
             label: `${ico_list['stop'].ico}`, 
             payload: { command: "system_call_admin" }, 

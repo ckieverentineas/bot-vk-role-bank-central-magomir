@@ -197,6 +197,7 @@ model User {
   Limiter               Limiter[]
   MonitorSelection      MonitorSelection[]
   UserCard              UserCard?
+  userSkills            UserSkill[]
 }
 
 model BlackBox {
@@ -311,6 +312,9 @@ model Alliance {
   Chests          AllianceChest[]
   CardTemplate CardTemplate[]
   AllianceBackground AllianceBackground?
+  skillLevels     SkillLevel[]
+  skillCategories SkillCategory[]
+  skills          Skill[]
 }
 
 model AllianceCoin {
@@ -449,10 +453,82 @@ model ChestItemLink {
 
 model CategoryChest {
   id              Int                @id @default(autoincrement())
-  id_category     Int                // id категории магазина (allianceShopCategory)
+  id_category     Int
   id_chest        Int
   chest           AllianceChest      @relation(fields: [id_chest], references: [id], onDelete: Cascade)
   
   @@unique([id_category])
   @@index([id_chest])
+}
+
+model SkillLevel {
+  id          Int      @id @default(autoincrement())
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId  Int
+  name        String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userSkills  UserSkill[]
+
+  @@unique([allianceId, name])
+  @@index([allianceId, order])
+}
+
+model SkillCategory {
+  id          Int      @id @default(autoincrement())
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId  Int
+  name        String
+  description String?
+  image       String?
+  hidden      Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  skills      Skill[]
+
+  @@unique([allianceId, name])
+  @@index([allianceId, hidden])
+}
+
+model Skill {
+  id          Int           @id @default(autoincrement())
+  alliance    Alliance      @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId  Int
+  category    SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  Int
+  name        String
+  description String?
+  image       String?
+  hidden      Boolean       @default(false)
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  requirements String?       @map("requirements")
+
+  userSkills   UserSkill[]
+
+  @@unique([allianceId, categoryId, name])
+  @@index([allianceId, categoryId, hidden])
+}
+model UserSkill {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skillId   Int
+  level     SkillLevel? @relation(fields: [levelId], references: [id])
+  levelId   Int?
+  progress  Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+  @@index([levelId])
 }

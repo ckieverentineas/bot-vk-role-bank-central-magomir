@@ -9,12 +9,14 @@ import { User } from "@prisma/client"
 import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
 import { getTerminology } from "../alliance/terminology_helper"
 import { Inventory_With_Chests } from "../shop/alliance_inventory_with_chests"
+import { UserSkill_Editor } from "../skills/user_skill_editor"
 
 //Модуль доп клавиатуры
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
     const keyboard = new KeyboardBuilder()
     keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
     .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
+    .textButton({ label: '⚔️', payload: { command: 'edit_skills' }, color: 'secondary' }).row()
     .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
     if (await Accessed(context) == 3) { keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) }
@@ -27,6 +29,11 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
         'user_delete': User_delete,
         'user_drop': User_Drop,
         'editor': Editor,
+        'edit_skills': async (id: number, ctx: any, userAdmin: User) => {
+            const user = await prisma.user.findFirst({ where: { id } });
+            if (!user) return;
+            await UserSkill_Editor(ctx, id, user.id_alliance || 0);
+        }
     }
     if (ans_again?.payload?.command in config) {
         const commandHandler = config[ans_again.payload.command];

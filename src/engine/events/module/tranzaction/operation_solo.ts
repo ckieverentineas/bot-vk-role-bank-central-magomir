@@ -11,6 +11,7 @@ import { Sub_Menu } from "./operation_sub"
 import { ico_list } from "../data_center/icons_lib"
 import { InventoryType } from "../data_center/standart"
 import { getTerminology } from "../alliance/terminology_helper"
+import { getUserSkillsForDisplay } from "../skills/user_skill_display"
 
 interface LightAllianceCoin {
     id: number;
@@ -55,7 +56,38 @@ export async function Operation_Solo(context: any) {
                 const genitive = await getTerminology(alli_get?.id || 0, 'genitive');
                 const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
                 const withoutFaculty = `Без ${genitive}`;
-                await context.send(`🏦 Открыта следующая карточка: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty} \n🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}` )
+                // Получаем навыки для отображения (как в Card_Enter)
+                let skillsTextAdmin = '';
+                if (get_user.id_alliance && get_user.id_alliance > 0) {
+                const displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance);
+                
+                if (displaySkills.length > 0) {
+                    skillsTextAdmin = `\n`;
+                    let currentCategory = '';
+                    for (const skill of displaySkills) {
+                    if (skill.categoryName !== currentCategory) {
+                        currentCategory = skill.categoryName;
+                        skillsTextAdmin += `\n📁 ${currentCategory}:\n`;
+                    }
+                    
+                    const levelDisplay = skill.levelName || '❌ нет уровня';
+                    skillsTextAdmin += `  ⚔️ ${skill.skillName}: ${levelDisplay}\n`;
+                    
+                    if (skill.missingRequirements && Object.keys(skill.missingRequirements).length > 0 && skill.nextLevelName) {
+                        const missingParts = []
+                        for (const [coinId, { current, required }] of Object.entries(skill.missingRequirements)) {
+                        const coin = await prisma.allianceCoin.findFirst({ where: { id: parseInt(coinId) } });
+                        missingParts.push(`${coin?.smile || '💰'} ${current}/${required}`);
+                        }
+                        if (missingParts.length > 0) {
+                        skillsTextAdmin += `     📈 до ${skill.nextLevelName}: ${missingParts.join(', ')}\n`;
+                        }
+                    }
+                    }
+                }
+                }
+
+                await context.send(`🏦 Открыта следующая карточка: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins}\n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty} \n🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}${skillsTextAdmin}` )
             } else { 
                 if (user_adm?.id_alliance != get_user?.id_alliance) {
                     await context.send(`💡 Игрок ${get_user?.name} ${get_user?.id} в ролевой AUID: ${get_user?.id_alliance}, в то время, как вы состоите в AUID: ${user_adm?.id_alliance}`)

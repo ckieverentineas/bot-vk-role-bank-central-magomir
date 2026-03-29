@@ -38,6 +38,8 @@ import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_w
 import { Legacy_Category_Printer } from "./events/module/shop/legacy_category_manager";
 import { CardSystem } from "./core/card_system";
 import { Operation_Kick_Mass } from './events/module/tranzaction/operation_kick_mass';
+import { SkillLevels_Manager } from "./events/module/skills/skill_levels_manager";
+import { SkillCategories_Manager } from "./events/module/skills/skill_categories_manager";
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -1115,6 +1117,23 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const keyboard = new KeyboardBuilder()
         await AllianceShop_Printer(context, user_check.id_alliance!)
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+    })
+    hearManager.hear(/⚙ !уровни настроить/, async (context) => {
+    const anti_vk_defender = await Antivirus_VK(context)
+    if (anti_vk_defender) return;
+    if (context.peerType == 'chat') return;
+    if (await Accessed(context) == 1) return;
+    
+    await SkillLevels_Manager(context);
+    })
+
+    hearManager.hear(/⚙ !навыки настроить/, async (context) => {
+    const anti_vk_defender = await Antivirus_VK(context)
+    if (anti_vk_defender) return;
+    if (context.peerType == 'chat') return;
+    if (await Accessed(context) == 1) return;
+    
+    await SkillCategories_Manager(context);
     })
     hearManager.hear(/🛍 Магазины/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
