@@ -489,8 +489,8 @@ async function setupSkillRequirements(context: any, skillId: number, allianceId:
       }
       
       text += `\n📝 Пример: "13 15 10" — если выбрано 3 характеристики\n`;
-      text += `💡 Введите "пропустить" чтобы оставить как есть\n`;
-      text += `💡 Введите "0" для всех чтобы убрать требования к этому уровню`;
+      text += `💡 Введите "пропустить", чтобы оставить как есть\n`;
+      text += `💡 Введите "0" для всех, чтобы убрать требования к этому уровню`;
       
       const valueResponse = await context.question(text, { answerTimeLimit });
       
