@@ -345,7 +345,7 @@ async function setupSkillRequirements(context: any, skillId: number, allianceId:
       `📈 Пороги:${currentThresholds}\n\n` +
       `Хотите изменить набор характеристик?\n\n` +
       `• Да — изменить характеристики\n` +
-      `• Нет — изменить только значения\n` +
+      `• Нет — изменить только значения`
     
     const keyboard = new KeyboardBuilder()
       .textButton({ label: '✅ Да', payload: { command: 'yes' }, color: 'positive' })
