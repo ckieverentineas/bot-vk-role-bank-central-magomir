@@ -166,7 +166,6 @@ async function createSkillCategory(context: any, allianceId: number, cursor: num
   const name = await Input_Text(context, `Введите название категории навыков (например: "Боевые", "Социальные"):`, 50);
   if (!name) return;
 
-  // Проверяем уникальность
   const existing = await prisma.skillCategory.findFirst({
     where: { allianceId, name }
   });
@@ -182,7 +181,7 @@ async function createSkillCategory(context: any, allianceId: number, cursor: num
       allianceId,
       name,
       order: orderCount
-      // description и image пропускаем
+      // description и image не запрашиваем
     }
   });
 
@@ -222,41 +221,7 @@ async function editSkillCategory(context: any, categoryId: number, allianceId: n
     await context.send(`✅ Название категории изменено на "${newName}"`);
   }
 
-  const newDescription = await Input_Text(
-    context,
-    `Текущее описание: ${category.description || 'нет'}\nВведите новое описание (или "пропустить"):`,
-    200
-  );
-  if (newDescription && newDescription.toLowerCase() !== 'пропустить') {
-    await prisma.skillCategory.update({
-      where: { id: categoryId },
-      data: { description: newDescription || null }
-    });
-    await context.send(`✅ Описание категории обновлено`);
-  }
-
-  const imageResponse = await context.question(
-    `📷 Вставьте новую ссылку на изображение (или "нет" чтобы пропустить, "удалить" чтобы удалить):`,
-    { answerTimeLimit }
-  );
-  if (!imageResponse.isTimeout && imageResponse.text) {
-    if (imageResponse.text.toLowerCase() === 'удалить') {
-      await prisma.skillCategory.update({
-        where: { id: categoryId },
-        data: { image: null }
-      });
-      await context.send(`✅ Изображение категории удалено`);
-    } else if (imageResponse.text.toLowerCase() !== 'нет') {
-      const imageUrl = Get_Url_Picture(imageResponse.text) || '';
-      if (imageUrl) {
-        await prisma.skillCategory.update({
-          where: { id: categoryId },
-          data: { image: imageUrl }
-        });
-        await context.send(`✅ Изображение категории обновлено`);
-      }
-    }
-  }
+  // Описание и картинку НЕ ЗАПРАШИВАЕМ
 
   await context.send(`${ico_list['save'].ico} Изменения сохранены.`);
 }

@@ -75,7 +75,7 @@ export async function Skill_Manager(context: any, categoryId: number, parentCurs
       });
       keyboard.textButton({
         label: `📊`,
-        payload: { command: 'skill_requirements', skillId: skill.id, cursor },
+        payload: { command: 'skill_requirements', skillId: skill.id, cursor },  // <-- сюда ведёт 📊
         color: 'secondary'
       });
       keyboard.textButton({
@@ -135,7 +135,7 @@ export async function Skill_Manager(context: any, categoryId: number, parentCurs
         await editSkill(context, payload.skillId, user.id_alliance, levels, payload.cursor);
         break;
       case 'skill_requirements':
-        await editSkillRequirements(context, payload.skillId, user.id_alliance, levels, payload.cursor);
+        await setupSkillRequirements(context, payload.skillId, user.id_alliance, levels, payload.cursor);
         break;
       case 'skill_toggle_hide':
         await toggleSkillHide(context, payload.skillId, user.id_alliance, payload.cursor);
@@ -179,17 +179,14 @@ async function createSkill(context: any, categoryId: number, allianceId: number,
       categoryId,
       name,
       order: orderCount
-      // description и image пропускаем
+      // description и image не запрашиваем и не сохраняем
     }
   });
 
   await context.send(`${ico_list['save'].ico} Навык "${newSkill.name}" создан!`);
   
-  // Предлагаем сразу настроить требования
-  const setupReqs = await Confirm_User_Success(context, `настроить требования к уровням для навыка "${newSkill.name}"?`);
-  if (setupReqs.status) {
-    await setupSkillRequirements(context, newSkill.id, allianceId, levels, cursor);
-  }
+  // Сразу запускаем настройку требований
+  await setupSkillRequirements(context, newSkill.id, allianceId, levels, cursor);
 }
 
 async function editSkill(context: any, skillId: number, allianceId: number, levels: any[], cursor: number) {
@@ -221,41 +218,7 @@ async function editSkill(context: any, skillId: number, allianceId: number, leve
     await context.send(`✅ Название навыка изменено на "${newName}"`);
   }
 
-  const newDescription = await Input_Text(
-    context,
-    `Текущее описание: ${skill.description || 'нет'}\nВведите новое описание (или "пропустить"):`,
-    300
-  );
-  if (newDescription && newDescription.toLowerCase() !== 'пропустить') {
-    await prisma.skill.update({
-      where: { id: skillId },
-      data: { description: newDescription || null }
-    });
-    await context.send(`✅ Описание навыка обновлено`);
-  }
-
-  const imageResponse = await context.question(
-    `📷 Вставьте новую ссылку на изображение (или "нет" чтобы пропустить, "удалить" чтобы удалить):`,
-    { answerTimeLimit }
-  );
-  if (!imageResponse.isTimeout && imageResponse.text) {
-    if (imageResponse.text.toLowerCase() === 'удалить') {
-      await prisma.skill.update({
-        where: { id: skillId },
-        data: { image: null }
-      });
-      await context.send(`✅ Изображение навыка удалено`);
-    } else if (imageResponse.text.toLowerCase() !== 'нет') {
-      const imageUrl = Get_Url_Picture(imageResponse.text) || '';
-      if (imageUrl) {
-        await prisma.skill.update({
-          where: { id: skillId },
-          data: { image: imageUrl }
-        });
-        await context.send(`✅ Изображение навыка обновлено`);
-      }
-    }
-  }
+  // Описание и картинку НЕ ЗАПРАШИВАЕМ
 
   await context.send(`${ico_list['save'].ico} Изменения сохранены.`);
 }
@@ -329,62 +292,257 @@ async function setupSkillRequirements(context: any, skillId: number, allianceId:
   }
 
   const currentReqs = parseSkillRequirements(skill.requirements);
-  let modified = false;
-
-  for (const level of levels) {
-    const currentReqForLevel = currentReqs[level.id] || {};
+  
+  // Определяем уже выбранные характеристики из существующих требований
+  let selectedCoins: number[] = [];
+  for (const levelReqs of Object.values(currentReqs)) {
+    for (const coinId of Object.keys(levelReqs)) {
+      const coinIdNum = parseInt(coinId);
+      if (!selectedCoins.includes(coinIdNum)) {
+        selectedCoins.push(coinIdNum);
+      }
+    }
+  }
+  
+  // Получаем все валюты альянса
+  const allCoins = await prisma.allianceCoin.findMany({
+    where: { id_alliance: allianceId }
+  });
+  
+  if (allCoins.length === 0) {
+    await context.send(`${ico_list['warn'].ico} В альянсе нет валют! Сначала создайте валюты.`);
+    return;
+  }
+  
+  // ========== ШАГ 1: ВЫБОР ХАРАКТЕРИСТИК (если нет выбранных или админ хочет изменить) ==========
+  let coinSelectionDone = selectedCoins.length > 0;
+  let modifySelection = false;
     
-    let text = `🏆 Настройка требований для уровня "${level.name}":\n\n`;
-    text += `Текущие требования:\n`;
+  // Если уже есть выбранные характеристики, спрашиваем, хочет ли админ их менять
+  if (selectedCoins.length > 0) {
+    // Формируем текст с текущими порогами (с подписью характеристик)
+    let currentThresholds = '';
+    for (const level of levels) {
+      const levelReqs = currentReqs[level.id];
+      if (levelReqs && Object.keys(levelReqs).length > 0) {
+        const parts: string[] = [];
+        for (const coinId of selectedCoins) {
+          const value = levelReqs[coinId] || 0;
+          const coin = allCoins.find(c => c.id === coinId);
+          parts.push(`${value} ${coin?.smile || '💰'}`);
+        }
+        currentThresholds += `\n  🏆 ${level.name}: ${parts.join(', ')}`;
+      } else {
+        currentThresholds += `\n  🏆 ${level.name}: без требований`;
+      }
+    }
     
-    if (Object.keys(currentReqForLevel).length === 0) {
-      text += `  ❌ Нет требований (уровень доступен всем)\n\n`;
+    const text = `📊 Текущие настройки навыка "${skill.name}":\n\n` +
+      `🎯 Характеристики: ${selectedCoins.map(id => {
+        const coin = allCoins.find(c => c.id === id);
+        return `${coin?.smile} ${coin?.name}`;
+      }).join(', ')}\n` +
+      `📈 Пороги:${currentThresholds}\n\n` +
+      `Хотите изменить набор характеристик?\n\n` +
+      `• Да — изменить характеристики\n` +
+      `• Нет — изменить только значения\n` +
+    
+    const keyboard = new KeyboardBuilder()
+      .textButton({ label: '✅ Да', payload: { command: 'yes' }, color: 'positive' })
+      .textButton({ label: '❌ Нет', payload: { command: 'no' }, color: 'negative' })
+      .row()
+      .textButton({ label: '↩️ Назад', payload: { command: 'back' }, color: 'secondary' })
+      .oneTime().inline();
+    
+    const answer = await context.question(text, { keyboard, answerTimeLimit });
+    
+    if (answer.isTimeout) {
+      await context.send(`⏰ Время истекло.`);
+      return;
+    }
+    
+    if (!answer.payload) {
+      await context.send(`❌ Редактирование отменено.`);
+      return;
+    }
+    
+    if (answer.payload.command === 'back') {
+      await context.send(`↩️ Возврат назад.`);
+      return;
+    }
+    
+    if (answer.payload.command === 'yes') {
+      modifySelection = true;
+      coinSelectionDone = false;
+      selectedCoins = [];
     } else {
-      for (const [coinId, minValue] of Object.entries(currentReqForLevel)) {
-        const coin = await prisma.allianceCoin.findFirst({ where: { id: parseInt(coinId) } });
-        text += `  • ${coin?.smile || '💰'} ${coin?.name || 'Валюта'}: минимум ${minValue}\n`;
+      // Оставляем текущие характеристики
+      coinSelectionDone = true;
+    }
+  }
+  
+  while (!coinSelectionDone) {
+    let text = `${ico_list['config'].ico} Выберите характеристики (валюты), от которых зависит навык "${skill.name}":\n\n`;
+    text += `💡 Можно выбрать несколько. Текущий выбор:\n`;
+    
+    if (selectedCoins.length === 0) {
+      text += `  ❌ пока ничего не выбрано\n\n`;
+    } else {
+      for (const coinId of selectedCoins) {
+        const coin = allCoins.find(c => c.id === coinId);
+        text += `  ✅ ${coin?.smile} ${coin?.name}\n`;
       }
       text += `\n`;
     }
-
-    text += `Что вы хотите сделать?`;
-
-    const actionKeyboard = new KeyboardBuilder()
-      .textButton({ label: `➕ Добавить валюту`, payload: { command: 'add_coin', levelId: level.id }, color: 'positive' })
-      .textButton({ label: `🗑️ Очистить всё`, payload: { command: 'clear_all', levelId: level.id }, color: 'negative' })
-      .row()
-      .textButton({ label: `⏭️ Пропустить`, payload: { command: 'skip', levelId: level.id }, color: 'secondary' })
-      .oneTime();
-
-    const actionResponse = await Send_Message_Question(context, text, actionKeyboard);
     
-    if (actionResponse.exit) break;
-    if (!actionResponse.payload) continue;
-
-    if (actionResponse.payload.command === 'add_coin') {
-      const coinId = await Select_Alliance_Coin(context, allianceId);
-      if (coinId) {
-        const minValue = await Input_Number(context, `Введите минимальное значение ${await getCoinSmile(coinId)} для получения уровня "${level.name}":`, true);
-        if (minValue !== false && minValue > 0) {
-          currentReqs[level.id] = { ...currentReqs[level.id], [coinId]: minValue };
-          modified = true;
-          await context.send(`✅ Добавлено требование: ${await getCoinSmile(coinId)} >= ${minValue}`);
-        }
+    text += `Доступные валюты:\n`;
+    
+    const keyboard = new KeyboardBuilder();
+    
+    for (let i = 0; i < allCoins.length; i += 2) {
+      const coin1 = allCoins[i];
+      const isSelected1 = selectedCoins.includes(coin1.id);
+      
+      keyboard.textButton({
+        label: `${isSelected1 ? '✅' : '➕'} ${coin1.smile} ${coin1.name.slice(0, 15)}`,
+        payload: { command: 'toggle_coin', coinId: coin1.id },
+        color: isSelected1 ? 'positive' : 'secondary'
+      });
+      
+      if (i + 1 < allCoins.length) {
+        const coin2 = allCoins[i + 1];
+        const isSelected2 = selectedCoins.includes(coin2.id);
+        keyboard.textButton({
+          label: `${isSelected2 ? '✅' : '➕'} ${coin2.smile} ${coin2.name.slice(0, 15)}`,
+          payload: { command: 'toggle_coin', coinId: coin2.id },
+          color: isSelected2 ? 'positive' : 'secondary'
+        });
       }
-    } else if (actionResponse.payload.command === 'clear_all') {
-      delete currentReqs[level.id];
-      modified = true;
-      await context.send(`🗑️ Требования для уровня "${level.name}" удалены`);
+      keyboard.row();
+    }
+    
+    keyboard.textButton({
+      label: selectedCoins.length > 0 ? '✅ Далее' : '⏭️ Пропустить (без требований)',
+      payload: { command: 'next_step' },
+      color: 'positive'
+    }).row();
+    
+    const response = await Send_Message_Question(context, text, keyboard.oneTime());
+    
+    if (response.exit || !response.payload) {
+      return;
+    }
+    
+    if (response.payload.command === 'cancel') {
+      await context.send(`❌ Настройка требований отменена.`);
+      return;
+    }
+    
+    if (response.payload.command === 'toggle_coin') {
+      const coinId = response.payload.coinId;
+      if (selectedCoins.includes(coinId)) {
+        selectedCoins = selectedCoins.filter(id => id !== coinId);
+      } else {
+        selectedCoins.push(coinId);
+      }
+      continue;
+    }
+    
+    if (response.payload.command === 'next_step') {
+      coinSelectionDone = true;
     }
   }
-
-  if (modified) {
+  
+  // Если характеристики не выбраны — сохраняем пустые требования и выходим
+  if (selectedCoins.length === 0) {
     await prisma.skill.update({
       where: { id: skillId },
-      data: { requirements: serializeSkillRequirements(currentReqs) }
+      data: { requirements: null }
     });
-    await context.send(`${ico_list['save'].ico} Требования для навыка "${skill.name}" сохранены!`);
+    await context.send(`${ico_list['save'].ico} Навык "${skill.name}" сохранён без требований (доступен всем).`);
+    return;
   }
+  
+  // ========== ШАГ 2: НАСТРОЙКА ПОРОГОВ ДЛЯ КАЖДОГО УРОВНЯ ==========
+  await context.send(`${ico_list['config'].ico} Теперь настройте пороговые значения для каждого уровня.\n`);
+  await context.send(`📊 Выбранные характеристики: ${selectedCoins.map(id => {
+    const coin = allCoins.find(c => c.id === id);
+    return `${coin?.smile} ${coin?.name}`;
+  }).join(', ')}\n\n💡 Для каждого уровня введите числа через пробел в том же порядке.`);
+  
+  const newReqs: ParsedSkillRequirements = {};
+  
+  for (const level of levels) {
+    let levelConfigured = false;
+    
+    while (!levelConfigured) {
+      const currentValues = currentReqs[level.id] || {};
+      
+      let text = `🏆 Уровень: "${level.name}" (порядок: ${level.order})\n\n`;
+      text += `Введите минимальные значения для каждой характеристики через пробел:\n`;
+      
+      for (let i = 0; i < selectedCoins.length; i++) {
+        const coinId = selectedCoins[i];
+        const coin = allCoins.find(c => c.id === coinId);
+        const currentVal = currentValues[coinId] || 0;
+        text += `${i + 1}. ${coin?.smile} ${coin?.name}: ${currentVal}\n`;
+      }
+      
+      text += `\n📝 Пример: "13 15 10" — если выбрано 3 характеристики\n`;
+      text += `💡 Введите "пропустить" чтобы оставить как есть\n`;
+      text += `💡 Введите "0" для всех чтобы убрать требования к этому уровню`;
+      
+      const valueResponse = await context.question(text, { answerTimeLimit });
+      
+      if (valueResponse.isTimeout) {
+        await context.send(`⏰ Время истекло. Настройка уровня "${level.name}" пропущена.`);
+        break;
+      }
+      
+      const input = valueResponse.text.trim();
+      
+      if (input.toLowerCase() === 'пропустить') {
+        if (Object.keys(currentValues).length > 0) {
+          newReqs[level.id] = { ...currentValues };
+        }
+        levelConfigured = true;
+        continue;
+      }
+      
+      if (input === '0') {
+        levelConfigured = true;
+        continue;
+      }
+      
+      const parts = input.split(/\s+/).map(Number);
+      
+      if (parts.length !== selectedCoins.length) {
+        await context.send(`❌ Ожидается ${selectedCoins.length} чисел, получено ${parts.length}. Попробуйте снова.`);
+        continue;
+      }
+      
+      if (parts.some(isNaN)) {
+        await context.send(`❌ Все значения должны быть числами. Попробуйте снова.`);
+        continue;
+      }
+      
+      const levelReqs: Record<number, number> = {};
+      for (let i = 0; i < selectedCoins.length; i++) {
+        levelReqs[selectedCoins[i]] = parts[i];
+      }
+      newReqs[level.id] = levelReqs;
+      levelConfigured = true;
+      
+      await context.send(`✅ Для уровня "${level.name}" установлены требования: ${parts.join(', ')}`);
+    }
+  }
+  
+  await prisma.skill.update({
+    where: { id: skillId },
+    data: { requirements: serializeSkillRequirements(newReqs) }
+  });
+  
+  await context.send(`${ico_list['save'].ico} Навык "${skill.name}" полностью настроен!`);
 }
 
 async function editSkillRequirements(context: any, skillId: number, allianceId: number, levels: any[], cursor: number) {
