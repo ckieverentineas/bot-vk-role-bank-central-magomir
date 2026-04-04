@@ -32,10 +32,10 @@ export async function Facult_Rank_Printer(context: any) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})
                 if (!coin_check) {
                     const coin_init = await prisma.balanceFacult.create({ data: { id_coin: Number(coin.id), id_facult: Number(facult.id), amount: 0 } })
-                    res += `* ${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+                    res += `  •  ${coin.smile} ${coin.name}: ${coin_init.amount}\n`
                     await Logger(`In database, init balance facult: ${coin.smile} ${coin.name} for facult ${facult.smile} ${facult.name} by user ${user.idvk}`)
                 } else {
-                    res += `* ${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+                    res += `  •  ${coin.smile} ${coin.name}: ${coin_check.amount}\n`
                 }
             }
         }

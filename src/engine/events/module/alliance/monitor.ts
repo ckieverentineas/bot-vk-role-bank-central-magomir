@@ -103,7 +103,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
     const monitora = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin } })
     if (!monitora) { return }
     const monik = { alliance: alliance.name, coin: '', id_coin: monitora.id_coin, cost_like: monitora.cost_like, cost_comment: monitora.cost_comment, cost_post: monitora.cost_post, lim_like: monitora.lim_like, lim_comment: monitora.lim_comment, starting: monitora.starting, wall_on: monitora.wall_on, like_on: monitora.like_on, comment_on: monitora.comment_on }
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) }, orderBy: { order: 'asc' } })
     if (!coin_pass) { return context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent1 = 0
@@ -274,7 +274,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     monik.token = Encrypt_Data(group_token)
     await context.send(`${ico_list['warn'].ico} Токен принят, удалите отправку своего токена из чата в целях безопасности, в базе данных он будет храниться в зашифрованном виде!`)
     
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) } })
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) }, orderBy: { order: 'asc' } })
     if (!coin_pass) { return await context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
     let coin_check = false
     let id_builder_sent1 = 0

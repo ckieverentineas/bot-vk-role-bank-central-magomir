@@ -13,6 +13,7 @@ import { getTerminology } from "./alliance/terminology_helper"
 import { Get_Person_Monitor_Status } from "./person/monitor_select"
 import { CardSystem } from "../../core/card_system"
 import { getUserSkillsForDisplay } from "./skills/user_skill_display"
+import { getLevelName } from "./abilities/abilities_helper"
 
 // Вспомогательная функция для прогресс-бара
 function getProgressBar(progress: number): string {
@@ -81,7 +82,15 @@ export async function Card_Enter(context: any) {
     // ===================== НАВЫКИ (вычисляются на лету) =====================
     let skillsText = ''
     if (get_user.id_alliance && get_user.id_alliance > 0) {
-      const displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance)
+      let displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance)
+      
+      // Сортируем навыки по категориям и алфавиту
+      displaySkills.sort((a, b) => {
+        if (a.categoryId !== b.categoryId) {
+          return a.categoryId - b.categoryId;
+        }
+        return a.skillName.localeCompare(b.skillName);
+      });
       
       if (displaySkills.length > 0) {
         skillsText = `\n`
@@ -114,6 +123,60 @@ export async function Card_Enter(context: any) {
     
     // Добавляем навыки в текст
     text += skillsText
+
+    // ===================== СПОСОБНОСТИ =====================
+    let abilitiesText = ''
+    if (get_user.id_alliance && get_user.id_alliance > 0) {
+      // Получаем все уровни альянса для определения следующего уровня
+      const levels = await prisma.skillLevel.findMany({
+        where: { allianceId: get_user.id_alliance },
+        orderBy: { order: 'asc' }
+      })
+      
+      let userAbilities = await prisma.userAbility.findMany({
+        where: { userId: get_user.id },
+        include: {
+          ability: {
+            include: {
+              category: true,
+              currency: true
+            }
+          }
+        }
+      });
+      
+      // Сортируем способности по категориям и алфавиту
+      userAbilities.sort((a, b) => {
+        if (a.ability.category.name !== b.ability.category.name) {
+          return a.ability.category.name.localeCompare(b.ability.category.name);
+        }
+        return a.ability.name.localeCompare(b.ability.name);
+      });
+      
+      if (userAbilities.length > 0) {
+        abilitiesText = `\n`;
+        let currentCategory = '';
+        
+        for (const ua of userAbilities) {
+          const ability = ua.ability;
+          const categoryName = ability.category.name;
+          
+          if (categoryName !== currentCategory) {
+            currentCategory = categoryName;
+            abilitiesText += `\n📁 ${currentCategory}:\n`;
+          }
+          
+          const levelName = ua.levelId ? await getLevelName(ua.levelId) : '❌';
+          const maxLevelId = ability.maxLevelId;
+          const maxLevelName = maxLevelId ? await getLevelName(maxLevelId) : '?';
+          
+          abilitiesText += `  ⚡ ${ability.name}: ${levelName}\n`;
+        }
+      }
+    }
+    
+    // Добавляем способности в текст (после навыков)
+    text += abilitiesText
     
     // ===================== КЛАВИАТУРА =====================
     const keyboard = new KeyboardBuilder()

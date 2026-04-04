@@ -40,6 +40,8 @@ import { CardSystem } from "./core/card_system";
 import { Operation_Kick_Mass } from './events/module/tranzaction/operation_kick_mass';
 import { SkillLevels_Manager } from "./events/module/skills/skill_levels_manager";
 import { SkillCategories_Manager } from "./events/module/skills/skill_categories_manager";
+import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin";
+import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
 const fs = require('fs');
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -1134,6 +1136,27 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     if (await Accessed(context) == 1) return;
     
     await SkillCategories_Manager(context);
+    })
+    hearManager.hear(/⚙ !способности настроить/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType == 'chat') return;
+        if (await Accessed(context) == 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        await Abilities_Admin_Menu(context);
+    })
+
+    hearManager.hear(/⚙ !порядок валют настроить/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType == 'chat') return;
+        if (await Accessed(context) == 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        await AllianceCoinOrder_Manager(context);
     })
     hearManager.hear(/🛍 Магазины/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)

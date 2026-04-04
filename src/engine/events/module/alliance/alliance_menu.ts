@@ -170,6 +170,16 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     payload: { command: "alliance_config_skills" }, 
                     color: 'secondary' 
                 }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !способности настроить`, 
+                    payload: { command: "alliance_config_abilities" }, 
+                    color: 'secondary' 
+                })
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !порядок валют настроить`, 
+                    payload: { command: "alliance_config_coin_order" }, 
+                    color: 'secondary' 
+                }).row()
                 
                 // Стрелочка назад
                 keyboard.callbackButton({ 

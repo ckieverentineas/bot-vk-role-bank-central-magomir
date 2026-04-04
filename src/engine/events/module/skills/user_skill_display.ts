@@ -69,10 +69,12 @@ export async function getUserSkillsForDisplay(userId: number, allianceId: number
     });
   }
 
-  // Сортируем по категориям
+  // Сортируем по категориям и по названию навыка
   result.sort((a, b) => {
-    if (a.categoryId !== b.categoryId) return a.categoryId - b.categoryId;
-    return a.skillId - b.skillId;
+    if (a.categoryId !== b.categoryId) {
+      return a.categoryId - b.categoryId;
+    }
+    return a.skillName.localeCompare(b.skillName);
   });
 
   return result;

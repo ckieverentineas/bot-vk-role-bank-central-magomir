@@ -10,37 +10,42 @@ import { Inventory_Printer } from "../shop/alliance_inventory_shop_alliance"
 import { getTerminology } from "../alliance/terminology_helper"
 import { Inventory_With_Chests } from "../shop/alliance_inventory_with_chests"
 import { UserSkill_Editor } from "../skills/user_skill_editor"
+import { UserAbilities_Editor } from "../abilities/abilities_editor"
 
 //Модуль доп клавиатуры
 export async function Sub_Menu(id: number, context: any, user_adm: User) {
-    const keyboard = new KeyboardBuilder()
-    keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
-    .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
-    .textButton({ label: '⚔️', payload: { command: 'edit_skills' }, color: 'secondary' }).row()
-    .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
-    .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
-    if (await Accessed(context) == 3) { keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) }
-    const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${id}`, { keyboard: keyboard.oneTime().inline(), answerTimeLimit })
-    await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
-    if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${id} истекло!`) }
-    const config: any = {
-        'back': Back,
-        'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
-        'user_delete': User_delete,
-        'user_drop': User_Drop,
-        'editor': Editor,
-        'edit_skills': async (id: number, ctx: any, userAdmin: User) => {
-            const user = await prisma.user.findFirst({ where: { id } });
-            if (!user) return;
-            await UserSkill_Editor(ctx, id, user.id_alliance || 0);
-        }
+  const keyboard = new KeyboardBuilder()
+  .textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
+  .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
+  .textButton({ label: '⚔️', payload: { command: 'edit_skills' }, color: 'secondary' })
+  .textButton({ label: '⚡', payload: { command: 'edit_abilities' }, color: 'secondary' }).row()
+  .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
+  .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
+  if (await Accessed(context) == 3) { keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) }
+  const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${id}`, { keyboard: keyboard.oneTime().inline(), answerTimeLimit })
+  await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
+  if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${id} истекло!`) }
+  const config: any = {
+    'back': Back,
+    'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
+    'user_delete': User_delete,
+    'user_drop': User_Drop,
+    'editor': Editor,
+    'edit_skills': async (id: number, ctx: any, userAdmin: User) => {
+      const user = await prisma.user.findFirst({ where: { id } });
+      if (!user) return;
+      await UserSkill_Editor(ctx, id, user.id_alliance || 0);
+    },
+    'edit_abilities': async (id: number, ctx: any, userAdmin: User) => {
+      await UserAbilities_Editor(ctx, id, userAdmin);
     }
-    if (ans_again?.payload?.command in config) {
-        const commandHandler = config[ans_again.payload.command];
-        const answergot = await commandHandler(Number(id), context, user_adm)
-    } else {
-        await context.send(`⚙ Операция отменена пользователем.`)
-    }
+  }
+  if (ans_again?.payload?.command in config) {
+    const commandHandler = config[ans_again.payload.command];
+    const answergot = await commandHandler(Number(id), context, user_adm)
+  } else {
+    await context.send(`⚙ Операция отменена пользователем.`)
+  }
 }
 
 async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: User) {

@@ -287,7 +287,7 @@ async function setupSkillRequirements(context: any, skillId: number, allianceId:
   }
 
   if (levels.length === 0) {
-    await context.send(`${ico_list['warn'].ico} Сначала настройте уровни навыков (!уровни настроить)!`);
+    await context.send(`${ico_list['warn'].ico} Сначала настройте уровни навыков!`);
     return;
   }
 

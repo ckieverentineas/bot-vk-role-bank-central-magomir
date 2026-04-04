@@ -187,7 +187,7 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
     // Получаем все валюты альянса
     const coins = await prisma.allianceCoin.findMany({
         where: { id_alliance: alliance.id },
-        orderBy: { name: 'asc' }
+        orderBy: { order: 'asc' }
     });
 
     if (coins.length === 0) {

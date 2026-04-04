@@ -411,7 +411,8 @@ export async function Send_Message_Smart(
  */
 export async function Select_Alliance_Coin(context: any, id_alliance: number): Promise<number | null> {
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({
-        where: { id_alliance: Number(id_alliance) }
+        where: { id_alliance: Number(id_alliance) },
+        orderBy: { order: 'asc' }
     });
 
     if (!coin_pass || coin_pass.length === 0) {

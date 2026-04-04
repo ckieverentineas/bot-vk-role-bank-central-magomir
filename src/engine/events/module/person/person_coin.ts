@@ -22,36 +22,54 @@ async function Person_Coin_Finder(data: Array<{ id: number, amount: number }>, t
 }
 
 export async function Person_Coin_Printer(context: any) {
-    const user: User | null | undefined = await Person_Get(context)
-    if (!user) { return }
-    let res = ``
-    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
-        const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
-        if (!coin_check) {
-            const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
-            res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
-            await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} by user ${user.idvk}`)
-        } else {
-            res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
-        }
+  const user: User | null | undefined = await Person_Get(context)
+  if (!user) { return }
+  let res = ``
+  
+  let coins = await prisma.allianceCoin.findMany({ 
+    where: { id_alliance: user.id_alliance ?? 0 }
+  })
+  
+  // Если у валют нет order, сортируем по id
+  if (coins.length > 0 && coins[0].order === undefined) {
+    coins.sort((a, b) => a.id - b.id);
+  } else {
+    coins.sort((a, b) => a.order - b.order);
+  }
+  
+  for (const coin of coins) {
+    const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
+    if (!coin_check) {
+      const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
+      res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
+      await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} by user ${user.idvk}`)
+    } else {
+      res += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
     }
-    return res
+  }
+  return res
 }
 
 export async function Person_Coin_Printer_Self(context: any, id: number) {
-    const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
-    if (!user) { return }
-    let res = { text: '', smile: '' }
-    for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance ?? 0 } })) {
-        const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
-        if (!coin_check) {
-            const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
-            res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
-            await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId ?? context.peerId}`)
-        } else {
-            res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
-        }
-        res.smile += `${coin.smile}`
+  const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
+  if (!user) { return }
+  let res = { text: '', smile: '' }
+  
+  const coins = await prisma.allianceCoin.findMany({ 
+    where: { id_alliance: user.id_alliance ?? 0 },
+    orderBy: { order: 'asc' }
+  })
+  
+  for (const coin of coins) {
+    const coin_check = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user.id }})
+    if (!coin_check) {
+      const coin_init = await prisma.balanceCoin.create({ data: { id_coin: Number(coin.id), id_user: Number(user.id), amount: 0 } })
+      res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
+      await Logger(`In database, init balance coin: ${coin.smile} ${coin.name} for UID${user.id} by admin ${context.senderId ?? context.peerId}`)
+    } else {
+      res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
     }
-    return res
+    res.smile += `${coin.smile}`
+  }
+  return res
 }

@@ -3,7 +3,7 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Accessed, Antivirus_VK, Group_Id_Get, Logger, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
+import { Accessed, Antivirus_VK, Group_Id_Get, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv'
 import { Admin_Enter, Card_Enter, Comment_Person_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
@@ -23,7 +23,12 @@ import { Alliance_Topic_Monitor_Printer } from './engine/events/module/alliance/
 import { Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Search_Topic_Process, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Weeks } from './engine/events/module/topic_rank_v2';
 import { CleanupOldPostStatistics } from './cleanup_old_posts';
 import { button_alliance_return } from './engine/events/module/data_center/standart';
-import { Exit, Keyboard_Admin_Main, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
+import { Exit, Keyboard_Admin_Main, Keyboard_User_Main, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
+import { Abilities_Upgrade_Menu } from './engine/events/module/abilities/abilities_upgrade';
+import { deductAbilityCost, getAllianceLevels, getLevelName } from './engine/events/module/abilities/abilities_helper';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 // Загрузка конфигурации
 const envConfig = dotenv.config();
@@ -156,10 +161,197 @@ initializeGroupId().then(async () => {
             "monitor_select_person": Monitor_Select_Person_Handler,
             "alliance_topic_monitor_enter": Alliance_Topic_Monitor_Printer,
             "topic_rank_v2": Topic_Rank_V2_Enter,
+            "alliance_config_coin_order": async (ctx: any) => {
+            await ctx.send('!порядок валют настроить');
+            await ctx.answer();
+            },
+            "abilities_upgrade_enter": async (ctx: any) => {
+            ////console.log("🔍 [INDEX] abilities_upgrade_enter вызвана из index.ts");
+            await Abilities_Upgrade_Menu(ctx);
+            },
+            "do_upgrade_callback": async (ctx: any) => {
+            },
+            "upgrade_prev_callback": async (ctx: any) => {
+            await Abilities_Upgrade_Menu(ctx);
+            await ctx.answer();
+            },
+
+            "upgrade_next_callback": async (ctx: any) => {
+            await Abilities_Upgrade_Menu(ctx);
+            await ctx.answer();
+            },
+
+            "upgrade_exit_action": async (ctx: any) => {
+            
+            const user = await Person_Get(ctx);
+            if (!user) return;
+            
+            const cmid = ctx.eventPayload?.cmid;
+            
+            // Редактируем сообщение, убирая клавиатуру (оставляем только текст)
+            if (cmid) {
+                try {
+                await vk?.api.messages.edit({
+                    peer_id: ctx.peerId,
+                    conversation_message_id: cmid,
+                    message: `⚡ Вы вышли из меню прокачки.`,
+                    keyboard: JSON.stringify({ buttons: [] }) // пустая клавиатура
+                });
+                } catch (e) {
+                console.log("Не удалось отредактировать сообщение:", e);
+                }
+            }
+            
+            // Показываем главное меню новым сообщением
+            await Main_Menu_Init(ctx);
+            
+            await ctx.answer();
+            },
+                        
+            "confirm_upgrade_action": async (ctx: any) => {
+            const payload = ctx.eventPayload;
+            
+            const user = await Person_Get(ctx);
+            if (!user) return;
+            
+            // Проверяем, что пользователь в альянсе
+            if (!user.id_alliance || user.id_alliance <= 0) {
+                await Send_Message(ctx.peerId, `❌ Вы не состоите в альянсе!`);
+                await ctx.answer();
+                return;
+            }
+            
+            const prismaAny = prisma as any;
+            
+            // Проверяем, не достигнут ли уже максимальный уровень
+            const userAbility = await prismaAny.userAbility.findFirst({
+                where: { userId: user.id, abilityId: payload.abilityId },
+                include: { ability: true }
+            });
+            
+            if (!userAbility) {
+                await Send_Message(ctx.peerId, `❌ У вас нет этой способности!`);
+                return;
+            }
+            
+            // Получаем уровни (уже с проверкой id_alliance)
+            const levels = await getAllianceLevels(user.id_alliance);
+            const currentLevel = levels.find((l: any) => l.id === userAbility.levelId);
+            const nextLevel = levels.find((l: any) => l.id === payload.nextLevelId);
+            const maxLevel = levels.find((l: any) => l.id === userAbility.ability.maxLevelId);
+            
+            if (currentLevel && maxLevel && currentLevel.order >= maxLevel.order) {
+                await Send_Message(ctx.peerId, `❌ Способность "${payload.abilityName}" уже имеет максимальный уровень!`);
+                await ctx.answer();
+                await Abilities_Upgrade_Menu(ctx);
+                return;
+            }
+            
+            const result = await deductAbilityCost(user.id, payload.currencyId, payload.price);
+            if (!result.success) {
+                await Send_Message(ctx.peerId, `❌ Недостаточно средств!`);
+                return;
+            }
+            
+            await prismaAny.userAbility.update({
+                where: { id: payload.userAbilityId },
+                data: { levelId: payload.nextLevelId }
+            });
+            
+            // Отправляем сообщение с балансом
+            await Send_Message(
+                ctx.peerId, 
+                `✅ "${payload.abilityName}" прокачан до ${payload.nextLevelName}!\n` +
+                `💰 ${payload.currencySmile}: ${result.oldBalance} - ${payload.price} = ${result.newBalance}`
+            );
+            
+            await ctx.answer();
+            
+            await Abilities_Upgrade_Menu(ctx);
+            },
+
+            "upgrade_prev_action": async (ctx: any) => {
+            // Обновляем cursor в контексте
+            ctx.eventPayload = { ...ctx.eventPayload, cursor: ctx.eventPayload.cursor };
+            await Abilities_Upgrade_Menu(ctx);
+            await ctx.answer();
+            },
+
+            "upgrade_next_action": async (ctx: any) => {
+            await Abilities_Upgrade_Menu(ctx);
+            await ctx.answer();
+            },
+            "confirm_upgrade": async (ctx: any) => {},
+            "cancel_upgrade": async (ctx: any) => {},
             "topic_rank_v2_search_topic": Topic_Rank_V2_Search_Topic,
             "topic_rank_v2_weeks": Topic_Rank_V2_Weeks,
             "topic_rank_v2_select_monitor": Topic_Rank_V2_Select_Monitor,
-            "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,    
+            "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,   
+            "do_upgrade_action": async (ctx: any) => {
+            //console.log("🔍 [do_upgrade_action] Вызван!");
+            const payload = ctx.eventPayload;
+            //console.log("🔍 [do_upgrade_action] payload:", payload);
+            
+            const user = await Person_Get(ctx);
+            if (!user) return;
+            
+            const prismaAny = prisma as any;
+            
+            // Получаем текущую способность пользователя
+            const userAbility = await prismaAny.userAbility.findFirst({
+                where: { userId: user.id, abilityId: payload.abilityId }
+            });
+            
+            if (!userAbility) {
+                await Send_Message(ctx.peerId, `❌ У вас нет этой способности!`);
+                return;
+            }
+            
+            //console.log("🔍 [do_upgrade_action] userAbility.id:", userAbility.id);
+            
+            const currentLevelName = await getLevelName(userAbility.levelId);
+            
+            // ПРАВИЛЬНО: создаем payload ДЛЯ кнопки подтверждения
+            const confirmPayload = {
+                command: 'confirm_upgrade_action',
+                abilityId: payload.abilityId,
+                nextLevelId: payload.nextLevelId,
+                price: payload.price,
+                currencyId: payload.currencyId,
+                currencySmile: payload.currencySmile,
+                abilityName: payload.abilityName,
+                nextLevelName: payload.nextLevelName,
+                userAbilityId: userAbility.id  // ← вот здесь добавляем!
+            };
+            
+            const confirmKeyboard = new KeyboardBuilder()
+                .callbackButton({ 
+                label: '✅ Да', 
+                payload: confirmPayload, 
+                color: 'positive' 
+                })
+                .callbackButton({ 
+                label: '❌ Нет', 
+                payload: { command: 'cancel_upgrade_action' }, 
+                color: 'negative' 
+                })
+                .inline().oneTime();
+            
+            await Send_Message(
+                ctx.peerId,
+                `⚠️ Подтверждение прокачки\n\nВы уверены, что хотите прокачать "${payload.abilityName}" с ${currentLevelName} до ${payload.nextLevelName}?\n\n💰 Стоимость: ${payload.price}${payload.currencySmile}`,
+                confirmKeyboard
+            );
+            
+            await ctx.answer();
+            },
+
+            "cancel_upgrade_action": async (ctx: any) => {
+            await Send_Message(ctx.peerId, `❌ Прокачка отменена.`);
+            await ctx.answer();
+            await Abilities_Upgrade_Menu(ctx);
+            },
+
             "admin_page": async (ctx: any) => {
                 const page = ctx.eventPayload?.page || 1;
                 await Alliance_Enter_Admin(ctx, page);

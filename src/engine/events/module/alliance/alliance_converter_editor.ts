@@ -16,7 +16,7 @@ async function Alliance_Coin_Get(cursor: number, alliance: Alliance) {
     // Вместо ручного подсчета используем Prisma с skip/take
     return await prisma.allianceCoin.findMany({
         where: { id_alliance: alliance.id },
-        orderBy: { id: 'asc' },
+        orderBy: { order: 'asc' },
         skip: cursor,
         take: batchSize
     });

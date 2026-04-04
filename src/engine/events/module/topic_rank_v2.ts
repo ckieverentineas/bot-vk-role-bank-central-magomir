@@ -444,7 +444,6 @@ async function getActivityStatsWithRanking(
     page: number,
     perPage: number
 ) {
-    // ИСПРАВЛЕНО: Правильное определение даты начала периода
     const periodStart = getPeriodStartDate(period);
     
     // Базовые условия WHERE
@@ -454,25 +453,20 @@ async function getActivityStatsWithRanking(
         }
     };
 
-    // ИСПРАВЛЕНО: Добавляем фильтр по дате только если periodStart не null
     if (periodStart) {
         whereClause.date = { gte: periodStart };
-        
-        // Также добавляем ограничение по максимальной дате (конец периода)
         const periodEnd = getPeriodEndDate(period);
         if (periodEnd) {
             whereClause.date.lte = periodEnd;
         }
     }
 
-    // Фильтры по виду отображения
     if (viewType === 'monitor' && monitorId) {
         whereClause.topicMonitor.monitorId = monitorId;
     } else if (viewType === 'topic' && topicId) {
         whereClause.topicMonitorId = topicId;
     }
 
-    // Если выбран конкретный монитор или топик
     if (monitorId) {
         whereClause.topicMonitor.monitorId = monitorId;
     }
@@ -481,25 +475,56 @@ async function getActivityStatsWithRanking(
         whereClause.topicMonitorId = topicId;
     }
 
-    // Получаем данные с группировкой
-    const stats = await prisma.postStatistic.groupBy({
-        by: ['userId'],
+    // Получаем данные с группировкой, но с фильтром по минимальному ПК
+    // Сначала получаем все посты
+    const allPosts = await prisma.postStatistic.findMany({
         where: whereClause,
-        _count: { id: true },
-        _sum: { 
-            characters: true,
-            words: true,
-            pc: true,
-            mb: true
+        include: {
+            topicMonitor: true
         }
     });
 
-    // Получаем ВСЕХ пользователей альянса с фильтром по факультету
-    const allUsersWhere: any = { 
-        id_alliance: allianceId 
-    };
+    // Фильтруем посты, которые не дотянули до минималки
+    const validPosts = allPosts.filter(post => {
+        const minPcLines = post.topicMonitor.minPcLines || 0;
+        const pcLines = Math.floor(post.pc);
+        return pcLines >= minPcLines;
+    });
+
+    // Группируем по userId
+    const statsMap = new Map<number, { count: number; chars: number; words: number; pc: number; mb: number }>();
     
-    // Фильтр по факультету: если указан facultId
+    for (const post of validPosts) {
+        const existing = statsMap.get(post.userId);
+        if (existing) {
+            existing.count++;
+            existing.chars += post.characters;
+            existing.words += post.words;
+            existing.pc += post.pc;
+            existing.mb += post.mb;
+        } else {
+            statsMap.set(post.userId, {
+                count: 1,
+                chars: post.characters,
+                words: post.words,
+                pc: post.pc,
+                mb: post.mb
+            });
+        }
+    }
+
+    // Преобразуем в массив для сортировки
+    const stats = Array.from(statsMap.entries()).map(([userId, data]) => ({
+        userId,
+        postCount: data.count,
+        totalChars: data.chars,
+        totalWords: data.words,
+        totalPc: data.pc,
+        totalMb: data.mb
+    }));
+
+    // Получаем всех пользователей альянса
+    const allUsersWhere: any = { id_alliance: allianceId };
     if (facultId) {
         allUsersWhere.id_facult = facultId;
     }
@@ -518,11 +543,11 @@ async function getActivityStatsWithRanking(
             userIdvk: user.idvk,
             userName: user.name || 'Неизвестный',
             userFacultId: user.id_facult || null,
-            postCount: stat?._count.id || 0,
-            totalChars: stat?._sum.characters || 0,
-            totalWords: stat?._sum.words || 0,
-            totalPc: stat?._sum.pc || 0,
-            totalMb: stat?._sum.mb || 0
+            postCount: stat?.postCount || 0,
+            totalChars: stat?.totalChars || 0,
+            totalWords: stat?.totalWords || 0,
+            totalPc: stat?.totalPc || 0,
+            totalMb: stat?.totalMb || 0
         };
     });
 
@@ -546,7 +571,6 @@ async function getActivityStatsWithRanking(
         facultName: null as string | null
     };
 
-    // Определяем название и ссылку обсуждения
     if (topicId) {
         const topic = await prisma.topicMonitor.findFirst({ 
             where: { id: topicId },
@@ -559,7 +583,6 @@ async function getActivityStatsWithRanking(
         }
     }
 
-    // Определяем название факультета для отображения
     if (facultId) {
         const facult = await prisma.allianceFacult.findFirst({ where: { id: facultId } });
         filters.facultName = facult?.name || null;

@@ -114,7 +114,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     if (!alli_shop_cat) { return }
     const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
     if (!alli_shop) { return }
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) } })
+    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) }, orderBy: { order: 'asc' } })
     const selectedCoinId = await Select_Alliance_Coin(context, Number(alli_shop.id_alliance));
     const id_coin = selectedCoinId
     const newPrice = await Input_Number(context, `Введите цену для товара "${name_loc}"`, true)
