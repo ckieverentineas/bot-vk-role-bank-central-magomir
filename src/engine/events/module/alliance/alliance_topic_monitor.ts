@@ -83,16 +83,23 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
                 if (topicMonitor.minPcMessage) {
                     event_logger += `💬 Сообщение: "${topicMonitor.minPcMessage}"\n`;
                 }
-                event_logger += `💰 Награды: ${topicMonitor.rewardEnabled ? '✅' : '❌'}\n`;
                 if (topicMonitor.rewardEnabled) {
                     if (topicMonitor.uniformReward) {
-                        event_logger += `🎯 Единая: ${topicMonitor.uniformReward}${coin?.smile || ''}\n`;
+                        event_logger += `💰 Награды: ✅ (единая ${topicMonitor.uniformReward}${coin?.smile || ''})\n`;
                     } else if (topicMonitor.linesRewards) {
-                        event_logger += `📊 За ПК строки: настроено\n`;
+                        const rewards = parseLinesRewards(topicMonitor.linesRewards);
+                        if (rewards.length > 0) {
+                            const rewardsText = rewards.map(r => `${r.lines} ПК = ${r.reward}${coin?.smile || ''}`).join(', ');
+                            event_logger += `💰 Награды: ✅ (ступенчатая: ${rewardsText})\n`;
+                        } else {
+                            event_logger += `💰 Награды: ✅ (за ПК строки: настроено)\n`;
+                        }
                     }
                     event_logger += `⚡ Мин. для награды: ${topicMonitor.rewardMinLines || 1} ПК строк\n`;
+                } else {
+                    event_logger += `💰 Награды: ❌\n`;
                 }
-                event_logger += `\n`;
+                event_logger += `\n`; 
             }
         }
 
