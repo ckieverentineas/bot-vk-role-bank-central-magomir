@@ -21,13 +21,13 @@ export async function Abilities_Upgrade_Menu(context: any) {
 
   const allianceId = user.id_alliance;
   if (!allianceId || allianceId <= 0) {
-    await Send_Message(context.peerId, `${ico_list['warn'].ico} Вы не состоите в альянсе!`);
+    await Send_Message(context.peerId, `${ico_list['warn'].ico} Вы не состоите в ролевой!`);
     return;
   }
 
   const levels = await getAllianceLevels(allianceId);
   if (levels.length === 0) {
-    await Send_Message(context.peerId, `${ico_list['warn'].ico} В альянсе не настроены уровни!`);
+    await Send_Message(context.peerId, `${ico_list['warn'].ico} В ролевой не настроены уровни!`);
     return;
   }
 
@@ -46,7 +46,7 @@ export async function Abilities_Upgrade_Menu(context: any) {
   if (userAbilities.length === 0) {
     await Send_Message(
       context.peerId,
-      `⚡ У вашего персонажа пока нет способностей.\nОбратитесь к администратору.`
+      `⚡ У вашего персонажа пока нет способностей.\nОбратитесь к администратору ролевой.`
     );
     return;
   }

@@ -352,7 +352,7 @@ export async function Comment_Person_Enter(context: any) {
 export async function Rank_Enter(context: any) {
   const user: User | null | undefined = await Person_Get(context)
   if (!user) { return }
-  let text = '⚙ Рейтинг персонажей:\n\n'
+  let text = '⚙ Рейтинг персонажей по жетонам Министерства Магии:\n\n'
   const keyboard = new KeyboardBuilder()
 
   const stat: { rank: number, text: string, score: number, me: boolean }[] = []
