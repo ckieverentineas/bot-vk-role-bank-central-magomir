@@ -84,15 +84,17 @@ export async function Person_Register(context: any) {
 	}
     
     let alliance_check = false
-	if (person.alliance == 'Союзник Кнопки') {
-        const alliance_list: Alliance[] = await prisma.alliance.findMany({})
+    if (person.alliance == 'Союзник Кнопки') {
+        const alliance_list: Alliance[] = await prisma.alliance.findMany({
+            where: { hidden: false }
+        })
         const alliance_id_sel = await Simply_Carusel_Selector(
             context,
             `Выберите союзный ролевой проект, к которому принадлежите`,
             alliance_list,
-            async (item) => `\n\n${ico_list['lock'].ico} Ролевой проект №${item.id} <--\n${ico_list['alliance'].ico} Название: ${item.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${item.idvk}`,
-            (item) => `🌐 №${item.id}-${item.name.slice(0,30)}`, // labelExtractor
-            (item, index) => ({ command: 'builder_control', id_item_sent: index, id_item: item.id }) // payloadExtractor
+            async (item) => `\n\n${ico_list['lock'].ico} Ролевой проект ID:${item.id}\n${ico_list['alliance'].ico} Название: ${item.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${item.idvk}`,
+            (item) => `🌐 ${item.id}. ${item.name.slice(0, 30)}`,
+            (item, index) => ({ command: 'builder_control', id_item_sent: index, id_item: item.id })
         );
         
         if (!alliance_id_sel) { return }
@@ -104,7 +106,10 @@ export async function Person_Register(context: any) {
     
     if (person.alliance == 'Союзник Номер') {
         let alli_list = ''
-        for (const alli of await prisma.alliance.findMany({})) {
+        const alliances = await prisma.alliance.findMany({
+            where: { hidden: false }
+        })
+        for (const alli of alliances) {
             alli_list += `${alli.id} - ${alli.name}\n`
         }
         
@@ -400,7 +405,7 @@ export async function Person_Selector(context: any) {
             
             return `\n\n${item.monitorStatus.emoji} ${ico_list['person'].ico} ${item.id}-${item.name}\n🌐 Ролевая: ${allianceInfo}\n📊 ${item.monitorStatus.description}`;
         },
-        (item) => `${item.monitorStatus.emoji} ${item.id}-${item.name.slice(0, 28)}`, // Обрезаем до 28 символов для эмодзи
+        (item) => `${item.monitorStatus.emoji} ${item.id}-${item.name.slice(0, 28)}`,
         (item, index) => ({ command: 'builder_control', id_item_sent: index, id_item: item.id })
     );
     

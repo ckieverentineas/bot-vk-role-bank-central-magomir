@@ -11,30 +11,50 @@ export async function Alliance_Control_Multi(context: Context) {
     let id_builder_sent = await Fixed_Number_To_Five(context.eventPayload.id_builder_sent ?? 0)
     let id_planet = context.eventPayload.id_planet ?? 0
     let event_logger = `${ico_list['alliance'].ico} Отдел управления союзами:\n\n`
-    const builder_list: Alliance[] = await prisma.alliance.findMany({})
+    const builder_list = await prisma.alliance.findMany({})
     if (builder_list.length > 0) {
         const limiter = 5
         let counter = 0
-        for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+        for (let i = id_builder_sent; i < builder_list.length && counter < limiter; i++) {
             const builder = builder_list[i]
-            keyboard.callbackButton({ label: `${ico_list['config'].ico} ${builder.id}-${builder.name.slice(0,30)}`, payload: { command: 'alliance_control', id_builder_sent: i, id_planet: builder.id }, color: 'secondary' }).row()
-            event_logger += `\n\n${ico_list['alliance'].ico} ${builder.id} - ${builder.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${builder.idvk}`
+            keyboard.callbackButton({ 
+                label: `${ico_list['config'].ico} ${builder.id}-${builder.name.slice(0,30)}${builder.hidden ? ' 🙈' : ''}`, 
+                payload: { command: 'alliance_control', id_builder_sent: i, id_planet: builder.id }, 
+                color: 'secondary' 
+            }).row()
+            event_logger += `\n\n${ico_list['alliance'].ico} ${builder.id} - ${builder.name}${builder.hidden ? ' (скрыт)' : ''}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${builder.idvk}`
             counter++
         }
         event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
         // предыдушая страница
         if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
-            keyboard.callbackButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent-limiter, id_planet: id_planet }, color: 'secondary' })
+            keyboard.callbackButton({ 
+                label: `${ico_list['back'].ico}`, 
+                payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent-limiter, id_planet: id_planet }, 
+                color: 'secondary' 
+            })
         }
         // следующая страница
         if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
-            keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent+limiter, id_planet: id_planet }, color: 'secondary' })
+            keyboard.callbackButton({ 
+                label: `${ico_list['next'].ico}`, 
+                payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent+limiter, id_planet: id_planet }, 
+                color: 'secondary' 
+            })
         }
     } else {
         event_logger = `${ico_list['warn'].ico} У вас еще нет альянсов!`
     }
-    keyboard.textButton({ label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' })
-    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime() 
+    keyboard.textButton({ 
+        label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, 
+        payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, 
+        color: 'secondary' 
+    })
+    keyboard.callbackButton({ 
+        label: `${ico_list['stop'].ico}`, 
+        payload: { command: 'system_call' }, 
+        color: 'secondary' 
+    }).inline().oneTime() 
     await Send_Message(context.peerId, event_logger, keyboard)
 }
 
@@ -43,30 +63,63 @@ export async function Alliance_Control(context: Context) {
     let id_builder_sent = context.eventPayload.id_builder_sent ?? 0
     let id_planet = context.eventPayload.id_planet ?? 0
     let event_logger = `${ico_list['config'].ico} Отдел управления отношениями с союзником №${id_planet}:\n\n`
-    const builder_list: Alliance[] = await prisma.alliance.findMany({})
+    const builder_list = await prisma.alliance.findMany({})
     const builder = builder_list[id_builder_sent]
-    if (builder_list.length > 0) {
-        keyboard.callbackButton({ label: `${ico_list['delete'].ico} Разорвать`, payload: { command: 'alliance_controller', command_sub: 'alliance_destroy', id_builder_sent: id_builder_sent, target: builder.id, id_planet: id_planet }, color: 'secondary' }).row()
-        event_logger += `\n\n${ico_list['alliance'].ico} ${builder.id} - ${builder.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${builder.idvk}`
-        event_logger +=`\n\n${builder_list.length > 1 ? `~~~~ ${1+id_builder_sent} из ${builder_list.length} ~~~~` : ''}`;
+    if (builder_list.length > 0 && builder) {
+        keyboard.callbackButton({ 
+            label: `${ico_list['delete'].ico} Разорвать`, 
+            payload: { command: 'alliance_controller', command_sub: 'alliance_destroy', id_builder_sent: id_builder_sent, target: builder.id, id_planet: id_planet }, 
+            color: 'secondary' 
+        }).row()
+        keyboard.callbackButton({ 
+            label: `${builder.hidden ? '👁️ Показать' : '🙈 Скрыть'}`, 
+            payload: { command: 'alliance_controller', command_sub: 'alliance_toggle_hide', id_builder_sent: id_builder_sent, target: builder.id, id_planet: id_planet }, 
+            color: 'secondary' 
+        }).row()
+        event_logger += `\n\n${ico_list['alliance'].ico} ${builder.id} - ${builder.name}${builder.hidden ? ' (скрыт)' : ''}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${builder.idvk}`
+        event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${1+id_builder_sent} из ${builder_list.length} ~~~~` : ''}`;
     } else {
         event_logger = `${ico_list['warn'].ico} Вы еще не заключали союзов, как насчет заключить??`
     }
     if (builder_list.length > 1 && id_builder_sent > 0) {
-        keyboard.callbackButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_control', id_builder_sent: id_builder_sent-1, target: builder.id, id_planet: id_planet }, color: 'secondary' })
+        keyboard.callbackButton({ 
+            label: `${ico_list['back'].ico}`, 
+            payload: { command: 'alliance_control', id_builder_sent: id_builder_sent-1, target: builder?.id, id_planet: id_planet }, 
+            color: 'secondary' 
+        })
     }
     if (builder_list.length > 1 && id_builder_sent < builder_list.length-1) {
-        keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_control', id_builder_sent: id_builder_sent+1, target: builder.id, id_planet: id_planet }, color: 'secondary' })
+        keyboard.callbackButton({ 
+            label: `${ico_list['next'].ico}`, 
+            payload: { command: 'alliance_control', id_builder_sent: id_builder_sent+1, target: builder?.id, id_planet: id_planet }, 
+            color: 'secondary' 
+        })
     }
     if (builder_list.length > 5) {
-        if ( id_builder_sent < builder_list.length/2) {
-            keyboard.callbackButton({ label: `${ico_list['next'].ico}${ico_list['next'].ico}`, payload: { command: 'alliance_control', id_builder_sent: builder_list.length-1, target: builder.id, id_planet: id_planet }, color: 'secondary' })
+        if (id_builder_sent < builder_list.length/2) {
+            keyboard.callbackButton({ 
+                label: `${ico_list['next'].ico}${ico_list['next'].ico}`, 
+                payload: { command: 'alliance_control', id_builder_sent: builder_list.length-1, target: builder?.id, id_planet: id_planet }, 
+                color: 'secondary' 
+            })
         } else {
-            keyboard.callbackButton({ label: `${ico_list['back'].ico}${ico_list['back'].ico}`, payload: { command: 'alliance_control', id_builder_sent: 0, target: builder.id, id_planet: id_planet }, color: 'secondary' })
+            keyboard.callbackButton({ 
+                label: `${ico_list['back'].ico}${ico_list['back'].ico}`, 
+                payload: { command: 'alliance_control', id_builder_sent: 0, target: builder?.id, id_planet: id_planet }, 
+                color: 'secondary' 
+            })
         }
     }
-    keyboard.textButton({ label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' })
-    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent, id_planet: id_planet }, color: 'secondary' }).inline().oneTime() 
+    keyboard.textButton({ 
+        label: `${ico_list['add'].ico}${ico_list['alliance'].ico}`, 
+        payload: { command: 'alliance_controller', command_sub: 'alliance_add', id_builder_sent: id_builder_sent, id_planet: id_planet }, 
+        color: 'secondary' 
+    })
+    keyboard.callbackButton({ 
+        label: `${ico_list['stop'].ico}`, 
+        payload: { command: 'alliance_control_multi', id_builder_sent: id_builder_sent, id_planet: id_planet }, 
+        color: 'secondary' 
+    }).inline().oneTime() 
     await Send_Message(context.peerId, event_logger, keyboard)
 }
 
@@ -75,6 +128,7 @@ export async function Alliance_Controller(context: Context) {
     const config: Office_Controller = {
         'alliance_add': Alliance_Add,
         'alliance_destroy': Alliance_Destroy,
+        'alliance_toggle_hide': Alliance_Toggle_Hide,
     }
     await config[context.eventPayload.command_sub](context, target)
 }
@@ -95,7 +149,7 @@ export async function Alliance_Add(context: Context) {
 	    if (!group) { return }
 	    const alli_check = await prisma.alliance.findFirst({ where: { idvk: group.id } })
 	    if (!alli_check) {
-	    	const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, }})
+	    	const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, hidden: false } })
 	    	await Logger(`In database created new alliance id ${alli_cr.id} name ${alli_cr.name} by user ${context.peerId}`)
 	    	await context.send(`${ico_list['save'].ico} Поздравляем с заключением нового союза!\n\n${ico_list['message'].ico} ${alli_cr.id} - ${alli_cr.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_cr.idvk}`)
             await Send_Message(chat_id, `${ico_list['save'].ico} Заключен новый союз \n${ico_list['message'].ico} Сообщение: ${alli_cr.id} - ${alli_cr.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_cr.idvk}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} Министерство Магии`)
@@ -136,12 +190,41 @@ async function Alliance_Destroy(context: Context, target: number) {
             });
         } else {
             event_logger = `${ico_list['alliance'].ico} Вы уверены, что хотите рассторгнуть союз с:\n\n${ico_list['message'].ico} ${alliance.id} - ${alliance.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alliance.idvk}`
-            keyboard.callbackButton({ label: `${ico_list['success'].ico} Хочу`, payload: { command: 'alliance_controller', command_sub: 'alliance_destroy', id_builder_sent: id_builder_sent, office_current: 0, target: alliance.id, status: "ok", id_planet: id_planet }, color: 'secondary' })
+            keyboard.callbackButton({ 
+                label: `${ico_list['success'].ico} Хочу`, 
+                payload: { command: 'alliance_controller', command_sub: 'alliance_destroy', id_builder_sent: id_builder_sent, office_current: 0, target: alliance.id, status: "ok", id_planet: id_planet }, 
+                color: 'secondary' 
+            })
         } 
     }
     //назад хз куда
-    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_control', office_current: 0, id_builder_sent: 0, target: undefined, id_planet: 0 }, color: 'secondary' }).inline().oneTime() 
+    keyboard.callbackButton({ 
+        label: `${ico_list['stop'].ico}`, 
+        payload: { command: 'alliance_control', office_current: 0, id_builder_sent: 0, target: undefined, id_planet: 0 }, 
+        color: 'secondary' 
+    }).inline().oneTime() 
     await Send_Message(context.peerId, event_logger, keyboard)
+}
+
+async function Alliance_Toggle_Hide(context: Context, target: number) {
+    const user = await Person_Get(context)
+    if (!user) { return }
+    
+    const alliance = await prisma.alliance.findFirst({ where: { id: target } })
+    if (!alliance) {
+        await Send_Message(context.peerId, `${ico_list['warn'].ico} Альянс не найден!`)
+        return
+    }
+    
+    const newHidden = !alliance.hidden
+    await prisma.alliance.update({
+        where: { id: alliance.id },
+        data: { hidden: newHidden }
+    })
+    
+    await Send_Message(chat_id, `${newHidden ? '🙈' : '👁️'} Альянс "${alliance.name}" ${newHidden ? 'скрыт' : 'показан'} администратором @id${user.idvk} (${user.name})`)
+    
+    await Logger(`Альянс ${alliance.id}-${alliance.name} ${newHidden ? 'скрыт' : 'показан'} админом ${context.senderId}`)
 }
 
 export async function Alliance_Updater(context: any) {

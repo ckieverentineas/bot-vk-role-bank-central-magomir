@@ -287,6 +287,7 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
         }
     }
 }
+
 async function Edit_Alliance(id: number, context: any, user_adm: User){
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return await context.send(`⚠ Ролевик под UID${id} не был обнаружен в системе!`)}
@@ -320,43 +321,62 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
             const keyboard = new KeyboardBuilder()
             id_builder_sent = await Fixed_Number_To_Five(id_builder_sent)
             let event_logger = `❄ Выберите союзный ролевой проект, к которому принадлежит ${user.name}-${user.id}:\n\n`
-            const builder_list: Alliance[] = await prisma.alliance.findMany({})
+            const builder_list: Alliance[] = await prisma.alliance.findMany({
+                where: { hidden: false }
+            })
 
             if (builder_list.length > 0) {
                 const limiter = 5
                 let counter = 0
-                for (let i=id_builder_sent; i < builder_list.length && counter < limiter; i++) {
+                for (let i = id_builder_sent; i < builder_list.length && counter < limiter; i++) {
                     const builder = builder_list[i]
-                    keyboard.textButton({ label: `🌐 №${i}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent: i, target: builder }, color: 'secondary' }).row()
-                    event_logger += `\n\n🔒 Ролевой проект №${i} <--\n📜 AUID: ${builder.id}\n🌐 Название: ${builder.name}\n🧷 Ссылка: https://vk.com/club${builder.idvk}`
+                    const shortName = builder.name.length > 25 ? builder.name.slice(0, 22) + '...' : builder.name
+                    keyboard.textButton({ 
+                        label: `🌐 ${builder.id}. ${shortName}`, 
+                        payload: { command: 'builder_control', id_builder_sent: i, target: builder.id }, 
+                        color: 'secondary' 
+                    }).row()
+                    event_logger += `\n\n🔒 Ролевой проект: ${builder.id}\n🌐 Название: ${builder.name}\n🧷 Ссылка: https://vk.com/club${builder.idvk}`
                     counter++
                 }
-                event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
+                event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent + limiter : limiter - (builder_list.length - id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
                 //предыдущий офис
-                if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
-                    keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
+                if (builder_list.length > limiter && id_builder_sent > limiter - 1) {
+                    keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent - limiter }, color: 'secondary' })
                 }
                 //следующий офис
-                if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
-                    keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
-                }
+                if (builder_list.length > limiter && id_builder_sent < builder_list.length - limiter) {
+                    keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent + limiter }, color: 'secondary' })
+            }
             } else {
                 event_logger = `💬 Ролевых проектов не обнаружено!`
             }
             const answer1: any = await context.question(`${event_logger}`,
                 {	
-                    keyboard: keyboard.inline(), answerTimeLimit
+                    keyboard: keyboard.inline(), 
+                    answerTimeLimit
                 }
             )
-            if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания выбора ролевого проекта истекло!`) }
+            if (answer1.isTimeout) { 
+                return await context.send(`⏰ Время ожидания выбора ролевого проекта истекло!`) 
+            }
             if (!answer1.payload) {
                 await context.send(`💡 Жмите только по кнопкам с иконками!`)
             } else {
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
-                    person.alliance = answer1.payload.target.name
-                    person.id_alliance = answer1.payload.target.id
+                    // Получаем альянс по ID из payload.target
+                    const selectedAlliance = await prisma.alliance.findFirst({ 
+                        where: { id: answer1.payload.target } 
+                    })
+                    if (selectedAlliance) {
+                        person.alliance = selectedAlliance.name
+                        person.id_alliance = selectedAlliance.id
+                    } else {
+                        await context.send(`⚠ Альянс с ID ${answer1.payload.target} не найден!`)
+                        return
+                    }
                     alliance_check = true
                 }
             }
@@ -365,7 +385,9 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
     if (person.alliance == 'Союзник Номер') {
         // ДОБАВЛЕНО: Показываем список союзных проектов перед запросом AUID
         let alli_list = ''
-        const alliances = await prisma.alliance.findMany({})
+        const alliances = await prisma.alliance.findMany({
+            where: { hidden: false }
+        })
         for (const alli of alliances) {
             alli_list += `${alli.id} - ${alli.name}\n`
         }
@@ -404,6 +426,7 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
         await Logger(`In a private chat, changed alliance user from ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} on ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} for ${update_alliance.idvk} by admin ${context.senderId}`)
     }
 }
+
 async function Edit_Facult(id: number, context: any, user_adm: User){
     const user: User | null = await prisma.user.findFirst({ where: { id: id } })
     if (!user) { return }
