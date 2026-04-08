@@ -175,7 +175,14 @@ initializeGroupId().then(async () => {
             await Abilities_Upgrade_Menu(ctx);
             await ctx.answer();
             },
-
+            "levels_prev": async (ctx: any) => {
+            },
+            "levels_next": async (ctx: any) => {
+            },
+            "select_ability_level_final": async (ctx: any) => {
+            },
+            "cancel_level_selection": async (ctx: any) => {
+            },
             "upgrade_next_callback": async (ctx: any) => {
             await Abilities_Upgrade_Menu(ctx);
             await ctx.answer();
@@ -214,7 +221,6 @@ initializeGroupId().then(async () => {
             const user = await Person_Get(ctx);
             if (!user) return;
             
-            // Проверяем, что пользователь в альянсе
             if (!user.id_alliance || user.id_alliance <= 0) {
                 await Send_Message(ctx.peerId, `❌ Вы не состоите в альянсе!`);
                 await ctx.answer();
@@ -223,10 +229,16 @@ initializeGroupId().then(async () => {
             
             const prismaAny = prisma as any;
             
-            // Проверяем, не достигнут ли уже максимальный уровень
             const userAbility = await prismaAny.userAbility.findFirst({
                 where: { userId: user.id, abilityId: payload.abilityId },
-                include: { ability: true }
+                include: { 
+                ability: {
+                    include: { 
+                    currency: true,
+                    category: true
+                    }
+                }
+                }
             });
             
             if (!userAbility) {
@@ -234,7 +246,6 @@ initializeGroupId().then(async () => {
                 return;
             }
             
-            // Получаем уровни (уже с проверкой id_alliance)
             const levels = await getAllianceLevels(user.id_alliance);
             const currentLevel = levels.find((l: any) => l.id === userAbility.levelId);
             const nextLevel = levels.find((l: any) => l.id === payload.nextLevelId);
@@ -247,6 +258,10 @@ initializeGroupId().then(async () => {
                 return;
             }
             
+            const currentLevelName = await getLevelName(userAbility.levelId);
+            const currency = userAbility.ability.currency;
+            const categoryName = userAbility.ability.category.name;
+            
             const result = await deductAbilityCost(user.id, payload.currencyId, payload.price);
             if (!result.success) {
                 await Send_Message(ctx.peerId, `❌ Недостаточно средств!`);
@@ -254,16 +269,28 @@ initializeGroupId().then(async () => {
             }
             
             await prismaAny.userAbility.update({
-                where: { id: payload.userAbilityId },
+                where: { id: userAbility.id },
                 data: { levelId: payload.nextLevelId }
             });
             
-            // Отправляем сообщение с балансом
+            // Отправляем сообщение пользователю
             await Send_Message(
                 ctx.peerId, 
                 `✅ "${payload.abilityName}" прокачан до ${payload.nextLevelName}!\n` +
-                `💰 ${payload.currencySmile}: ${result.oldBalance} - ${payload.price} = ${result.newBalance}`
+                `${currency.smile} ${currency.name}: ${result.oldBalance} - ${payload.price} = ${result.newBalance}`
             );
+            
+            const allianceForLog = await prisma.alliance.findFirst({ 
+                where: { id: user.id_alliance ?? 0 } 
+            });
+            
+            if (allianceForLog?.id_chat_ability && allianceForLog.id_chat_ability > 0) {
+                const logMessage = `⚡ @id${user.idvk}(${user.name}) (UID: ${user.id}) прокачал способность "${payload.abilityName}" из категории ${categoryName}: ${currentLevelName} → ${payload.nextLevelName}\n${currency.smile} ${currency.name}: ${result.oldBalance} - ${payload.price} = ${result.newBalance}`;
+                await Send_Message(allianceForLog.id_chat_ability, logMessage);
+            } else {
+                const logMessage = `⚡ @id${user.idvk}(${user.name}) (UID: ${user.id}) прокачал способность "${payload.abilityName}" из категории ${categoryName}: ${currentLevelName} → ${payload.nextLevelName}\n${currency.smile} ${currency.name}: ${result.oldBalance} - ${payload.price} = ${result.newBalance}`;
+                await Send_Message(chat_id, logMessage);
+            }
             
             await ctx.answer();
             

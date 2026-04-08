@@ -1048,6 +1048,34 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по активности в обсуждениях\n💬 id_chat_topic: ${alli_get.id_chat_topic} → ${alli_log_up.id_chat_topic}`
         )
     })
+    hearManager.hear(/!привязать прокачку/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType != 'chat') { return }
+        
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        
+        const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
+        if (!alli_get) { return }
+        
+        const alli_log_up = await prisma.alliance.update({ 
+            where: { id: alli_get.id }, 
+            data: { id_chat_ability: context.peerId }
+        })
+        
+        if (!alli_log_up) { return }
+        
+        await Send_Message( 
+            alli_log_up.id_chat_ability!, 
+            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по прокачке способностей\n💬 id_chat_ability: ${alli_get.id_chat_ability} --> ${alli_log_up.id_chat_ability}`
+        )
+    })
     hearManager.hear(/⚙ !мониторы настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }

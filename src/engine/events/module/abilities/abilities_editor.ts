@@ -89,14 +89,14 @@ export async function UserAbilities_Editor(context: any, userId: number, user_ad
 
   const allianceId = user.id_alliance;
   if (!allianceId || allianceId <= 0) {
-    await context.send(`${ico_list['warn'].ico} Персонаж не состоит в альянсе!`);
+    await context.send(`${ico_list['warn'].ico} Персонаж не состоит в ролевой!`);
     return;
   }
 
   // Получаем все уровни альянса
   const levels = await getAllianceLevels(allianceId);
   if (levels.length === 0) {
-    await context.send(`${ico_list['warn'].ico} В альянсе не настроены уровни! Сначала настройте уровни через !уровни настроить`);
+    await context.send(`${ico_list['warn'].ico} В ролевой не настроены уровни!`);
     return;
   }
 
@@ -107,7 +107,7 @@ export async function UserAbilities_Editor(context: any, userId: number, user_ad
   });
 
   if (categoriesList.length === 0) {
-    await context.send(`${ico_list['warn'].ico} В альянсе нет категорий способностей!`);
+    await context.send(`${ico_list['warn'].ico} В ролевой нет категорий способностей!`);
     return;
   }
 
@@ -174,7 +174,7 @@ export async function UserAbilities_Editor(context: any, userId: number, user_ad
 
   let exit = false;
   let cursor = 0;
-  const ITEMS_PER_PAGE = 7;
+  const ITEMS_PER_PAGE = 6;
 
   while (!exit) {
     const pageAbilities = allAbilities.slice(cursor, cursor + ITEMS_PER_PAGE);
@@ -293,9 +293,6 @@ export async function UserAbilities_Editor(context: any, userId: number, user_ad
   }
 }
 
-/**
- * Обработка добавления/удаления/изменения уровня способности
- */
 async function handleEditUserAbility(
   context: any,
   abilityId: number,
@@ -322,9 +319,6 @@ async function handleEditUserAbility(
   const prices: Record<number, number> = ability.prices ? JSON.parse(ability.prices) : {};
 
   if (hasAbility) {
-    // ===== УДАЛЕНИЕ СПОСОБНОСТИ =====
-    
-    // Получаем текущий уровень перед удалением
     const currentUserAbility = await prisma.userAbility.findFirst({
       where: { userId: targetUser.id, abilityId: ability.id }
     });
@@ -345,7 +339,6 @@ async function handleEditUserAbility(
       where: { userId: targetUser.id, abilityId: ability.id }
     });
     
-    // Уведомление игроку об удалении
     await Send_Message(
       targetUser.idvk,
       `❌ ${targetUser.name} (UID: ${targetUser.id}), у вас удалена способность "${ability.name}" уровня ${currentLevelName}!\n` +
@@ -353,12 +346,11 @@ async function handleEditUserAbility(
       `Уровень способности сброшен.`
     );
     
-    // Логируем в чат ролевой
     const alliance = await prisma.alliance.findFirst({ where: { id: targetUser.id_alliance ?? 0 } });
     const deleteLogMessage = `❌ @id${user_adm.idvk}(${user_adm.name}) удалил способность "${ability.name}" (${currentLevelName}) из категории "${categoryName}" у игрока @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
     
-    if (alliance?.id_chat && alliance.id_chat > 0) {
-      await Send_Message(alliance.id_chat, deleteLogMessage);
+    if (alliance?.id_chat_ability && alliance.id_chat_ability > 0) {
+      await Send_Message(alliance.id_chat_ability, deleteLogMessage);
     } else {
       await Send_Message(chat_id, deleteLogMessage);
     }
@@ -366,132 +358,204 @@ async function handleEditUserAbility(
     await context.send(`✅ Способность "${ability.name}" удалена у игрока ${targetUser.name}`);
     
   } else {
-    // ===== ДОБАВЛЕНИЕ СПОСОБНОСТИ =====
     
     // Фильтруем уровни, для которых есть цены
-    const availableLevels = levels.filter(level => prices[level.id] !== undefined);
+    let availableLevels = levels.filter(level => prices[level.id] !== undefined);
     
     if (availableLevels.length === 0) {
       await context.send(`❌ Для способности "${ability.name}" не настроены цены! Сначала настройте цены в админ-меню.`);
       return;
     }
     
-    // Показываем выбор уровня
-    const levelKeyboard = new KeyboardBuilder();
-    for (const level of availableLevels) {
-      const price = prices[level.id];
-      levelKeyboard.textButton({
-        label: `${level.name} — ${price}${ability.currency.smile}`,
-        payload: { 
-          command: 'select_ability_level', 
-          targetLevelId: level.id, 
-          price,
-          abilityId: ability.id,
-          abilityName: ability.name,
-          currencySmile: ability.currency.smile,
-          currencyId: ability.currencyId,
-          categoryName: categoryName
-        },
-        color: 'secondary'
+    // ===== ПАГИНАЦИЯ ДЛЯ УРОВНЕЙ =====
+    let levelCursor = 0;
+    const LEVELS_PER_PAGE = 5; // Показываем по 5 уровней на страницу
+    let selectingLevel = true;
+    
+    while (selectingLevel) {
+      const pageLevels = availableLevels.slice(levelCursor, levelCursor + LEVELS_PER_PAGE);
+      const totalLevels = availableLevels.length;
+      const currentPage = Math.floor(levelCursor / LEVELS_PER_PAGE) + 1;
+      const totalPages = Math.ceil(totalLevels / LEVELS_PER_PAGE);
+      
+      const levelKeyboard = new KeyboardBuilder();
+      
+      // Добавляем кнопки уровней (по 2 в строку)
+      for (let i = 0; i < pageLevels.length; i++) {
+        const level = pageLevels[i];
+        const price = prices[level.id];
+        
+        levelKeyboard.textButton({
+          label: `${level.name} — ${price}${ability.currency.smile}`,
+          payload: { 
+            command: 'select_ability_level_final', 
+            targetLevelId: level.id, 
+            price,
+            abilityId: ability.id,
+            abilityName: ability.name,
+            currencySmile: ability.currency.smile,
+            currencyId: ability.currencyId,
+            categoryName: categoryName
+          },
+          color: 'secondary'
+        });
+        
+        // После каждых 2 кнопок — новая строка
+        if ((i + 1) % 2 === 0 || i === pageLevels.length - 1) {
+          levelKeyboard.row();
+        }
+      }
+      
+      // Навигация по страницам уровней
+      if (totalPages > 1) {
+        if (levelCursor > 0) {
+          levelKeyboard.textButton({
+            label: `← Предыдущие уровни`,
+            payload: { command: 'levels_prev', cursor: Math.max(0, levelCursor - LEVELS_PER_PAGE) },
+            color: 'secondary'
+          });
+        }
+        
+        if (levelCursor + LEVELS_PER_PAGE < totalLevels) {
+          levelKeyboard.textButton({
+            label: `Следующие уровни →`,
+            payload: { command: 'levels_next', cursor: levelCursor + LEVELS_PER_PAGE },
+            color: 'secondary'
+          });
+        }
+        
+        if (levelCursor > 0 || levelCursor + LEVELS_PER_PAGE < totalLevels) {
+          levelKeyboard.row();
+        }
+      }
+      
+      levelKeyboard.textButton({ 
+        label: '🚫 Отмена', 
+        payload: { command: 'cancel_level_selection' }, 
+        color: 'negative' 
       }).row();
-    }
-    levelKeyboard.textButton({ label: '🚫 Отмена', payload: { command: 'cancel' }, color: 'negative' });
-    
-    const levelAnswer = await context.question(
-      `⚡ Выберите уровень для способности "${ability.name}":\n\n` +
-      `💰 Валюта: ${ability.currency.smile} ${ability.currency.name}\n` +
-      `👤 Игрок: ${targetUser.name} (UID: ${targetUser.id})`,
-      { keyboard: levelKeyboard.oneTime().inline(), answerTimeLimit }
-    );
-    
-    if (levelAnswer.isTimeout || levelAnswer.payload?.command === 'cancel') {
-      await context.send(`❌ Добавление способности отменено.`);
-      return;
-    }
-    
-    const { targetLevelId, price, abilityId: selectedAbilityId, currencyId: selectedCurrencyId } = levelAnswer.payload;
-    
-    // Проверяем цену
-    if (price > 0) {
-      const confirm = await Confirm_User_Success(
-        context,
-        `добавить способность "${ability.name}" уровня ${await getLevelName(targetLevelId)} игроку ${targetUser.name}?\n\n` +
-        `💰 Стоимость: ${price}${ability.currency.smile}\n` +
-        `💳 Средства будут списаны со счета игрока!`
+      
+      const levelAnswer = await context.question(
+        `⚡ Выберите уровень для способности "${ability.name}":\n\n` +
+        `💰 Валюта: ${ability.currency.smile} ${ability.currency.name}\n` +
+        `👤 Игрок: ${targetUser.name} (UID: ${targetUser.id})\n\n` +
+        `📄 Страница ${currentPage} из ${totalPages}`,
+        { keyboard: levelKeyboard.oneTime().inline(), answerTimeLimit }
       );
       
-      if (!confirm.status) {
-        await context.send(`❌ Добавление отменено.`);
+      if (levelAnswer.isTimeout) {
+        await context.send(`❌ Выбор уровня отменен.`);
         return;
       }
       
-      // Списываем средства
-      const success = await deductAbilityCost(targetUser.id, selectedCurrencyId, price, context);
-      if (!success) {
-        await context.send(`❌ Недостаточно средств у игрока ${targetUser.name}!`);
+      if (!levelAnswer.payload) {
+        await context.send(`❌ Ошибка выбора.`);
         return;
       }
       
-      await context.send(`💰 Списано: ${price}${ability.currency.smile} со счета ${targetUser.name}`);
-    } else {
-      const confirm = await Confirm_User_Success(
-        context,
-        `добавить способность "${ability.name}" уровня ${await getLevelName(targetLevelId)} игроку ${targetUser.name}? (БЕСПЛАТНО)`
-      );
-      if (!confirm.status) {
-        await context.send(`❌ Добавление отменено.`);
+      // Обработка навигации по уровням
+      if (levelAnswer.payload.command === 'levels_prev') {
+        levelCursor = levelAnswer.payload.cursor;
+        continue;
+      }
+      
+      if (levelAnswer.payload.command === 'levels_next') {
+        levelCursor = levelAnswer.payload.cursor;
+        continue;
+      }
+      
+      if (levelAnswer.payload.command === 'cancel_level_selection') {
+        await context.send(`❌ Добавление способности отменено.`);
         return;
       }
-    }
-    
-    // Добавляем способность
-    await prisma.userAbility.create({
-      data: { 
-        userId: targetUser.id, 
-        abilityId: selectedAbilityId, 
-        levelId: targetLevelId 
+      
+      if (levelAnswer.payload.command === 'select_ability_level_final') {
+        const { targetLevelId, price, abilityId: selectedAbilityId, currencyId: selectedCurrencyId } = levelAnswer.payload;
+        
+        // Проверяем цену и списываем средства
+        if (price > 0) {
+          const confirm = await Confirm_User_Success(
+            context,
+            `добавить способность "${ability.name}" уровня ${await getLevelName(targetLevelId)} игроку ${targetUser.name}?\n\n` +
+            `💰 Стоимость: ${price}${ability.currency.smile}\n` +
+            `💳 Средства будут списаны со счета игрока!`
+          );
+          
+          if (!confirm.status) {
+            await context.send(`❌ Добавление отменено.`);
+            return;
+          }
+          
+          const success = await deductAbilityCost(targetUser.id, selectedCurrencyId, price, context);
+          if (!success.success) {
+            await context.send(`❌ Недостаточно средств у игрока ${targetUser.name}!`);
+            return;
+          }
+          
+          await context.send(`💰 Списано: ${price}${ability.currency.smile} со счета ${targetUser.name}`);
+        } else {
+          const confirm = await Confirm_User_Success(
+            context,
+            `добавить способность "${ability.name}" уровня ${await getLevelName(targetLevelId)} игроку ${targetUser.name}? (БЕСПЛАТНО)`
+          );
+          if (!confirm.status) {
+            await context.send(`❌ Добавление отменено.`);
+            return;
+          }
+        }
+        
+        // Добавляем способность
+        await prisma.userAbility.create({
+          data: { 
+            userId: targetUser.id, 
+            abilityId: selectedAbilityId, 
+            levelId: targetLevelId 
+          }
+        });
+
+        // Получаем баланс пользователя для отображения
+        const balance = await prisma.balanceCoin.findFirst({
+          where: { id_coin: ability.currencyId, id_user: targetUser.id }
+        });
+
+        // Уведомление игроку
+        let userNotification = `⚡ ${targetUser.name} (UID: ${targetUser.id}), вам выдана способность "${ability.name}" уровня ${await getLevelName(targetLevelId)}!\n` +
+          `📁 Категория: "${categoryName}"\n`;
+
+        if (price > 0 && balance) {
+          const oldBalance = balance.amount + price;
+          userNotification += `💰 Списано: ${price}${ability.currency.smile}\n💬 ${oldBalance} - ${price} = ${balance.amount}${ability.currency.smile}`;
+        } else if (price > 0) {
+          userNotification += `💰 Списано: ${price}${ability.currency.smile}`;
+        } else {
+          userNotification += `💰 Бесплатно`;
+        }
+
+        await Send_Message(targetUser.idvk, userNotification);
+
+        // Логируем в чат
+        const alliance = await prisma.alliance.findFirst({ where: { id: targetUser.id_alliance ?? 0 } });
+        let logMessage = `⚡ @id${user_adm.idvk}(${user_adm.name}) добавил способность "${ability.name}" (${await getLevelName(targetLevelId)}) из категории "${categoryName}" игроку @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
+
+        if (price > 0 && balance) {
+          const oldBalance = balance.amount + price;
+          logMessage += `\n${ability.currency.smile} ${ability.currency.name}: ${oldBalance} - ${price} = ${balance.amount}`;
+        } else if (price > 0) {
+          logMessage += `\n💰 Списано: ${price}${ability.currency.smile}`;
+        } else {
+          logMessage += `\n💰 Бесплатно`;
+        }
+
+        if (alliance?.id_chat_ability && alliance.id_chat_ability > 0) {
+          await Send_Message(alliance.id_chat_ability, logMessage);
+        } else {
+          await Send_Message(chat_id, logMessage);
+        }
+
+        await context.send(`✅ Способность "${ability.name}" (${await getLevelName(targetLevelId)}) добавлена игроку ${targetUser.name}`);
+        
+        selectingLevel = false; // Выходим из цикла выбора уровня
       }
-    });
-
-    // Получаем баланс пользователя для отображения
-    const balance = await prisma.balanceCoin.findFirst({
-      where: { id_coin: ability.currencyId, id_user: targetUser.id }
-    });
-
-    // Уведомление игроку о выдаче способности
-    let userNotification = `⚡ ${targetUser.name} (UID: ${targetUser.id}), вам выдана способность "${ability.name}" уровня ${await getLevelName(targetLevelId)}!\n` +
-      `📁 Категория: "${categoryName}"\n`;
-
-    if (price > 0 && balance) {
-      const oldBalance = balance.amount + price;
-      userNotification += `💰 Списано: ${price}${ability.currency.smile}\n💬 ${oldBalance} - ${price} = ${balance.amount}${ability.currency.smile}`;
-    } else if (price > 0) {
-      userNotification += `💰 Списано: ${price}${ability.currency.smile}`;
-    } else {
-      userNotification += `💰 Бесплатно`;
     }
-
-    await Send_Message(targetUser.idvk, userNotification);
-
-    // Логируем в чат ролевой
-    const alliance = await prisma.alliance.findFirst({ where: { id: targetUser.id_alliance ?? 0 } });
-    let logMessage = `⚡ @id${user_adm.idvk}(${user_adm.name}) добавил способность "${ability.name}" (${await getLevelName(targetLevelId)}) из категории "${categoryName}" игроку @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
-
-    if (price > 0 && balance) {
-      const oldBalance = balance.amount + price;
-      logMessage += `\n💰 ${ability.currency.smile} ${ability.currency.name}: ${oldBalance} - ${price} = ${balance.amount}`;
-    } else if (price > 0) {
-      logMessage += `\n💰 Списано: ${price}${ability.currency.smile}`;
-    } else {
-      logMessage += `\n💰 Бесплатно`;
-    }
-
-    if (alliance?.id_chat && alliance.id_chat > 0) {
-      await Send_Message(alliance.id_chat, logMessage);
-    } else {
-      await Send_Message(chat_id, logMessage);
-    }
-
-    await context.send(`✅ Способность "${ability.name}" (${await getLevelName(targetLevelId)}) добавлена игроку ${targetUser.name}`);
   }
 }

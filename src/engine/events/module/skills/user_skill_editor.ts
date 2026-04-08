@@ -128,7 +128,7 @@ export async function UserSkill_Editor(context: any, userId: number, allianceId:
 
   let exit = false;
   let cursor = 0;
-  const ITEMS_PER_PAGE = 7;
+  const ITEMS_PER_PAGE = 6;
 
   while (!exit) {
     const pageSkills = allSkills.slice(cursor, cursor + ITEMS_PER_PAGE);

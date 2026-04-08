@@ -7,7 +7,7 @@ import { Logger, Send_Message } from "../../../core/helper"
 import { ico_list } from "../data_center/icons_lib"
 import { getTerminology } from "../alliance/terminology_helper"
 
-export async function Alliance_Rank_Enter(context:any) {
+export async function Alliance_Rank_Enter(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     
@@ -24,63 +24,126 @@ export async function Alliance_Rank_Enter(context:any) {
         // Если есть рейтинговые валюты — показываем рейтинг по первой
         await Alliance_Rank_Coin_Enter(context, ratingCoins[0].id)
     } else {
-        // Если нет рейтинговых валют — показываем старый рейтинг по жетонам
-        const facult = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } })
-        let facult_tr = context.eventPayload.facult ?? false
-        const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 }})
-        const terminology = await getTerminology(stats?.id || 0, 'prepositional');
-        let text = `${ico_list['statistics'].ico} Рейтинг персонажей по жетонам в ролевом проекте [${stats?.name}]${facult_tr ? `, ${terminology} [${facult?.smile} ${facult?.name}]` : ``}:\n\n`
-        const keyboard = new KeyboardBuilder()
-        const stat: { rank: number, text: string, score: number, me: boolean }[] = []
-        let counter = 1
-        for (const userok of facult_tr ? await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
-            stat.push({
-                rank: counter,
-                text: `- UID-${userok.id} @id${userok.idvk}(${userok.name.slice(0, 20)}) --> ${userok.medal}${ico_list['medal'].ico}\n`,
-                score: userok.medal,
-                me: userok.idvk == user.idvk ? true : false
+        // ===== ИСПРАВЛЕНИЕ: Если нет рейтинговых, ищем любые валюты =====
+        const anyCoins = await prisma.allianceCoin.findMany({
+            where: { 
+                id_alliance: user.id_alliance ?? 0
+            },
+            orderBy: { order: 'asc' }
+        })
+        
+        if (anyCoins.length > 0) {
+            // Если есть хотя бы одна валюта (не рейтинговая) — показываем рейтинг по ней
+            await Alliance_Rank_Coin_Enter(context, anyCoins[0].id)
+        } else {
+            // Если вообще нет валют — показываем старый рейтинг по жетонам
+            const facult = await prisma.allianceFacult.findFirst({ 
+                where: { 
+                    id: user.id_facult ?? 0, 
+                    id_alliance: Number(user.id_alliance) 
+                } 
             })
-            counter++
-        }
-        stat.sort(function(a, b){
-            return b.score - a.score;
-        });
-        let counter_last = 1
-        let counter_limit = 0
-        let counter_init = context.eventPayload.counter_init ?? 0
-        let trig_find_me = false
-        for (const stat_sel of stat) {
-            if (counter_last >= counter_init && counter_limit <= 10) {
-                text += `${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
-                if (stat_sel.me) { trig_find_me = true }
-                counter_limit++
+            let facult_tr = context.eventPayload.facult ?? false
+            const stats = await prisma.alliance.findFirst({ 
+                where: { id: user.id_alliance ?? 0 }
+            })
+            const terminology = await getTerminology(stats?.id || 0, 'prepositional');
+            
+            let text = `${ico_list['statistics'].ico} Рейтинг персонажей по жетонам в ролевом проекте [${stats?.name}]${facult_tr ? `, ${terminology} [${facult?.smile} ${facult?.name}]` : ``}:\n\n`
+            
+            const keyboard = new KeyboardBuilder()
+            const stat: { rank: number, text: string, score: number, me: boolean }[] = []
+            let counter = 1
+            
+            // Собираем статистику по пользователям
+            for (const userok of facult_tr ? 
+                await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : 
+                await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
+                stat.push({
+                    rank: counter,
+                    text: `- UID-${userok.id} @id${userok.idvk}(${userok.name.slice(0, 20)}) --> ${userok.medal}${ico_list['medal'].ico}\n`,
+                    score: userok.medal,
+                    me: userok.idvk == user.idvk ? true : false
+                })
+                counter++
             }
-            if ((counter_last <= counter_init || counter_limit > 10)) {
-                if (stat_sel.me) {
-                    text += `\n\n${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
+            
+            // Сортируем по убыванию жетонов
+            stat.sort(function(a, b){
+                return b.score - a.score;
+            });
+            
+            let counter_last = 1
+            let counter_limit = 0
+            let counter_init = context.eventPayload.counter_init ?? 0
+            let trig_find_me = false
+            
+            for (const stat_sel of stat) {
+                if (counter_last >= counter_init && counter_limit <= 10) {
+                    text += `${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
+                    if (stat_sel.me) { trig_find_me = true }
+                    counter_limit++
                 }
+                if ((counter_last <= counter_init || counter_limit > 10)) {
+                    if (stat_sel.me) {
+                        text += `\n\n${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
+                    }
+                }
+                counter_last++
             }
-            counter_last++
+            
+            text += `\n\n${ico_list['help'].ico} В статистике участвует ${counter-1} персонажей`
+            
+            await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
+            
+            if (await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
+                keyboard.callbackButton({ 
+                    label: `${ico_list['card'].ico}`, 
+                    payload: { command: 'alliance_rank_coin_enter' }, 
+                    color: 'secondary' 
+                })
+            }
+            
+            // Кнопки фильтрации по факультету
+            if (facult && !facult_tr) {
+                keyboard.callbackButton({ 
+                    label: `${ico_list['facult'].ico} ${facult.name.slice(0,30)}${ico_list['medal'].ico}`, 
+                    payload: { command: 'alliance_rank_enter', facult: true }, 
+                    color: 'secondary' 
+                }).row()
+            }
+            if (facult && facult_tr) {
+                keyboard.callbackButton({ 
+                    label: `${ico_list['alliance'].ico} ${stats?.name.slice(0,30)}`, 
+                    payload: { command: 'alliance_rank_enter', facult: false }, 
+                    color: 'secondary' 
+                })
+            }
+            
+            // Пагинация
+            if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
+                keyboard.callbackButton({ 
+                    label: `${ico_list['back'].ico}`, 
+                    payload: { command: 'alliance_rank_enter', counter_init: -10+counter_init, facult: facult_tr }, 
+                    color: 'secondary' 
+                })
+            }
+            if (10+counter_init < stat.length) {
+                keyboard.callbackButton({ 
+                    label: `${ico_list['next'].ico}`, 
+                    payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init, facult: facult_tr }, 
+                    color: 'secondary' 
+                })
+            }
+            
+            keyboard.callbackButton({ 
+                label: `${ico_list['stop'].ico}`, 
+                payload: { command: 'system_call' }, 
+                color: 'secondary' 
+            }).inline().oneTime()
+            
+            await Send_Message(context.peerId, text, keyboard)
         }
-        text += `\n\n${ico_list['help'].ico} В статистике участвует ${counter-1} персонажей`
-        await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
-        if (await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })) {
-            keyboard.callbackButton({ label: `${ico_list['card'].ico}`, payload: { command: 'alliance_rank_coin_enter' }, color: 'secondary' })
-        }
-        if (facult && !facult_tr) {
-            keyboard.callbackButton({ label: `${ico_list['facult'].ico} ${facult.name.slice(0,30)}${ico_list['medal'].ico}`, payload: { command: 'alliance_rank_enter', facult: true }, color: 'secondary' }).row()
-        }
-        if (facult && facult_tr) {
-            keyboard.callbackButton({ label: `${ico_list['alliance'].ico} ${stats?.name.slice(0,30)}`, payload: { command: 'alliance_rank_enter', facult: false }, color: 'secondary' })
-        }
-        if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
-            keyboard.callbackButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_rank_enter', counter_init: -10+counter_init, facult: facult_tr }, color: 'secondary' })
-        }
-        if (10+counter_init < stat.length) {
-            keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_enter', counter_init: 10+counter_init, facult: facult_tr }, color: 'secondary' })
-        }
-        keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-        await Send_Message(context.peerId, text, keyboard)
     }
 }
 
