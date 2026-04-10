@@ -603,7 +603,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
             `Курс: ${course_currency}${currency_emoji} → ${course_coin}${alliance_coin.smile}\n` +
             `Будет сконвертировано: ${coi}${currency_emoji} → ${calc}${alliance_coin.smile}\n\n` +
             `Введите количество ${currency_type} для конвертации:`,
-            {	
+            {   
                 keyboard: Keyboard.builder()
                     .textButton({ label: '!подтвердить', payload: { command: 'confirm' }, color: 'secondary' })
                     .textButton({ label: '!отмена', payload: { command: 'cancel' }, color: 'secondary' })
@@ -708,6 +708,22 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
             await Logger(`Конвертация: ${log_message} by player ${context.senderId}`);
             await context.send(user_message);
             
+            const allianceObj = await prisma.alliance.findFirst({ 
+                where: { id: user.id_alliance ?? 0 } 
+            });
+
+            const chatMessage = `⌛ @id${user.idvk}(${user.name}) конвертирует ${coi} [${currency_emoji} ${type === 'medal' ? 'Жетоны' : 'S-coins'}] в ${calc} [${alliance_coin.smile} ${alliance_coin.name}].\n\n` +
+                `${currency_emoji} --> ${currency_balance} - ${coi} = ${type === 'medal' ? currency_update.medal : currency_update.scoopins}\n` +
+                `${alliance_coin.smile} --> ${balance_check.amount} + ${calc} = ${balance_update.amount}`;
+
+            // 1. Всегда отправляем в глобальный лог-чат
+            await Send_Message(chat_id, chatMessage);
+
+            // 2. Отправляем в чат альянса (финансовый), если он привязан
+            if (allianceObj?.id_chat && allianceObj.id_chat > 0) {
+                await Send_Message(allianceObj.id_chat, chatMessage);
+            }
+            
             // Если валюта рейтинговая и разрешена конвертация в рейтинги
             if (alliance_coin.point && alliance_coin.converted_point) {
                 if (user.id_facult) {
@@ -716,7 +732,6 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                     });
                     
                     if (facult) {
-                        // НАЙДИТЕ или СОЗДАЙТЕ запись balanceFacult
                         let facult_balance = await prisma.balanceFacult.findFirst({ 
                             where: { 
                                 id_coin: alliance_coin.id, 
@@ -724,7 +739,6 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                             } 
                         });
                         
-                        // ЕСЛИ НЕТ ЗАПИСИ - СОЗДАЕМ!
                         if (!facult_balance) {
                             facult_balance = await prisma.balanceFacult.create({
                                 data: {
@@ -735,14 +749,12 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                             });
                         }
                         
-                        // Теперь обновляем
                         const updated_facult = await prisma.balanceFacult.update({ 
                             where: { id: facult_balance.id }, 
                             data: { amount: { increment: calc } } 
                         });
                         
                         if (updated_facult) {
-                            // Получаем терминологию для корректного отображения
                             const singular = await getTerminology(alliance.id, 'singular');
                             const dative = await getTerminology(alliance.id, 'dative');
                             
@@ -754,14 +766,6 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                     }
                 }
             }
-            
-            // Отправляем в чат логирования
-            await Send_Message(chat_id,
-                `🔄 Конвертация ${type === 'medal' ? 'жетонов' : 'S-coins'}\n` +
-                `👤 @id${user.idvk}(${user.name})\n` +
-                `${type === 'medal' ? '🔘' : '🌕'} ${coi} → ${calc}${alliance_coin.smile}\n` +
-                `${alliance_coin.name}`
-            );
         }
     }
     
