@@ -1,8 +1,10 @@
 import {
   VK_BUTTON_LABEL_MAX_LENGTH,
+  VK_MESSAGE_MAX_LENGTH,
   VK_SNACKBAR_TEXT_MAX_LENGTH,
   limitVkButtonLabel,
-  limitVkSnackbarText
+  limitVkSnackbarText,
+  splitVkMessage
 } from "../src/engine/core/vk_limits";
 
 function assert(condition: boolean, message: string): void {
@@ -43,3 +45,25 @@ assert(limitedSnackbarText.endsWith("..."), "Long snackbar text must end with el
 
 const shortSnackbarText = "🔔 Готово";
 assertEqual(limitVkSnackbarText(shortSnackbarText), shortSnackbarText);
+
+const longHelpText = [
+  "☠ Меню помощи Спектр-3001:",
+  "x".repeat(30),
+  "y".repeat(30),
+  "z".repeat(30)
+].join("\n");
+
+const helpParts = splitVkMessage(longHelpText, 40);
+
+assert(helpParts.length > 1, "Long help text must be split into several VK messages");
+assert(
+  helpParts.every((part) => part.length <= 40),
+  "Every split message part must fit the provided length limit"
+);
+assertEqual(helpParts.join("\n"), longHelpText);
+
+const defaultParts = splitVkMessage("a".repeat(VK_MESSAGE_MAX_LENGTH + 1));
+assert(
+  defaultParts.every((part) => part.length <= VK_MESSAGE_MAX_LENGTH),
+  "Every split message part must fit VK message default length limit"
+);

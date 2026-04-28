@@ -19,6 +19,7 @@ import { restartMonitor, stopMonitor } from "../monitring";
 import { Operation_Solo } from "./events/module/tranzaction/operation_solo";
 import { Operation_Group } from "./events/module/tranzaction/operation_group";
 import { AllianceShop_Printer } from "./events/module/shop/alliance_shop";
+import { AllianceShopItem_Mass_Transfer } from "./events/module/shop/alliance_shop_item_mass";
 import { AllianceShop_Selector } from "./events/module/shop/alliance_shop_client";
 import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_alliance";
 import { Keyboard_User_Main, Main_Menu_Init } from "./events/contoller";
@@ -33,6 +34,7 @@ import { createReadStream } from "fs";
 import * as path from 'path';
 import { join } from "path";
 import { AllianceChest_Manager } from "./events/module/alliance/alliance_chest_manager";
+import { splitVkMessage } from "./core/vk_limits";
 import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/alliance_menu";
 import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
 import { Legacy_Category_Printer } from "./events/module/shop/legacy_category_manager";
@@ -1095,7 +1097,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!помощь/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        await context.send(`☠ Меню помощи Спектр-3001:
+        const helpText = `☠ Меню помощи Спектр-3001:
                     \n👤 [!уведомления] — включить/выключить уведомления с мониторов
                     \n👤 [!уведы обсуждений] — включить/выключить уведомления о постах в обсуждениях
                     \n👤 [📊 Отчатор] — меню получения информации внутри ролевого проекта
@@ -1103,6 +1105,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n👤 [🔃👥] — смена персонажа
                     \n⭐ [⚙ !факультеты настроить] — настройка факультетов/фракций ролевой
                     \n⭐ [⚙ !магазины настроить] — управление магазинами ролевой
+                    \n⭐ [!товармасс] — массовый перенос товаров между категориями магазина
                     \n⭐ [⚙ !валюты настроить] — создание и настройка валют
                     \n⭐ [⚙ !положения настроить] — кастомизация кнопок положений персонажей
                     \n⭐ [⚙ !сундуки настроить] — создание и настройка сундуков, сундучков
@@ -1131,7 +1134,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
 • 🎭 @annterstellar — только если вы хотите вести здесь дела своей ролевой, то есть подключить ее к системе банка, интегрировать, синхронизировать, обсудить условия сотрудничества, возможности взаимодействия, перспективы развития и прочие организационно-ролевые моменты.
                     \n⚠ Важно: команда !помощь не создает заявку в поддержку и не вызывает человека. Бот не умеет читать мысли. Если нужна помощь — пиши кому-то из списка выше самостоятельно.
                     \n⚠ Команды с символами:\n👤 — Доступны обычным пользователям;\n⭐ — Доступны администраторам бота;`
-                )
+        for (const helpMessage of splitVkMessage(helpText)) {
+            await context.send(helpMessage)
+        }
         await Keyboard_Index(context, `⌛ 911, что у вас случилось?`)
     })
     hearManager.hear(/⚙ !магазины настроить/, async (context: any) => {
@@ -1147,6 +1152,18 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const keyboard = new KeyboardBuilder()
         await AllianceShop_Printer(context, user_check.id_alliance!)
         //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+    })
+    hearManager.hear(/!товармасс/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+        if (!account) { return }
+		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+		if (!user_check) { return }
+        if (await Accessed(context) == 1) { return }
+        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        await AllianceShopItem_Mass_Transfer(context, user_check.id_alliance!)
     })
     hearManager.hear(/⚙ !уровни настроить/, async (context) => {
     const anti_vk_defender = await Antivirus_VK(context)

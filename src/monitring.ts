@@ -1,11 +1,12 @@
 import { CommentContext, Context, LikeContext, VK, WallPostContext } from "vk-io";
 import prisma from "./engine/events/module/prisma_client";
-import { Group_Id_Get, Logger, Send_Message, Sleep } from "./engine/core/helper";
+import { Group_Id_Get, Logger, Send_Message } from "./engine/core/helper";
 import { Date_Compare_Resetor } from "./engine/events/module/alliance/limiter";
 import { chat_id, SECRET_KEY } from ".";
 import * as CryptoJS from 'crypto-js';
 import { Calc_Bonus_Activity, User_Bonus_Check } from "./engine/events/module/alliance/monitor";
 import { handleTopicPost } from "./engine/events/module/alliance/alliance_topic_monitor";
+import { MonitorStartupReportItem, buildMonitorStartupReportMessages } from "./engine/core/monitor_startup_report";
 
 // Функция для расшифровки данных
 function Decrypt_Data(encryptedData: string): string {
@@ -22,19 +23,29 @@ function Decrypt_Data(encryptedData: string): string {
 const monitors: { [key: number]: { running: boolean; instance: VK } } = {};
 
 export async function Monitoring() {
-    for (const monitor of await prisma.monitor.findMany({ where: { starting: true } })) {
+    const startupReports: MonitorStartupReportItem[] = [];
+    const startupMonitors = await prisma.monitor.findMany({ where: { starting: true } });
+    const allianceById = await getAllianceNameById(startupMonitors);
+
+    for (const monitor of startupMonitors) {
+        const allianceName = allianceById.get(monitor.id_alliance) ?? `Ролевая ${monitor.id_alliance}`;
+
         if (monitors[monitor.id]) {
             await Logger(`Монитор с ID ${monitor.id} уже запущен.`);
-            await Send_Message(chat_id, `⚠ Монитор с ID ${monitor.id} уже запущен.`);
+            startupReports.push(await buildAlreadyRunningMonitorReport(monitor, allianceName));
             continue;
         }
 
-        await startMonitor(monitor);
+        startupReports.push(await startMonitor(monitor, allianceName));
+    }
+
+    for (const message of buildMonitorStartupReportMessages(startupReports)) {
+        await Send_Message(chat_id, message);
     }
 }
 
 // Функция для запуска монитора
-async function startMonitor(monitor: any) {
+async function startMonitor(monitor: any, allianceName?: string): Promise<MonitorStartupReportItem> {
     try {
         const idvk = await Group_Id_Get(Decrypt_Data(monitor.token));
         const token = Decrypt_Data(monitor.token);
@@ -306,43 +317,34 @@ async function startMonitor(monitor: any) {
             return next();
         });
 
-        // Запускаем мониторинг
-        vks.updates.start().then(async () => {
-            monitors[monitor.id] = { running: true, instance: vks };
-            
-            // Проверяем, есть ли отслеживаемые обсуждения
-            const topicMonitors = await prisma.topicMonitor.findMany({
-                where: { monitorId: monitor.id }
-            });
-            
-            await Logger(`(system) ~ running monitor ${monitor.name}-${monitor.idvk} success by <system> №0`);
-            await Logger(`🎯 Монитор ${monitor.id}: отслеживание обсуждений ${topicMonitors.length > 0 ? '✅' : '❌'}`);
-            
-            if (topicMonitors.length > 0) {
-                console.log(`📚 Монитор ${monitor.id} отслеживает ${topicMonitors.length} обсуждений`);
-                await Logger(`📊 Монитор ${monitor.id} отслеживает ${topicMonitors.length} обсуждений`);
-            } else {
-                console.log(`⚠ Монитор ${monitor.id} не отслеживает обсуждения`);
-            }
-            
-            await Sleep(5000);
-            await Send_Message(chat_id, `🎥 Мама я заработаль, монитор №${monitor.id} по адресу: https://vk.com/club${monitor.idvk}`);
-            
-            // Отправляем отдельное сообщение об отслеживании обсуждений
-            if (topicMonitors.length > 0) {
-                await Send_Message(chat_id, 
-                    `📚 Монитор №${monitor.id} отслеживает ${topicMonitors.length} обсуждений`
-                );
-            }
-            
-            try {
-                await vks.api.groups.enableOnline({ group_id: monitor.idvk });
-            } catch (e) {
-                Logger(`${e}`);
-            }
-        }).catch(console.error);
+        await vks.updates.start();
+        monitors[monitor.id] = { running: true, instance: vks };
+
+        // Проверяем, есть ли отслеживаемые обсуждения
+        const topicMonitors = await prisma.topicMonitor.findMany({
+            where: { monitorId: monitor.id }
+        });
+
+        await Logger(`(system) ~ running monitor ${monitor.name}-${monitor.idvk} success by <system> №0`);
+        await Logger(`🎯 Монитор ${monitor.id}: отслеживание обсуждений ${topicMonitors.length > 0 ? '✅' : '❌'}`);
+
+        if (topicMonitors.length > 0) {
+            console.log(`📚 Монитор ${monitor.id} отслеживает ${topicMonitors.length} обсуждений`);
+            await Logger(`📊 Монитор ${monitor.id} отслеживает ${topicMonitors.length} обсуждений`);
+        } else {
+            console.log(`⚠ Монитор ${monitor.id} не отслеживает обсуждения`);
+        }
+
+        try {
+            await vks.api.groups.enableOnline({ group_id: monitor.idvk });
+        } catch (e) {
+            Logger(`${e}`);
+        }
+
+        return buildMonitorReport(monitor, allianceName, topicMonitors.length, "started");
     } catch (error) {
         console.error(error);
+        return buildMonitorReport(monitor, allianceName, 0, "failed", `${error}`);
     }
 }
 
@@ -379,7 +381,54 @@ export async function restartMonitor(monitorId: number) {
         return;
     }
 
-    await startMonitor(monitor);
-    await Logger(`Монитор с ID ${monitorId} запущен вручную.`);
-    await Send_Message(chat_id, `🚀 Монитор с ID ${monitorId} запущен вручную.`);
+    const result = await startMonitor(monitor);
+
+    if (result.status === "started") {
+        await Logger(`Монитор с ID ${monitorId} запущен вручную.`);
+        await Send_Message(chat_id, `🚀 Монитор с ID ${monitorId} запущен вручную.`);
+        return;
+    }
+
+    await Send_Message(chat_id, `⚠ Монитор с ID ${monitorId} не запустился: ${result.errorMessage ?? "ошибка запуска"}`);
+}
+
+async function getAllianceNameById(startupMonitors: any[]): Promise<Map<number, string>> {
+    const allianceIds = Array.from(new Set(startupMonitors.map((monitor) => monitor.id_alliance)));
+    const alliances = allianceIds.length > 0
+        ? await prisma.alliance.findMany({ where: { id: { in: allianceIds } } })
+        : [];
+    const allianceById = new Map<number, string>();
+
+    for (const alliance of alliances) {
+        allianceById.set(alliance.id, alliance.name);
+    }
+
+    return allianceById;
+}
+
+async function buildAlreadyRunningMonitorReport(monitor: any, allianceName: string): Promise<MonitorStartupReportItem> {
+    const topicCount = await prisma.topicMonitor.count({
+        where: { monitorId: monitor.id }
+    });
+
+    return buildMonitorReport(monitor, allianceName, topicCount, "already_running");
+}
+
+function buildMonitorReport(
+    monitor: any,
+    allianceName: string | undefined,
+    topicCount: number,
+    status: MonitorStartupReportItem["status"],
+    errorMessage?: string
+): MonitorStartupReportItem {
+    return {
+        allianceId: monitor.id_alliance,
+        allianceName: allianceName ?? `Ролевая ${monitor.id_alliance}`,
+        monitorId: monitor.id,
+        monitorName: monitor.name,
+        groupId: monitor.idvk,
+        topicCount,
+        status,
+        errorMessage
+    };
 }
