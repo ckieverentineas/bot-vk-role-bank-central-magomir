@@ -11,7 +11,7 @@ ALTER TABLE "PostStatistic" ADD COLUMN "extraRewardCoinId" INTEGER;
 
 UPDATE "PostStatistic"
 SET "rewardCoinId" = (
-    SELECT COALESCE("Monitor"."id_topic_coin", "Monitor"."id_coin")
+    SELECT "Monitor"."id_coin"
     FROM "TopicMonitor"
     JOIN "Monitor" ON "Monitor"."id" = "TopicMonitor"."monitorId"
     WHERE "TopicMonitor"."id" = "PostStatistic"."topicMonitorId"

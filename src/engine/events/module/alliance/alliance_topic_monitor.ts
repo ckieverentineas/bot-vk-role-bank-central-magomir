@@ -1639,7 +1639,11 @@ async function notifyUserOfTopicPostChange(params: {
         `${balanceText}` +
         `🧷 Ссылка: https://vk.com/topic${params.monitor.idvk}_${params.context.topicId}?post=${params.context.id}`;
 
-    await Send_Message(account.idvk, message);
+    try {
+        await Send_Message(account.idvk, message);
+    } catch (error) {
+        console.error(`❌ Ошибка отправки уведомления о посте: ${error}`);
+    }
 }
 
 function getTopicPostActionText(action: 'new' | 'edit' | 'restore'): string {
@@ -1702,7 +1706,11 @@ async function notifyUserOfRewardTransfer(
         formatAppliedRewardBalanceText(appliedChanges) +
         `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
 
-    await Send_Message(account.idvk, message);
+    try {
+        await Send_Message(account.idvk, message);
+    } catch (error) {
+        console.error(`❌ Ошибка отправки уведомления о переводе награды: ${error}`);
+    }
 }
 
 // Обработчик новых постов в обсуждениях
@@ -1824,7 +1832,7 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             specifiedUid,
             hashtags: relevantHashtags,
             oldDisplayPc,
-            oldHadReward,
+            oldHadReward: userChanged ? false : oldHadReward,
             userChanged,
             appliedChanges
         });
