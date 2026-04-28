@@ -6,6 +6,7 @@ import { Alliance, AllianceFacult, User } from "@prisma/client"
 import { Image_Text_Add_Card } from "../../core/imagecpu"
 import { Person_Get } from "./person/person"
 import { Accessed, Logger, Send_Message } from "../../core/helper"
+import { limitVkSnackbarText } from "../../core/vk_limits"
 import { Person_Coin_Printer } from "./person/person_coin"
 import { Facult_Rank_Printer } from "./alliance/facult_rank"
 import { image_admin } from "./data_center/system_image"
@@ -231,7 +232,7 @@ export async function Card_Enter(context: any) {
         peer_id: context.peerId,
         event_data: JSON.stringify({
           type: "show_snackbar",
-          text: `🔔 ${snackbarText}`
+          text: limitVkSnackbarText(`🔔 ${snackbarText}`)
         })
       })
     }

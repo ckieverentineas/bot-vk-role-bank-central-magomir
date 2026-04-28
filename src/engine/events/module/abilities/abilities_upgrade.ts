@@ -4,6 +4,7 @@ import prisma from "../prisma_client";
 import { 
   Send_Message
 } from "../../../core/helper";
+import { limitVkButtonLabel } from "../../../core/vk_limits";
 import { Person_Get } from "../person/person";
 import { ico_list } from "../data_center/icons_lib";
 import { getLevelName, getAbilityPrice, getAllianceLevels } from "./abilities_helper";
@@ -172,9 +173,12 @@ export async function Abilities_Upgrade_Menu(context: any) {
 
   for (let i = 0; i < pageUpgradable.length; i++) {
     const item = pageUpgradable[i];
+    const upgradeLabel = limitVkButtonLabel(
+      `⬆️ ${item.abilityName} → ${item.nextLevelName} (${item.price}${item.currencySmile})`
+    );
     
     keyboard.callbackButton({
-      label: `⬆️ ${item.abilityName.slice(0, 25)} → ${item.nextLevelName.slice(0, 15)} (${item.price}${item.currencySmile})`,
+      label: upgradeLabel,
       payload: { 
         command: 'do_upgrade_action',
         abilityId: item.abilityId,
