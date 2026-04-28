@@ -1734,14 +1734,6 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             processingPosts.delete(processingKey);
         }, 30000);
 
-        if (action !== 'delete' && !context.text) {
-            return;
-        }
-
-        if (action !== 'delete' && (!context.fromId || context.fromId <= 0)) {
-            return;
-        }
-
         const topicMonitorRecord = await prisma.topicMonitor.findFirst({
             where: {
                 monitorId: monitor.id,
@@ -1760,10 +1752,16 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             return;
         }
 
-        const text = context.text || '';
+        const text = context.text;
+        const senderUserId = context.fromId;
+
+        if (!text || !senderUserId || senderUserId <= 0) {
+            return;
+        }
+
         const { user: targetUser, uidSpecified, specifiedUid } = await determineTargetUser(
             text,
-            context.fromId,
+            senderUserId,
             monitor.id_alliance
         );
 
