@@ -1,12 +1,17 @@
 export interface MonitorTopicSettingsSource {
     id_coin?: number | null;
     id_topic_coin?: number | null;
+    id_topic_extra_coin?: number | null;
     topicMinPcLines?: number | null;
     topicMinPcMessage?: string | null;
     topicRewardEnabled?: boolean | null;
     topicLinesRewards?: string | null;
     topicUniformReward?: number | null;
     topicRewardMinLines?: number | null;
+    topicExtraRewardEnabled?: boolean | null;
+    topicExtraLinesRewards?: string | null;
+    topicExtraUniformReward?: number | null;
+    topicExtraRewardMinLines?: number | null;
 }
 
 export interface LegacyTopicSettingsSource {
@@ -27,8 +32,94 @@ export interface TopicRewardSettings {
     rewardMinLines: number;
 }
 
+export interface TopicCurrencyRewardSettings {
+    rewardEnabled: boolean;
+    linesRewards: string | null;
+    uniformReward: number | null;
+    rewardMinLines: number;
+}
+
+export interface PostStatisticRewardSource {
+    rewardGiven?: boolean | null;
+    rewardAmount?: number | null;
+    rewardCoinId?: number | null;
+}
+
+export interface PostStatisticExtraRewardSource {
+    extraRewardGiven?: boolean | null;
+    extraRewardAmount?: number | null;
+    extraRewardCoinId?: number | null;
+}
+
+export interface RewardBalanceChange {
+    coinId: number;
+    amountChange: number;
+}
+
 export function getTopicRewardCoinId(monitor: MonitorTopicSettingsSource): number | null {
     return monitor.id_topic_coin ?? monitor.id_coin ?? null;
+}
+
+export function getTopicExtraRewardCoinId(monitor: MonitorTopicSettingsSource): number | null {
+    return monitor.id_topic_extra_coin ?? null;
+}
+
+export function getRewardCoinIdForPostStatistic(
+    rewardGiven: boolean,
+    rewardAmount: number | null,
+    monitor: MonitorTopicSettingsSource
+): number | null {
+    return rewardGiven && (rewardAmount ?? 0) > 0
+        ? getTopicRewardCoinId(monitor)
+        : null;
+}
+
+export function getPostStatisticRewardCoinId(
+    postStatistic: PostStatisticRewardSource | null | undefined,
+    monitor: MonitorTopicSettingsSource
+): number | null {
+    if (!postStatistic?.rewardGiven || !postStatistic.rewardAmount || postStatistic.rewardAmount <= 0) {
+        return null;
+    }
+
+    return postStatistic.rewardCoinId ?? getTopicRewardCoinId(monitor);
+}
+
+export function getExtraRewardCoinIdForPostStatistic(
+    extraRewardGiven: boolean,
+    extraRewardAmount: number | null,
+    monitor: MonitorTopicSettingsSource
+): number | null {
+    return extraRewardGiven && (extraRewardAmount ?? 0) > 0
+        ? getTopicExtraRewardCoinId(monitor)
+        : null;
+}
+
+export function getPostStatisticExtraRewardCoinId(
+    postStatistic: PostStatisticExtraRewardSource | null | undefined,
+    monitor: MonitorTopicSettingsSource
+): number | null {
+    if (!postStatistic?.extraRewardGiven || !postStatistic.extraRewardAmount || postStatistic.extraRewardAmount <= 0) {
+        return null;
+    }
+
+    return postStatistic.extraRewardCoinId ?? getTopicExtraRewardCoinId(monitor);
+}
+
+export function buildRewardBalanceChanges(
+    oldRewardAmount: number,
+    oldRewardCoinId: number | null,
+    newRewardAmount: number,
+    newRewardCoinId: number | null
+): RewardBalanceChange[] {
+    const changes = new Map<number, number>();
+
+    addRewardBalanceChange(changes, oldRewardCoinId, -Math.max(0, oldRewardAmount));
+    addRewardBalanceChange(changes, newRewardCoinId, Math.max(0, newRewardAmount));
+
+    return Array.from(changes.entries())
+        .filter(([, amountChange]) => amountChange !== 0)
+        .map(([coinId, amountChange]) => ({ coinId, amountChange }));
 }
 
 export function resolveTopicRewardSettings(
@@ -42,6 +133,15 @@ export function resolveTopicRewardSettings(
         linesRewards: getNullableStringSetting(monitor, "topicLinesRewards", legacyTopic?.linesRewards ?? null),
         uniformReward: getNullableNumberSetting(monitor, "topicUniformReward", legacyTopic?.uniformReward ?? null),
         rewardMinLines: getNumberSetting(monitor, "topicRewardMinLines", legacyTopic?.rewardMinLines ?? 1)
+    };
+}
+
+export function resolveTopicExtraRewardSettings(monitor: MonitorTopicSettingsSource): TopicCurrencyRewardSettings {
+    return {
+        rewardEnabled: getBooleanSetting(monitor, "topicExtraRewardEnabled", false),
+        linesRewards: getNullableStringSetting(monitor, "topicExtraLinesRewards", null),
+        uniformReward: getNullableNumberSetting(monitor, "topicExtraUniformReward", null),
+        rewardMinLines: getNumberSetting(monitor, "topicExtraRewardMinLines", 1)
     };
 }
 
@@ -59,7 +159,7 @@ export function applyMonitorTopicSettings<T extends LegacyTopicSettingsSource>(
 
 function getNumberSetting(
     source: MonitorTopicSettingsSource,
-    key: "topicMinPcLines" | "topicRewardMinLines",
+    key: "topicMinPcLines" | "topicRewardMinLines" | "topicExtraRewardMinLines",
     fallback: number
 ): number {
     if (!hasOwnSetting(source, key)) {
@@ -73,7 +173,7 @@ function getNumberSetting(
 
 function getNullableNumberSetting(
     source: MonitorTopicSettingsSource,
-    key: "topicUniformReward",
+    key: "topicUniformReward" | "topicExtraUniformReward",
     fallback: number | null
 ): number | null {
     if (!hasOwnSetting(source, key)) {
@@ -87,7 +187,7 @@ function getNullableNumberSetting(
 
 function getNullableStringSetting(
     source: MonitorTopicSettingsSource,
-    key: "topicMinPcMessage" | "topicLinesRewards",
+    key: "topicMinPcMessage" | "topicLinesRewards" | "topicExtraLinesRewards",
     fallback: string | null
 ): string | null {
     if (!hasOwnSetting(source, key)) {
@@ -101,7 +201,7 @@ function getNullableStringSetting(
 
 function getBooleanSetting(
     source: MonitorTopicSettingsSource,
-    key: "topicRewardEnabled",
+    key: "topicRewardEnabled" | "topicExtraRewardEnabled",
     fallback: boolean
 ): boolean {
     if (!hasOwnSetting(source, key)) {
@@ -115,4 +215,12 @@ function getBooleanSetting(
 
 function hasOwnSetting(source: object, key: keyof MonitorTopicSettingsSource): boolean {
     return Object.prototype.hasOwnProperty.call(source, key);
+}
+
+function addRewardBalanceChange(changes: Map<number, number>, coinId: number | null, amountChange: number): void {
+    if (!coinId || amountChange === 0) {
+        return;
+    }
+
+    changes.set(coinId, (changes.get(coinId) ?? 0) + amountChange);
 }

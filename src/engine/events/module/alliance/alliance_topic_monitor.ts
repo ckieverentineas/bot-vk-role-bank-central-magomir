@@ -12,8 +12,16 @@ import { serializeLinesRewards, parseLinesRewards } from "../topic_statistic";
 import { getMonitorHashtags, addMonitorHashtag, removeMonitorHashtag, extractHashtags } from "./hashtag_manager";
 import {
     applyMonitorTopicSettings,
+    buildRewardBalanceChanges,
+    getExtraRewardCoinIdForPostStatistic,
+    getPostStatisticExtraRewardCoinId,
+    getPostStatisticRewardCoinId,
+    getRewardCoinIdForPostStatistic,
+    getTopicExtraRewardCoinId,
     getTopicRewardCoinId,
     resolveTopicRewardSettings,
+    resolveTopicExtraRewardSettings,
+    RewardBalanceChange,
     TopicRewardSettings
 } from "../topic_monitor_settings";
 
@@ -38,12 +46,17 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
         const currentMonitor = await prisma.monitor.findFirst({ where: { id: monitor.id } });
         const activeMonitor = currentMonitor ?? monitor;
         const topicSettings = resolveTopicRewardSettings(activeMonitor);
+        const extraTopicSettings = resolveTopicExtraRewardSettings(activeMonitor);
         const defaultCoin = await prisma.allianceCoin.findFirst({
             where: { id: activeMonitor.id_coin ?? 0 }
         });
         const topicCoinId = getTopicRewardCoinId(activeMonitor);
         const topicCoin = topicCoinId
             ? await prisma.allianceCoin.findFirst({ where: { id: topicCoinId } })
+            : null;
+        const extraTopicCoinId = getTopicExtraRewardCoinId(activeMonitor);
+        const extraTopicCoin = extraTopicCoinId
+            ? await prisma.allianceCoin.findFirst({ where: { id: extraTopicCoinId } })
             : null;
 
         if (topicCoin) {
@@ -53,7 +66,7 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
         } else {
             event_logger += `💰 Валюта наград: не настроена\n`;
         }
-        event_logger += buildMonitorTopicSettingsText(topicSettings, topicCoin ?? defaultCoin);
+        event_logger += buildMonitorTopicSettingsText(topicSettings, topicCoin ?? defaultCoin, extraTopicSettings, extraTopicCoin);
         event_logger += `\n`;
         
         // ДОБАВЛЕНО: Отображение хештегов монитора
@@ -215,7 +228,7 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
         
         // Создаем клавиатуру
         const keyboard = new KeyboardBuilder();
-        let text = `${ico_list['money'].ico} Выберите валюту для наград в обсуждениях:\n`;
+        let text = `${ico_list['money'].ico} Выберите валюты для РП-постов в обсуждениях:\n`;
         text += `Монитор: "${currentMonitor.name}"\n\n`;
         
         // Текущая валюта (ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ МОНИТОР)
@@ -224,78 +237,70 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
         });
         const currentTopicCoin = currentMonitor.id_topic_coin ? 
             await prisma.allianceCoin.findFirst({ where: { id: currentMonitor.id_topic_coin } }) : null;
+        const currentExtraTopicCoin = currentMonitor.id_topic_extra_coin
+            ? await prisma.allianceCoin.findFirst({ where: { id: currentMonitor.id_topic_extra_coin } })
+            : null;
         
         text += `Текущая настройка:\n`;
         if (currentTopicCoin) {
-            text += `• Валюта обсуждений: ${currentTopicCoin.smile} ${currentTopicCoin.name}\n`;
+            text += `• Основная валюта РП-постов: ${currentTopicCoin.smile} ${currentTopicCoin.name}\n`;
         } else {
-            text += `• Используется валюта монитора: ${defaultCoin?.smile || '❌'} ${defaultCoin?.name || 'Не выбрана'}\n`;
+            text += `• Основная валюта РП-постов: валюта монитора ${defaultCoin?.smile || '❌'} ${defaultCoin?.name || 'Не выбрана'}\n`;
+        }
+        if (currentExtraTopicCoin) {
+            text += `• Доп. валюта РП-постов: ${currentExtraTopicCoin.smile} ${currentExtraTopicCoin.name}\n`;
+        } else {
+            text += `• Доп. валюта РП-постов: не настроена\n`;
         }
         text += `\nДоступные валюты:\n`;
 
-        // Добавляем кнопки валют
-        let rowIndex = 0;
-        for (let i = 0; i < coins.length; i += 2) {
-            const coin1 = coins[i];
-            let coin2 = null;
-            
-            if (i + 1 < coins.length) {
-                coin2 = coins[i + 1];
-            }
-            
-            // Проверяем, выбрана ли эта валюта (ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ МОНИТОР)
-            const isSelected1 = currentMonitor.id_topic_coin === coin1.id || 
-                               (!currentMonitor.id_topic_coin && currentMonitor.id_coin === coin1.id);
-            
-            const label1 = isSelected1 ? 
-                `${coin1.smile} ${coin1.name.slice(0, 12)} ✅` : 
-                `${coin1.smile} ${coin1.name.slice(0, 12)}`;
-            
+        for (const coin of coins) {
+            const isPrimarySelected = currentMonitor.id_topic_coin === coin.id ||
+                (!currentMonitor.id_topic_coin && currentMonitor.id_coin === coin.id);
+            const isExtraSelected = currentMonitor.id_topic_extra_coin === coin.id;
+
             keyboard.textButton({
-                label: label1,
+                label: `${coin.smile} Осн.${isPrimarySelected ? " ✅" : ""}`,
                 payload: {
                     command: 'topic_currency_select',
                     monitorId: currentMonitor.id,
-                    coinId: coin1.id,
+                    coinId: coin.id,
                     cursor: cursor
                 },
-                color: isSelected1 ? 'positive' : 'secondary'
+                color: isPrimarySelected ? 'positive' : 'secondary'
+            })
+            .textButton({
+                label: `${coin.smile} Доп.${isExtraSelected ? " ✅" : ""}`,
+                payload: {
+                    command: 'topic_extra_currency_select',
+                    monitorId: currentMonitor.id,
+                    coinId: coin.id,
+                    cursor: cursor
+                },
+                color: isExtraSelected ? 'positive' : 'secondary'
             });
-
-            if (coin2) {
-                const isSelected2 = currentMonitor.id_topic_coin === coin2.id || 
-                                   (!currentMonitor.id_topic_coin && currentMonitor.id_coin === coin2.id);
-                
-                const label2 = isSelected2 ? 
-                    `${coin2.smile} ${coin2.name.slice(0, 12)} ✅` : 
-                    `${coin2.smile} ${coin2.name.slice(0, 12)}`;
-                
-                keyboard.textButton({
-                    label: label2,
-                    payload: {
-                        command: 'topic_currency_select',
-                        monitorId: currentMonitor.id,
-                        coinId: coin2.id,
-                        cursor: cursor
-                    },
-                    color: isSelected2 ? 'positive' : 'secondary'
-                });
-            }
             keyboard.row();
-            
-            rowIndex++;
-            text += `${i + 1}. ${coin1.smile} ${coin1.name}\n`;
-            if (coin2) {
-                text += `${i + 2}. ${coin2.smile} ${coin2.name}\n`;
-            }
+            text += `${coin.smile} ${coin.name}\n`;
         }
 
         // Кнопка для сброса к валюте монитора (только если задана отдельная валюта)
         if (currentMonitor.id_topic_coin) {
             keyboard.textButton({
-                label: '🔄 Использовать валюту монитора',
+                label: '🔄 Основная = валюта монитора',
                 payload: {
                     command: 'topic_currency_reset',
+                    monitorId: currentMonitor.id,
+                    cursor: cursor
+                },
+                color: 'negative'
+            }).row();
+        }
+
+        if (currentMonitor.id_topic_extra_coin) {
+            keyboard.textButton({
+                label: '🚫 Отключить доп. валюту',
+                payload: {
+                    command: 'topic_extra_currency_reset',
                     monitorId: currentMonitor.id,
                     cursor: cursor
                 },
@@ -325,7 +330,6 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
             return { cursor: cursor, stop: true };
         }
 
-        // Обработка выбора валюты
         if (answer.payload?.command === 'topic_currency_select') {
             const coinId = answer.payload.coinId;
             const monitorId = answer.payload.monitorId;
@@ -357,6 +361,31 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
             await context.send(`${ico_list['save'].ico} Валюта установлена: ${coin?.smile} ${coin?.name}`);
             
             // Не выходим из цикла - показываем обновленное меню снова
+            continue;
+        }
+
+        if (answer.payload?.command === 'topic_extra_currency_select') {
+            const coinId = answer.payload.coinId;
+            const monitorId = answer.payload.monitorId;
+            const cursor = answer.payload.cursor;
+
+            await prisma.monitor.update({
+                where: { id: monitorId },
+                data: { id_topic_extra_coin: coinId }
+            });
+
+            const updatedMonitor = await prisma.monitor.findFirst({
+                where: { id: monitorId }
+            });
+
+            if (!updatedMonitor) {
+                await context.send(`${ico_list['warn'].ico} Ошибка обновления монитора!`);
+                return { cursor: cursor, stop: true };
+            }
+
+            const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId } });
+            monitor = updatedMonitor;
+            await context.send(`${ico_list['save'].ico} Доп. валюта РП-постов установлена: ${coin?.smile} ${coin?.name}`);
             continue;
         }
 
@@ -395,6 +424,29 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
             continue;
         }
 
+        if (answer.payload?.command === 'topic_extra_currency_reset') {
+            const monitorId = answer.payload.monitorId;
+            const cursor = answer.payload.cursor;
+
+            await prisma.monitor.update({
+                where: { id: monitorId },
+                data: { id_topic_extra_coin: null }
+            });
+
+            const updatedMonitor = await prisma.monitor.findFirst({
+                where: { id: monitorId }
+            });
+
+            if (!updatedMonitor) {
+                await context.send(`${ico_list['warn'].ico} Ошибка обновления монитора!`);
+                return { cursor: cursor, stop: true };
+            }
+
+            monitor = updatedMonitor;
+            await context.send(`${ico_list['save'].ico} Доп. валюта РП-постов отключена`);
+            continue;
+        }
+
         // Возврат к управлению обсуждениями
         if (answer.payload?.command === 'topic_monitor_return_from_currency') {
             returnToMain = true;
@@ -419,7 +471,12 @@ export async function Topic_Monitor_Set_Currency(context: any, data: any, monito
     return { cursor: cursor, stop: true };
 }
 
-function buildMonitorTopicSettingsText(settings: TopicRewardSettings, coin: any): string {
+function buildMonitorTopicSettingsText(
+    settings: TopicRewardSettings,
+    coin: any,
+    extraSettings = resolveTopicExtraRewardSettings({}),
+    extraCoin: any = null
+): string {
     let text = `📏 Общий минимум поста: ${settings.minPcLines} ПК строк\n`;
 
     if (settings.minPcMessage) {
@@ -429,23 +486,54 @@ function buildMonitorTopicSettingsText(settings: TopicRewardSettings, coin: any)
     }
 
     if (!settings.rewardEnabled) {
-        return `${text}💰 Награды: ❌\n`;
-    }
-
-    if (settings.uniformReward) {
-        text += `💰 Награды: ✅ единая ${settings.uniformReward}${coin?.smile || ""}\n`;
+        text += `💰 Основные награды: ❌\n`;
+    } else if (settings.uniformReward) {
+        text += `💰 Основные награды: ✅ единая ${settings.uniformReward}${coin?.smile || ""}\n`;
     } else if (settings.linesRewards) {
         const rewards = parseLinesRewards(settings.linesRewards);
         const rewardsText = rewards.length > 0
             ? rewards.map((reward) => `${reward.lines} ПК = ${reward.reward}${coin?.smile || ""}`).join(", ")
             : "ступенчатая настройка пустая";
 
-        text += `💰 Награды: ✅ ${rewardsText}\n`;
+        text += `💰 Основные награды: ✅ ${rewardsText}\n`;
     } else {
-        text += `💰 Награды: ✅ без суммы\n`;
+        text += `💰 Основные награды: ✅ без суммы\n`;
     }
 
-    return `${text}⚡ Общий минимум для награды: ${settings.rewardMinLines} ПК строк\n`;
+    text += `⚡ Общий минимум для основной награды: ${settings.rewardMinLines} ПК строк\n`;
+
+    if (!extraCoin) {
+        return `${text}➕ Доп. валюта РП-постов: не настроена\n`;
+    }
+
+    text += `➕ Доп. валюта РП-постов: ${extraCoin.smile} ${extraCoin.name}\n`;
+
+    if (!extraSettings.rewardEnabled) {
+        return `${text}➕ Доп. награды: ❌\n`;
+    }
+
+    if (extraSettings.uniformReward) {
+        text += `➕ Доп. награды: ✅ единая ${extraSettings.uniformReward}${extraCoin.smile || ""}\n`;
+    } else if (extraSettings.linesRewards) {
+        const rewards = parseLinesRewards(extraSettings.linesRewards);
+        const rewardsText = rewards.length > 0
+            ? rewards.map((reward) => `${reward.lines} ПК = ${reward.reward}${extraCoin.smile || ""}`).join(", ")
+            : "ступенчатая настройка пустая";
+
+        text += `➕ Доп. награды: ✅ ${rewardsText}\n`;
+    } else {
+        text += `➕ Доп. награды: ✅ без суммы\n`;
+    }
+
+    return `${text}⚡ Общий минимум для доп. награды: ${extraSettings.rewardMinLines} ПК строк\n`;
+}
+
+async function getTopicExtraRewardCoin(monitor: any): Promise<any | null> {
+    const extraCoinId = getTopicExtraRewardCoinId(monitor);
+
+    return extraCoinId
+        ? prisma.allianceCoin.findFirst({ where: { id: extraCoinId } })
+        : null;
 }
 
 // Выбор монитора
@@ -559,6 +647,7 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
             ? await prisma.allianceCoin.findFirst({ where: { id: coinId } })
             : null;
         const settings = resolveTopicRewardSettings(currentMonitor);
+        const extraSettings = resolveTopicExtraRewardSettings(currentMonitor);
         const keyboard = new KeyboardBuilder()
             .textButton({
                 label: "📏 Минимум",
@@ -571,13 +660,23 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
                 color: "secondary"
             }).row()
             .textButton({
-                label: "💰 Награды",
+                label: "💰 Осн. награды",
                 payload: { command: "topic_settings_rewards", cursor },
                 color: "primary"
             })
             .textButton({
-                label: "⚡ Мин. награды",
+                label: "⚡ Мин. осн.",
                 payload: { command: "topic_settings_reward_min", cursor },
+                color: "secondary"
+            }).row()
+            .textButton({
+                label: "➕ Доп. награды",
+                payload: { command: "topic_settings_extra_rewards", cursor },
+                color: "primary"
+            })
+            .textButton({
+                label: "➕ Мин. доп.",
+                payload: { command: "topic_settings_extra_reward_min", cursor },
                 color: "secondary"
             }).row()
             .textButton({
@@ -588,7 +687,7 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
 
         const answer: any = await context.question(
             `${ico_list['config'].ico} Общие параметры обсуждений для монитора "${currentMonitor.name}"\n\n` +
-            buildMonitorTopicSettingsText(settings, coin),
+            buildMonitorTopicSettingsText(settings, coin, extraSettings, await getTopicExtraRewardCoin(currentMonitor)),
             { keyboard, answerTimeLimit }
         );
 
@@ -608,6 +707,12 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
                 break;
             case "topic_settings_reward_min":
                 await editMonitorTopicRewardMinLines(context, currentMonitor);
+                break;
+            case "topic_settings_extra_rewards":
+                await editMonitorTopicExtraRewards(context, currentMonitor);
+                break;
+            case "topic_settings_extra_reward_min":
+                await editMonitorTopicExtraRewardMinLines(context, currentMonitor);
                 break;
             case "topic_settings_back":
                 exit = true;
@@ -712,8 +817,8 @@ async function selectRewardType(context: any): Promise<'uniform' | 'lines' | nul
     return answer.payload?.command as 'uniform' | 'lines';
 }
 
-async function configureLinesRewards(context: any, monitor: any): Promise<string | null> {
-    const coinId = getTopicRewardCoinId(monitor);
+async function configureLinesRewards(context: any, monitor: any, rewardCoinId?: number | null): Promise<string | null> {
+    const coinId = rewardCoinId ?? getTopicRewardCoinId(monitor);
     const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
     const rewards = [];
     let moreLines = true;
@@ -862,6 +967,91 @@ async function editMonitorTopicRewardMinLines(context: any, monitor: any): Promi
         data: { topicRewardMinLines: Math.max(0, newValue) }
     });
     await context.send(`✅ Общий минимум для награды обновлен: ${Math.max(0, newValue)} ПК строк`);
+}
+
+async function editMonitorTopicExtraRewards(context: any, monitor: any): Promise<void> {
+    const extraCoinId = getTopicExtraRewardCoinId(monitor);
+    const extraCoin = extraCoinId
+        ? await prisma.allianceCoin.findFirst({ where: { id: extraCoinId } })
+        : null;
+
+    if (!extraCoin) {
+        await context.send(`➕ Сначала выберите доп. валюту РП-постов в меню "Валюта".`);
+        return;
+    }
+
+    const rewardType = await selectRewardType(context);
+
+    if (!rewardType) {
+        await prisma.monitor.update({
+            where: { id: monitor.id },
+            data: {
+                topicExtraRewardEnabled: false,
+                topicExtraUniformReward: null,
+                topicExtraLinesRewards: null
+            }
+        });
+        await context.send(`✅ Доп. награды за РП-посты отключены`);
+        return;
+    }
+
+    if (rewardType === "uniform") {
+        const rewardInput = await Input_Number(
+            context,
+            `Введите доп. награду за РП-пост (в ${extraCoin.smile} ${extraCoin.name}):`,
+            false
+        );
+
+        if (rewardInput === false) {
+            return;
+        }
+
+        await prisma.monitor.update({
+            where: { id: monitor.id },
+            data: {
+                topicExtraRewardEnabled: true,
+                topicExtraUniformReward: rewardInput,
+                topicExtraLinesRewards: null
+            }
+        });
+        await context.send(`✅ Доп. награда РП-постов установлена: ${rewardInput}${extraCoin.smile || ""}`);
+        return;
+    }
+
+    const linesConfig = await configureLinesRewards(context, monitor, extraCoin.id);
+
+    if (!linesConfig) {
+        return;
+    }
+
+    await prisma.monitor.update({
+        where: { id: monitor.id },
+        data: {
+            topicExtraRewardEnabled: true,
+            topicExtraLinesRewards: linesConfig,
+            topicExtraUniformReward: null
+        }
+    });
+    await context.send(`✅ Доп. награды РП-постов за ПК строки настроены`);
+}
+
+async function editMonitorTopicExtraRewardMinLines(context: any, monitor: any): Promise<void> {
+    const currentValue = monitor.topicExtraRewardMinLines ?? 1;
+    const newValue = await Input_Number(
+        context,
+        `Текущий минимум для доп. награды: ${currentValue} ПК строк.\nВведите новое значение (0 = награждать любые посты):`,
+        true
+    );
+
+    if (newValue === false || newValue < 0) {
+        return;
+    }
+
+    await prisma.monitor.update({
+        where: { id: monitor.id },
+        data: { topicExtraRewardMinLines: Math.max(0, newValue) }
+    });
+    await context.send(`✅ Минимум для доп. награды обновлен: ${Math.max(0, newValue)} ПК строк`);
 }
 
 // Редактирование отслеживания обсуждения
@@ -1160,372 +1350,507 @@ function extractTargetUidFromText(text: string): number | null {
     return null;
 }
 
+type TopicPostAction = 'new' | 'edit' | 'delete' | 'restore';
+
+interface RewardSnapshot {
+    amount: number;
+    coinId: number | null;
+}
+
+interface TopicPostRewardSnapshots {
+    main: RewardSnapshot;
+    extra: RewardSnapshot;
+}
+
+interface AppliedRewardBalanceChange {
+    coin: any | null;
+    facult: any | null;
+    oldAmount: number;
+    newAmount: number;
+    amountChange: number;
+}
+
+function getEmptyRewardSnapshots(): TopicPostRewardSnapshots {
+    return {
+        main: { amount: 0, coinId: null },
+        extra: { amount: 0, coinId: null }
+    };
+}
+
+function getStoredRewardSnapshots(postStat: any | null | undefined, monitor: any): TopicPostRewardSnapshots {
+    if (!postStat) {
+        return getEmptyRewardSnapshots();
+    }
+
+    const mainAmount = postStat.rewardGiven ? postStat.rewardAmount || 0 : 0;
+    const extraAmount = postStat.extraRewardGiven ? postStat.extraRewardAmount || 0 : 0;
+
+    return {
+        main: {
+            amount: mainAmount,
+            coinId: getPostStatisticRewardCoinId(postStat, monitor)
+        },
+        extra: {
+            amount: extraAmount,
+            coinId: getPostStatisticExtraRewardCoinId(postStat, monitor)
+        }
+    };
+}
+
+function calculateTopicPostRewards(topicMonitor: any, monitor: any, characters: number): TopicPostRewardSnapshots {
+    const mainAmount = calculateReward(topicMonitor, characters);
+    const extraAmount = calculateTopicExtraRewardAmount(monitor, characters);
+
+    return {
+        main: {
+            amount: mainAmount,
+            coinId: getRewardCoinIdForPostStatistic(mainAmount > 0, mainAmount, monitor)
+        },
+        extra: {
+            amount: extraAmount,
+            coinId: getExtraRewardCoinIdForPostStatistic(extraAmount > 0, extraAmount, monitor)
+        }
+    };
+}
+
+function calculateTopicExtraRewardAmount(monitor: any, characters: number): number {
+    const extraCoinId = getTopicExtraRewardCoinId(monitor);
+
+    if (!extraCoinId) {
+        return 0;
+    }
+
+    const settings = resolveTopicExtraRewardSettings(monitor);
+
+    return calculateReward({
+        rewardEnabled: settings.rewardEnabled,
+        linesRewards: settings.linesRewards,
+        uniformReward: settings.uniformReward,
+        rewardMinLines: settings.rewardMinLines
+    }, characters);
+}
+
+function buildTopicRewardBalanceChanges(
+    oldRewards: TopicPostRewardSnapshots,
+    newRewards: TopicPostRewardSnapshots
+): RewardBalanceChange[] {
+    return mergeRewardBalanceChanges([
+        ...buildRewardBalanceChanges(oldRewards.main.amount, oldRewards.main.coinId, newRewards.main.amount, newRewards.main.coinId),
+        ...buildRewardBalanceChanges(oldRewards.extra.amount, oldRewards.extra.coinId, newRewards.extra.amount, newRewards.extra.coinId)
+    ]);
+}
+
+function mergeRewardBalanceChanges(changes: RewardBalanceChange[]): RewardBalanceChange[] {
+    const merged: RewardBalanceChange[] = [];
+
+    for (const change of changes) {
+        const existing = merged.find((item) => item.coinId === change.coinId);
+
+        if (existing) {
+            existing.amountChange += change.amountChange;
+            continue;
+        }
+
+        merged.push({ ...change });
+    }
+
+    return merged.filter((change) => change.amountChange !== 0);
+}
+
+async function applyRewardBalanceChanges(
+    user: any,
+    changes: RewardBalanceChange[]
+): Promise<AppliedRewardBalanceChange[]> {
+    const appliedChanges: AppliedRewardBalanceChange[] = [];
+
+    for (const change of mergeRewardBalanceChanges(changes)) {
+        const appliedChange = await applyRewardBalanceChange(user, change);
+
+        if (appliedChange) {
+            appliedChanges.push(appliedChange);
+        }
+    }
+
+    return appliedChanges;
+}
+
+async function applyRewardBalanceChange(
+    user: any,
+    change: RewardBalanceChange
+): Promise<AppliedRewardBalanceChange | null> {
+    if (!change.coinId || change.amountChange === 0) {
+        return null;
+    }
+
+    const coin = await prisma.allianceCoin.findFirst({ where: { id: change.coinId } });
+    const balance = await prisma.balanceCoin.findFirst({
+        where: { id_coin: change.coinId, id_user: user.id }
+    });
+    const oldAmount = balance?.amount || 0;
+    const newAmount = oldAmount + change.amountChange;
+
+    await updateUserBalance(user.id, change.coinId, newAmount);
+
+    let facult = null;
+    if (user.id_facult && coin?.point) {
+        facult = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult } });
+        await updateFacultBalance(user.id_facult, change.coinId, change.amountChange);
+    }
+
+    return {
+        coin,
+        facult,
+        oldAmount,
+        newAmount,
+        amountChange: change.amountChange
+    };
+}
+
+async function getPostHashtags(postStatisticId: number): Promise<string[]> {
+    const hashtagRecords = await prisma.postHashtag.findMany({
+        where: { postStatisticId },
+        select: { hashtag: true }
+    });
+
+    return hashtagRecords.map((record: { hashtag: string }) => record.hashtag);
+}
+
+function uniqueCoinIds(coinIds: Array<number | null | undefined>): number[] {
+    const result: number[] = [];
+
+    for (const coinId of coinIds) {
+        if (coinId && !result.includes(coinId)) {
+            result.push(coinId);
+        }
+    }
+
+    return result;
+}
+
+function formatAppliedRewardBalanceLine(change: AppliedRewardBalanceChange): string {
+    const operation = change.amountChange > 0 ? '+' : '-';
+    const amount = Math.abs(change.amountChange);
+    const coinLabel = change.coin ? `${change.coin.smile || ''} ${change.coin.name}`.trim() : 'валюта';
+    const coinSmile = change.coin?.smile || '';
+    const facultText = change.facult ? ` для факультета [${change.facult.smile} ${change.facult.name}]` : '';
+
+    return `💳 Баланс ${coinLabel}: ${change.oldAmount} ${operation} ${amount} = ${change.newAmount}${coinSmile}${facultText}`;
+}
+
+function formatAppliedRewardBalanceText(changes: AppliedRewardBalanceChange[]): string {
+    if (changes.length === 0) {
+        return '';
+    }
+
+    return `${changes.map(formatAppliedRewardBalanceLine).join('\n')}\n`;
+}
+
+async function buildUnchangedRewardBalanceText(user: any, coinIds: Array<number | null | undefined>): Promise<string> {
+    const lines: string[] = [];
+
+    for (const coinId of uniqueCoinIds(coinIds)) {
+        const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId } });
+
+        if (!coin) {
+            continue;
+        }
+
+        const balance = await prisma.balanceCoin.findFirst({
+            where: { id_coin: coinId, id_user: user.id }
+        });
+        const facult = user.id_facult && coin.point
+            ? await prisma.allianceFacult.findFirst({ where: { id: user.id_facult } })
+            : null;
+        const facultText = facult ? ` для факультета [${facult.smile} ${facult.name}]` : '';
+
+        lines.push(`💳 Баланс ${coin.smile || ''} ${coin.name}: не изменился, ${balance?.amount || 0}${coin.smile || ''}${facultText}`);
+    }
+
+    return lines.length > 0 ? `${lines.join('\n')}\n` : '';
+}
+
+async function buildRewardBalanceText(
+    user: any,
+    monitor: any,
+    appliedChanges: AppliedRewardBalanceChange[]
+): Promise<string> {
+    const configuredCoinIds = uniqueCoinIds([
+        getTopicRewardCoinId(monitor),
+        getTopicExtraRewardCoinId(monitor)
+    ]);
+
+    if (appliedChanges.length > 0) {
+        const changedCoinIds = appliedChanges.map((change) => change.coin?.id).filter((coinId) => Boolean(coinId));
+        const unchangedCoinIds = configuredCoinIds.filter((coinId) => !changedCoinIds.includes(coinId));
+
+        return formatAppliedRewardBalanceText(appliedChanges) +
+            await buildUnchangedRewardBalanceText(user, unchangedCoinIds);
+    }
+
+    return buildUnchangedRewardBalanceText(user, configuredCoinIds);
+}
+
+async function notifyUserOfTopicPostChange(params: {
+    user: any;
+    topicMonitor: any;
+    monitor: any;
+    context: BoardPostContext;
+    stats: any;
+    displayPc: number;
+    action: 'new' | 'edit' | 'restore';
+    belowMin: boolean;
+    uidSpecified: boolean;
+    specifiedUid: number | null;
+    hashtags: string[];
+    oldDisplayPc?: number;
+    oldHadReward?: boolean;
+    userChanged?: boolean;
+    appliedChanges: AppliedRewardBalanceChange[];
+}): Promise<void> {
+    const account = await prisma.account.findFirst({
+        where: { idvk: params.user.idvk }
+    });
+
+    if (!account || !params.user.notification_topic) {
+        return;
+    }
+
+    const uidInfo = params.uidSpecified && params.specifiedUid
+        ? `\n🎯 Начисление по указанному UID: ${params.specifiedUid}`
+        : '';
+    const hashtagText = params.hashtags.length > 0
+        ? `\n🏷️ Хештеги: #${params.hashtags.join(', #')}`
+        : '';
+    const minPcLines = params.topicMonitor.minPcLines ?? 0;
+    const minPcText = params.belowMin && minPcLines > 0
+        ? ` (минимальный объем: ${minPcLines} ПК строк)`
+        : '';
+    const actionText = getTopicPostActionText(params.action);
+    const volumeChange = params.action === 'edit' && params.oldDisplayPc !== undefined && params.oldDisplayPc !== params.displayPc
+        ? ` (было ${params.oldDisplayPc} ПК строк, стало ${params.displayPc} ПК строк)`
+        : '';
+    const balanceText = await buildRewardBalanceText(params.user, params.monitor, params.appliedChanges);
+    const customMessage = getTopicPostNotificationMessage(params.belowMin, params.oldHadReward || false, params.appliedChanges.length > 0, params.userChanged || false);
+
+    const message = `📝 ${params.user.name} (UID: ${params.user.id}), ваш ролевой пост в обсуждении "${params.topicMonitor.name}" ${actionText}${volumeChange}!${uidInfo}${hashtagText}\n` +
+        `📊 Статистика: ${params.stats.words} слов, ${params.stats.characters} символов\n` +
+        `💻 ПК: ${params.displayPc}, 📱 МБ: ${params.stats.mb.toFixed(2)}${minPcText}\n` +
+        `${customMessage}` +
+        `${balanceText}` +
+        `🧷 Ссылка: https://vk.com/topic${params.monitor.idvk}_${params.context.topicId}?post=${params.context.id}`;
+
+    await Send_Message(account.idvk, message);
+}
+
+function getTopicPostActionText(action: 'new' | 'edit' | 'restore'): string {
+    switch (action) {
+        case 'new':
+            return 'засчитан';
+        case 'edit':
+            return 'отредактирован';
+        case 'restore':
+            return 'восстановлен';
+    }
+}
+
+function getTopicPostNotificationMessage(
+    belowMin: boolean,
+    oldHadReward: boolean,
+    hasBalanceChanges: boolean,
+    userChanged: boolean
+): string {
+    if (belowMin) {
+        return oldHadReward
+            ? '⚠ Объем ниже минимального, награда снята!\n'
+            : 'ℹ️ Пост зафиксирован, но не принес награды\n';
+    }
+
+    if (userChanged && hasBalanceChanges) {
+        return '🔄 Награда переведена с другого персонажа\n';
+    }
+
+    if (!hasBalanceChanges) {
+        return 'ℹ️ Баланс наград не изменился\n';
+    }
+
+    return '';
+}
+
+async function notifyUserOfRewardTransfer(
+    oldUser: any,
+    newUser: any,
+    topicMonitor: any,
+    monitor: any,
+    context: BoardPostContext,
+    appliedChanges: AppliedRewardBalanceChange[]
+): Promise<void> {
+    if (appliedChanges.length === 0) {
+        return;
+    }
+
+    const account = await prisma.account.findFirst({
+        where: { idvk: oldUser.idvk }
+    });
+
+    if (!account || !oldUser.notification_topic) {
+        return;
+    }
+
+    const message = `⚠ ${oldUser.name} (UID: ${oldUser.id}), награда переведена другому персонажу!\n` +
+        `📝 Ваш пост в обсуждении "${topicMonitor.name}" был изменен.\n` +
+        `👤 Новый владелец: ${newUser.name} (UID: ${newUser.id})\n` +
+        formatAppliedRewardBalanceText(appliedChanges) +
+        `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
+
+    await Send_Message(account.idvk, message);
+}
+
 // Обработчик новых постов в обсуждениях
-export async function handleTopicPost(context: BoardPostContext, monitor: any, action: 'new' | 'edit' | 'delete' | 'restore') {
+export async function handleTopicPost(context: BoardPostContext, monitor: any, action: TopicPostAction) {
+    let processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
+    let processingStarted = false;
+
     try {
-        //console.log(`\n🎯 Обработка поста: action=${action}, postId=${context.id}, topicId=${context.topicId}, fromId=${context.fromId}`);
         const currentMonitor = await prisma.monitor.findFirst({ where: { id: monitor.id } });
         monitor = currentMonitor ?? monitor;
+        processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
 
-        // ДОБАВЛЕНО: Защита от повторной обработки
-        const processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
         if (processingPosts.has(processingKey)) {
-            //console.log(`⏸️  Пропуск: пост ${context.id} уже обрабатывается`);
             return;
         }
-        
+
         processingPosts.set(processingKey, Date.now());
-        
-        // Автоматическая очистка через 30 секунд на случай сбоев
+        processingStarted = true;
+
         setTimeout(() => {
             processingPosts.delete(processingKey);
         }, 30000);
 
-        // Проверяем, есть ли текст (для delete может не быть)
-        if ((action === 'new' || action === 'edit' || action === 'restore') && !context.text) {
-            //console.log(`⚠ Пропуск: нет текста для действия ${action}`);
-            processingPosts.delete(processingKey);
+        if (action !== 'delete' && !context.text) {
             return;
         }
 
-        // Проверяем, что это не бот (для delete ищем пользователя в БД)
         if (action !== 'delete' && (!context.fromId || context.fromId <= 0)) {
-            //console.log(`⚠ Пропуск: невалидный fromId ${context.fromId}`);
-            processingPosts.delete(processingKey);
             return;
         }
 
-        // ID обсуждения
-        const topicId = context.topicId;
-        
-        // Проверяем, отслеживается ли это обсуждение
         const topicMonitorRecord = await prisma.topicMonitor.findFirst({
             where: {
                 monitorId: monitor.id,
-                topicId: topicId
+                topicId: context.topicId
             }
         });
 
         if (!topicMonitorRecord) {
-            //console.log(`⚠ Пропуск: обсуждение ${topicId} не отслеживается монитором ${monitor.id}`);
-            processingPosts.delete(processingKey);
             return;
         }
 
         const topicMonitor = applyMonitorTopicSettings(topicMonitorRecord, monitor);
 
-        //console.log(`✅ Найдено отслеживание: "${topicMonitor.name}" для поста ${context.id}, действие: ${action}`);
-
-        // Для удаления - удаляем статистику и отменяем награды
         if (action === 'delete') {
-            //console.log(`🗑️ Удаление поста ${context.id} из статистики`);
             await handlePostDeletion(topicMonitor, context.id, monitor, context.fromId, context.topicId);
-            processingPosts.delete(processingKey);
             return;
         }
 
-        // Проверяем, что есть fromId для new/edit/restore
-        if (!context.fromId || context.fromId <= 0) {
-            //console.log(`⚠ Пропуск: нет fromId для действия ${action}`);
-            processingPosts.delete(processingKey);
-            return;
-        }
-
-        // Определяем, какому пользователю начислять (с поддержкой UID в тексте)
+        const text = context.text || '';
         const { user: targetUser, uidSpecified, specifiedUid } = await determineTargetUser(
-            context.text || '',
+            text,
             context.fromId,
             monitor.id_alliance
         );
-        
+
         if (!targetUser) {
-            //console.log(`⚠ Пользователь не найден для начисления`);
-            processingPosts.delete(processingKey);
             return;
         }
 
-        if (uidSpecified && specifiedUid) {
-            //console.log(`🎯 Начисление по указанному UID: ${specifiedUid} (отправитель: ${context.fromId})`);
-        } else {
-            //console.log(`🎯 Начисление по умолчанию: UID:${targetUser.id} (${targetUser.name})`);
-        }
-
-        // Рассчитываем статистику поста
-        const text = context.text || '';
         const stats = calculatePostStats(text);
-        const displayPc = getPcLinesForDisplay(stats.pc); // Для отображения
-        const checkPcLines = getPcLinesForCheck(stats.pc); // Для проверки
-
-        //console.log(`📊 Статистика поста: ${stats.words} слов, ${stats.characters} символов, PC=${displayPc}, checkPcLines=${checkPcLines}`);
-
-        // ===== НОВОЕ: РАБОТА С ХЕШТЕГАМИ =====
-        // Получаем отслеживаемые хештеги монитора
+        const displayPc = getPcLinesForDisplay(stats.pc);
+        const checkPcLines = getPcLinesForCheck(stats.pc);
         const monitorHashtags = await getMonitorHashtags(monitor.id);
-        const postHashtags = extractHashtags(text);
-        const relevantHashtags = postHashtags.filter((tag: string) => monitorHashtags.includes(tag));
-
-        // ДОБАВИТЬ ОТЛАДОЧНЫЙ ЛОГ:
-        //console.log(`\n🔍 [DEBUG] Пост ${context.id}:`);
-        //console.log(`   Текст: ${text.slice(0, 100)}...`);
-        //console.log(`   Найденные хештеги: ${postHashtags.join(', ')}`);
-        //console.log(`   Отслеживаемые хештеги монитора ${monitor.id}: ${monitorHashtags.join(', ')}`);
-        //console.log(`   Релевантные хештеги: ${relevantHashtags.join(', ')}`);
-        // =====================================
-
-        // Проверяем существующую запись для редактирования/восстановления
+        const relevantHashtags = extractHashtags(text).filter((tag: string) => monitorHashtags.includes(tag));
         const existingStat = await prisma.postStatistic.findFirst({
             where: {
                 topicMonitorId: topicMonitor.id,
                 postId: context.id
             }
         });
-
-        let oldReward = 0;
-        let oldDisplayPc = 0;
-        let oldTargetUserId = null;
-        let userChanged = false;
-        let oldUser = null;
-        
-        if (existingStat) {
-            oldReward = existingStat.rewardAmount || 0;
-            oldDisplayPc = getPcLinesForDisplay(existingStat.pc);
-            oldTargetUserId = existingStat.userId;
-            
-            // Получаем информацию о старом пользователе
-            oldUser = await prisma.user.findFirst({
-                where: { id: existingStat.userId }
-            });
-            
-            // Проверяем, изменился ли целевой пользователь
-            userChanged = false;
-
-            if (existingStat && oldUser) {
-                // Сравниваем не только ID, но и имя, и другие параметры
-                userChanged = !(
-                    oldUser.id === targetUser.id && 
-                    oldUser.name === targetUser.name &&
-                    oldUser.idvk === targetUser.idvk &&
-                    oldUser.id_alliance === targetUser.id_alliance
-                );
-                
-                // ДОБАВЛЕНО: Дополнительная проверка на случай некорректных данных
-                if (userChanged && oldUser.id === targetUser.id) {
-                    //console.log(`⚠️  userChanged=true, но ID пользователей одинаковые. Исправляем.`);
-                    userChanged = false;
-                }
-            }
-            //console.log(`🔄 Сравнение пользователей: было UID:${existingStat.userId} (${oldUser?.name}), стало UID:${targetUser.id} (${targetUser.name}), изменился: ${userChanged}`);
-        }
-
-        // Проверяем минимальный объем (ПК строки)
+        const oldRewards = getStoredRewardSnapshots(existingStat, monitor);
+        const oldHadReward = oldRewards.main.amount > 0 || oldRewards.extra.amount > 0;
+        const oldDisplayPc = existingStat ? getPcLinesForDisplay(existingStat.pc) : 0;
+        const oldUser = existingStat
+            ? await prisma.user.findFirst({ where: { id: existingStat.userId } })
+            : null;
+        const userChanged = Boolean(oldUser && oldUser.id !== targetUser.id);
         const minPcLines = topicMonitor.minPcLines ?? 0;
-        const hasMinPcLines = minPcLines > 0;
-        const belowMinPcLines = hasMinPcLines && checkPcLines < minPcLines;
-
-        //console.log(`📏 Минималка: ${minPcLines} ПК строк, текущий объем: ${checkPcLines}, ниже минималки: ${belowMinPcLines}`);
-
-        // === ВАЖНО: НОВАЯ ЛОГИКА ===
-        // Сначала обрабатываем СТАРОГО пользователя (если изменился)
-        if (userChanged && existingStat && oldUser && oldUser.id !== targetUser.id) {
-            //console.log(`🔄 Обработка смены пользователя: с ${oldUser.name} (${oldTargetUserId}) на ${targetUser.name} (${targetUser.id})`);
-            
-            // 1. Снимаем награду со старого пользователя (если была)
-            if (existingStat.rewardGiven && existingStat.rewardAmount && existingStat.rewardAmount > 0) {
-                //console.log(`💰 Снимаем награду ${existingStat.rewardAmount} со старого пользователя ${oldUser.name}`);
-                
-                // Снимаем награду у старого пользователя
-                await deductRewardFromUser(oldUser, existingStat.rewardAmount, monitor, topicMonitor, context);
-                
-                // Уведомляем старого пользователя о переводе
-                await notifyUserOfRewardTransfer(oldUser, targetUser, topicMonitor, monitor, context, existingStat.rewardAmount);
-            } else {
-                //console.log(`ℹ️ У старого пользователя ${oldUser.name} не было награды для снятия`);
-            }
-            
-            // 2. Обрабатываем нового пользователя (с учетом объема)
-            //console.log(`🎯 Обработка нового пользователя ${targetUser.name}`);
-            
-            // Проверяем объем для нового пользователя
-            if (belowMinPcLines) {
-                //console.log(`⚠ Новый пост ниже минималки (${checkPcLines} < ${minPcLines}), награда НЕ начисляется`);
-                // Просто сохраняем статистику без награды
-                await savePostStatsWithHashtags(
-                    topicMonitor, targetUser, context, stats, action, false, 0,
-                    relevantHashtags, monitor, monitor.id_alliance
-                );
-                
-                // Уведомляем нового пользователя (если ниже минималки)
-                await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
-                
-                // Логируем в чат (смена пользователя, но без награды)
-                const coinId = getTopicRewardCoinId(monitor);
-                const coin = coinId ? await prisma.allianceCoin.findFirst({ where: { id: coinId } }) : undefined;
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, coin, context.id, true, uidSpecified, specifiedUid, relevantHashtags);
-                
-                processingPosts.delete(processingKey);
-                return;
-            } else {
-                // Объем достаточный, рассчитываем и начисляем награду
-                const newRewardAmount = calculateReward(topicMonitor, stats.characters);
-                
-                if (newRewardAmount > 0) {
-                    //console.log(`💰 Начисляем награду ${newRewardAmount} новому пользователю ${targetUser.name}`);
-                    
-                    // Начисляем награду новому пользователю
-                    await addRewardToUser(targetUser, newRewardAmount, monitor, topicMonitor, context);
-                    
-                    await savePostStatsWithHashtags(
-                        topicMonitor, targetUser, context, stats, action, true, newRewardAmount,
-                        relevantHashtags, monitor, monitor.id_alliance
-                    );
-                    
-                    // Уведомляем нового пользователя
-                    await notifyUserOfEditWithTransfer(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid);
-                    
-                    // Логируем в чат (смена пользователя с наградой)
-                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, undefined, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
-                    
-                    processingPosts.delete(processingKey);
-                    return;
-                } else {
-                    // Награда 0 (ниже rewardMinLines)
-                    //console.log(`ℹ️ Объем достаточный, но награда 0 (ниже rewardMinLines)`);
-                    await savePostStatsWithHashtags(
-                        topicMonitor, targetUser, context, stats, action, false, 0,
-                        relevantHashtags, monitor, monitor.id_alliance
-                    );
-                    
-                    // Уведомление о посте без награды
-                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid);
-                    
-                    await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, 0, undefined, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
-                    
-                    processingPosts.delete(processingKey);
-                    return;
-                }
-            }
-        }
-        
-        // Если пользователь НЕ менялся
-        if (!userChanged) {
-            //console.log(`👤 Пользователь не изменился: ${targetUser.name}`);
-            
-            // Проверяем объем
-            if (belowMinPcLines) {
-                //console.log(`⚠ Пост ниже минималки (${checkPcLines} < ${minPcLines})`);
-                
-                if (existingStat && existingStat.rewardGiven && existingStat.rewardAmount && existingStat.rewardAmount > 0) {
-                    // Была награда - снимаем
-                    //console.log(`📉 Была награда ${existingStat.rewardAmount}, снимаем`);
-                    
-                    // Проверяем, что action подходит для handleRewardReduction
-                    if (action === 'edit' || action === 'restore') {
-                        await handleRewardReduction(
-                            topicMonitor, 
-                            existingStat, 
-                            monitor, 
-                            targetUser,
-                            context, 
-                            stats, 
-                            displayPc,
-                            action,
-                            uidSpecified,
-                            specifiedUid
-                        );
-                    } else {
-                        // Для 'new' используем другую логику
-                        //console.log(`ℹ️ Новый пост ниже минималки, награда не начислена`);
-                        await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
-                    }
-                } else {
-                    // Не было награды или её не было
-                    await sendBelowMinNotification(targetUser, topicMonitor, monitor, context, stats, displayPc, action, uidSpecified, specifiedUid, relevantHashtags);
-                }
-                
-                // Сохраняем статистику без награды
-                await savePostStatsWithHashtags(
-                    topicMonitor, targetUser, context, stats, action, false, 0,
-                    relevantHashtags, monitor, monitor.id_alliance
-                );
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, existingStat?.rewardAmount ? -existingStat.rewardAmount : 0, null, context.id, true, uidSpecified, specifiedUid, relevantHashtags);
-                
-                processingPosts.delete(processingKey);
-                return;
-            }
-            
-            // Объем достаточный
-            const newRewardAmount = calculateReward(topicMonitor, stats.characters);
-            const rewardGiven = newRewardAmount > 0;
-            
-            // Сохраняем статистику с хештегами
-            await savePostStatsWithHashtags(
-                topicMonitor, targetUser, context, stats, action, rewardGiven, newRewardAmount,
-                relevantHashtags, monitor, monitor.id_alliance
-            );            
-
-            // Рассчитываем изменение награды
-            const rewardChange = newRewardAmount - (existingStat?.rewardAmount || 0);
-            
-            // Получаем текущий баланс ДО изменений
-            const coinId = getTopicRewardCoinId(monitor);
-            const currentBalance = await prisma.balanceCoin.findFirst({ 
-                where: { id_coin: coinId ?? 0, id_user: targetUser.id } 
-            });
-            const currentBalanceAmount = currentBalance?.amount || 0;
-            
-            //console.log(`💰 Расчет награды: старая=${oldReward}, новая=${newRewardAmount}, изменение=${rewardChange}, текущий баланс=${currentBalanceAmount}`);
-                        
-            if (action === 'edit' || action === 'restore') {
-                // Получаем старые хештеги
-                let oldHashtagsForEdit: string[] = [];
-                if (existingStat) {
-                    const oldHashtagRecords = await prisma.postHashtag.findMany({
-                        where: { postStatisticId: existingStat.id },
-                        select: { hashtag: true }
-                    });
-                    oldHashtagsForEdit = oldHashtagRecords.map(h => h.hashtag);
-                }
-                const hashtagsChangedForEdit = JSON.stringify(oldHashtagsForEdit.sort()) !== JSON.stringify(relevantHashtags.sort());
-                
-                await handlePostRewardsAndNotifications(
-                    topicMonitor, targetUser, context, stats, displayPc, monitor, action, 
-                    existingStat?.rewardAmount || 0, oldDisplayPc, newRewardAmount,
-                    uidSpecified, specifiedUid, false, oldTargetUserId,
-                    currentBalanceAmount,
-                    oldHashtagsForEdit,
-                    relevantHashtags,
-                    hashtagsChangedForEdit
-                );
-            } else if (action === 'new') {
-                // Новый пост
-                const newRewardAmount = calculateReward(topicMonitor, stats.characters);
-                const rewardGiven = newRewardAmount > 0;
-                
-                if (rewardGiven) {
-                    await addRewardToUser(targetUser, newRewardAmount, monitor, topicMonitor, context);
-                    await savePostStatsWithHashtags(
-                        topicMonitor, targetUser, context, stats, action, rewardGiven, newRewardAmount,
-                        relevantHashtags, monitor, monitor.id_alliance
-                    );
-                    await notifyUserOfNewPost(targetUser, topicMonitor, monitor, context, stats, displayPc, newRewardAmount, uidSpecified, specifiedUid, relevantHashtags);
-                } else {
-                    await notifyUserOfNewPostNoReward(targetUser, topicMonitor, monitor, context, stats, displayPc, uidSpecified, specifiedUid, relevantHashtags);
-                }
-                await logToTopicChat(topicMonitor, targetUser, monitor, action, stats, displayPc, newRewardAmount, null, context.id, false, uidSpecified, specifiedUid, relevantHashtags);
-            }
+        const belowMinPcLines = minPcLines > 0 && checkPcLines < minPcLines;
+        if (userChanged && oldUser) {
+            const oldUserChanges = buildTopicRewardBalanceChanges(oldRewards, getEmptyRewardSnapshots());
+            const oldUserAppliedChanges = await applyRewardBalanceChanges(oldUser, oldUserChanges);
+            await notifyUserOfRewardTransfer(oldUser, targetUser, topicMonitor, monitor, context, oldUserAppliedChanges);
         }
 
-        //console.log(`✅ Пост ${context.id} успешно обработан (${action})\n`);
-        processingPosts.delete(processingKey);
+        const newRewards = belowMinPcLines
+            ? getEmptyRewardSnapshots()
+            : calculateTopicPostRewards(topicMonitor, monitor, stats.characters);
+        const baseOldRewards = userChanged ? getEmptyRewardSnapshots() : oldRewards;
+        const rewardChanges = buildTopicRewardBalanceChanges(baseOldRewards, newRewards);
+        const appliedChanges = await applyRewardBalanceChanges(targetUser, rewardChanges);
 
+        await savePostStatsWithHashtags(
+            topicMonitor,
+            targetUser,
+            context,
+            stats,
+            action,
+            newRewards.main.amount > 0,
+            newRewards.main.amount,
+            relevantHashtags,
+            monitor,
+            monitor.id_alliance,
+            newRewards.extra.amount > 0,
+            newRewards.extra.amount
+        );
+
+        await notifyUserOfTopicPostChange({
+            user: targetUser,
+            topicMonitor,
+            monitor,
+            context,
+            stats,
+            displayPc,
+            action,
+            belowMin: belowMinPcLines,
+            uidSpecified,
+            specifiedUid,
+            hashtags: relevantHashtags,
+            oldDisplayPc,
+            oldHadReward,
+            userChanged,
+            appliedChanges
+        });
+
+        const totalRewardChange = appliedChanges.reduce((sum, change) => sum + change.amountChange, 0);
+        await logToTopicChat(
+            topicMonitor,
+            targetUser,
+            monitor,
+            action,
+            stats,
+            displayPc,
+            totalRewardChange,
+            undefined,
+            context.id,
+            belowMinPcLines,
+            uidSpecified,
+            specifiedUid,
+            relevantHashtags,
+            appliedChanges
+        );
     } catch (error) {
         console.error(`❌ Ошибка обработки поста в обсуждении: ${error}`);
-        // Очищаем маркер обработки даже при ошибке
-        const processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
-        try {
+    } finally {
+        if (processingStarted) {
             processingPosts.delete(processingKey);
-        } catch (error) {
-            console.error(error);
         }
     }
 }
@@ -1567,47 +1892,6 @@ async function addRewardToUser(user: any, amount: number, monitor: any, topicMon
         if (coin?.point) {
             await updateFacultBalance(user.id_facult, coinId, amount);
         }
-    }
-}
-
-// Уведомить пользователя о переводе награды
-async function notifyUserOfRewardTransfer(oldUser: any, newUser: any, topicMonitor: any, monitor: any, context: BoardPostContext, amount: number) {
-    const account = await prisma.account.findFirst({ 
-        where: { idvk: oldUser.idvk } 
-    });
-    
-    if (account && oldUser.notification_topic) {
-        const coinId = getTopicRewardCoinId(monitor);
-        const coin = await prisma.allianceCoin.findFirst({ 
-            where: { id: coinId ?? 0 } 
-        });
-        let balanceText = '';
-        if (coin) {
-            const balance = await prisma.balanceCoin.findFirst({ 
-                where: { id_coin: coin.id, id_user: oldUser.id } 
-            });
-            
-            if (balance) {
-                if (oldUser.id_facult && coin.point) {
-                    const facult = await prisma.allianceFacult.findFirst({ 
-                        where: { id: oldUser.id_facult } 
-                    });
-                    
-                    if (facult) {
-                        balanceText = `\n💳 Ваш баланс: ${balance.amount + amount} - ${amount} = ${balance.amount}${coin.smile} для факультета [${facult.smile} ${facult.name}]`;
-                    }
-                } else {
-                    balanceText = `\n💳 Ваш баланс: ${balance.amount + amount} - ${amount} = ${balance.amount}${coin.smile}`;
-                }
-            }
-        }
-        
-        const message = `⚠ ${oldUser.name} (UID: ${oldUser.id}), награда переведена другому персонажу!\n` +
-                       `📝 Ваш пост в обсуждении "${topicMonitor.name}" был изменен.\n` +
-                       `👤 Новый владелец: ${newUser.name} (UID: ${newUser.id})${balanceText}\n` +
-                       `🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
-        
-        await Send_Message(account.idvk, message);
     }
 }
 
@@ -1802,8 +2086,13 @@ async function savePostStatsWithHashtags(
     rewardAmount: number,
     relevantHashtags: string[],
     monitor: any,
-    allianceId: number
+    allianceId: number,
+    extraRewardGiven: boolean = false,
+    extraRewardAmount: number = 0
 ): Promise<any> {
+    const rewardCoinId = getRewardCoinIdForPostStatistic(rewardGiven, rewardAmount, monitor);
+    const extraRewardCoinId = getExtraRewardCoinIdForPostStatistic(extraRewardGiven, extraRewardAmount, monitor);
+
     const saved = await prisma.postStatistic.upsert({
         where: {
             topicMonitorId_postId: {
@@ -1820,7 +2109,11 @@ async function savePostStatsWithHashtags(
             action: action,
             userId: targetUser.id,
             rewardGiven: rewardGiven,
-            rewardAmount: rewardAmount
+            rewardAmount: rewardAmount,
+            rewardCoinId,
+            extraRewardGiven,
+            extraRewardAmount,
+            extraRewardCoinId
         },
         create: {
             topicMonitorId: topicMonitor.id,
@@ -1833,7 +2126,11 @@ async function savePostStatsWithHashtags(
             date: new Date(),
             action: action,
             rewardGiven: rewardGiven,
-            rewardAmount: rewardAmount
+            rewardAmount: rewardAmount,
+            rewardCoinId,
+            extraRewardGiven,
+            extraRewardAmount,
+            extraRewardCoinId
         }
     });
     
@@ -1870,7 +2167,6 @@ async function savePostStatsWithHashtags(
 
 // Обработка удаления поста
 async function handlePostDeletion(topicMonitor: any, postId: number, monitor: any, fromId?: number, topicId?: number) {
-    // Находим статистику поста
     const postStat = await prisma.postStatistic.findFirst({
         where: {
             topicMonitorId: topicMonitor.id,
@@ -1878,19 +2174,10 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         }
     });
 
-    // Получаем хештеги поста
-    let postHashtags: string[] = [];
-    if (postStat) {
-        const hashtagRecords = await prisma.postHashtag.findMany({
-            where: { postStatisticId: postStat.id },
-            select: { hashtag: true }
-        });
-        postHashtags = hashtagRecords.map((h: { hashtag: any; }) => h.hashtag);
-    }
+    const postHashtags = postStat ? await getPostHashtags(postStat.id) : [];
 
     let user = null;
-    
-    // Если статистика найдена, ищем пользователя по userId
+
     if (postStat) {
         user = await prisma.user.findFirst({
             where: {
@@ -1898,9 +2185,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
                 id_alliance: monitor.id_alliance
             }
         });
-    } 
-    // Если статистики нет, но есть fromId, ищем пользователя
-    else if (fromId) {
+    } else if (fromId) {
         user = await prisma.user.findFirst({
             where: {
                 idvk: fromId,
@@ -1910,9 +2195,10 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     }
 
     if (!user) {
-        //console.log(`⚠ Пользователь не найден для поста ${postId}`);
-        // Если была статистика, удаляем ее
         if (postStat) {
+            await prisma.postHashtag.deleteMany({
+                where: { postStatisticId: postStat.id }
+            });
             await prisma.postStatistic.delete({
                 where: {
                     topicMonitorId_postId: {
@@ -1924,110 +2210,34 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         }
         return;
     }
-    
-    // Получаем баланс пользователя
-    const coinId = getTopicRewardCoinId(monitor);
-    const balance = await prisma.balanceCoin.findFirst({ 
-        where: { id_coin: coinId ?? 0, id_user: user.id } 
-    });
-    const coin = await prisma.allianceCoin.findFirst({ where: { id: coinId ?? 0 } });
-    
-    if (!balance || !coin) {
-        //console.log(`⚠ Баланс не найден для пользователя ${user.name}`);
-        // Все равно удаляем статистику если она была
-        if (postStat) {
-            await prisma.postStatistic.delete({
-                where: {
-                    topicMonitorId_postId: {
-                        topicMonitorId: topicMonitor.id,
-                        postId: postId
-                    }
-                }
-            });
-        }
-        return;
-    }
-    
-    let message = '';
-    let newBalance = balance.amount;
-    let rewardAmount = 0;
-    
-    // Формируем информацию о хештегах
-    let hashtagText = '';
-    if (postHashtags.length > 0) {
-        hashtagText = `\n🏷️ Хештеги: #${postHashtags.join(', #')}`;
-    } else {
-        hashtagText = `\n🏷️ Хештеги: отсутствовали`;
-    }
-    
-    if (postStat && postStat.rewardGiven && postStat.rewardAmount && postStat.rewardAmount > 0) {
-        // Если была награда - снимаем ее
-        rewardAmount = postStat.rewardAmount;
-        //console.log(`💰 Снятие награды за удаленный пост: ${rewardAmount}`);
-        
-        newBalance = balance.amount - rewardAmount;
-        
-        // Обновляем баланс
-        await prisma.balanceCoin.update({
-            where: { id: balance.id },
-            data: { amount: newBalance }
-        });
-        
-        // Формируем сообщение с учетом факультета
-        if (user.id_facult && coin.point) {
-            const facult = await prisma.allianceFacult.findFirst({ 
-                where: { id: user.id_facult } 
-            });
-            
-            if (facult) {
-                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
-                         `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
-                         `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
-                         `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile} для факультета [${facult.smile} ${facult.name}]`;
-            } else {
-                message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
-                         `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
-                         `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
-                         `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile}`;
-            }
-        } else {
-            message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
-                     `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
-                     `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
-                     `💳 Ваш баланс: ${balance.amount} - ${rewardAmount} = ${newBalance}${coin.smile}`;
-        }
-    } else if (postStat) {
-        // Была статистика, но без награды
-        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
-                 `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
-                 `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n` +
-                 `ℹ️ Пост был зафиксирован, но не принес награды\n` +
-                 `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile}`;
-    } else {
-        // Не было статистики (например, пост был ниже минималки)
-        const minPcLines = topicMonitor.minPcLines ?? 0;
-        const hasMinPcLines = minPcLines > 0;
-        const minPcText = hasMinPcLines ? ` (минимальный объем: ${minPcLines} ПК строк)` : '';
-        
-        message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
-                 `ℹ️ Пост был удален${minPcText}\n` +
-                 `💳 Ваш баланс не изменился: ${balance.amount}${coin.smile}`;
-    }
-    
-    // Добавляем ссылку если есть topicId
+
+    const oldRewards = getStoredRewardSnapshots(postStat, monitor);
+    const rewardChanges = buildTopicRewardBalanceChanges(oldRewards, getEmptyRewardSnapshots());
+    const appliedChanges = await applyRewardBalanceChanges(user, rewardChanges);
+    const hashtagText = postHashtags.length > 0
+        ? `\n🏷️ Хештеги: #${postHashtags.join(', #')}`
+        : `\n🏷️ Хештеги: отсутствовали`;
+    const balanceText = await buildRewardBalanceText(user, monitor, appliedChanges);
+    const statsText = postStat
+        ? `📊 Статистика: ${postStat.words} слов, ${postStat.characters} символов\n` +
+          `💻 ПК: ${getPcLinesForDisplay(postStat.pc)}, 📱 МБ: ${postStat.mb.toFixed(2)}\n`
+        : `ℹ️ Пост был удален\n`;
+    const rewardText = postStat && appliedChanges.length === 0
+        ? `ℹ️ Пост был зафиксирован, но не принес награды\n`
+        : '';
+    let message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
+        statsText +
+        rewardText +
+        balanceText.trimEnd();
+
     if (topicId) {
         message += `\n🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${topicId}?post=${postId}`;
     }
-    
-    // Удаляем хештеги поста
+
     if (postStat) {
         await prisma.postHashtag.deleteMany({
             where: { postStatisticId: postStat.id }
         });
-    }
-    
-    // Удаляем статистику если она была
-    if (postStat) {
         await prisma.postStatistic.delete({
             where: {
                 topicMonitorId_postId: {
@@ -2036,10 +2246,8 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
                 }
             }
         });
-        //console.log(`🗑️ Статистика поста ${postId} удалена`);
     }
-    
-    // Отправляем уведомление если пользователь найден и включены уведомления ОБСУЖДЕНИЙ
+
     const account = await prisma.account.findFirst({ 
         where: { idvk: user.idvk } 
     });
@@ -2047,21 +2255,19 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     if (account && user.notification_topic) {
         try {
             await Send_Message(account.idvk, message);
-            //console.log(`📨 Уведомление об удалении отправлено пользователю ${user.name}`);
         } catch (error) {
             console.error(`❌ Ошибка отправки уведомления об удаления: ${error}`);
         }
     }
-    
-    // ЛОГИРУЕМ В ЧАТ ОБСУЖДЕНИЙ (ВСЕГДА, независимо от notification_topic)
+
     if (postStat) {
-        const rewardChange = rewardAmount > 0 ? -rewardAmount : 0;
+        const totalRewardChange = appliedChanges.reduce((sum, change) => sum + change.amountChange, 0);
         await logToTopicChat(topicMonitor, user, monitor, 'delete', {
             words: postStat.words,
             characters: postStat.characters,
             pc: postStat.pc,
             mb: postStat.mb
-        }, getPcLinesForDisplay(postStat.pc), rewardChange, coin, postId, false, false, null, postHashtags);
+        }, getPcLinesForDisplay(postStat.pc), totalRewardChange, undefined, postId, false, false, null, postHashtags, appliedChanges);
     }
 }
 
@@ -2582,7 +2788,16 @@ async function updateFacultBalance(facultId: number, coinId: number | null, amou
             where: { id: currentBalance.id },
             data: { amount: currentBalance.amount + amountChange }
         });
+        return;
     }
+
+    await prisma.balanceFacult.create({
+        data: {
+            id_coin: coinId,
+            id_facult: facultId,
+            amount: amountChange
+        }
+    });
 }
 
 // Логирование в чат обсуждений (ВСЕГДА, независимо от настроек пользователя)
@@ -2599,7 +2814,8 @@ async function logToTopicChat(
     belowMin?: boolean,
     uidSpecified: boolean = false,
     specifiedUid: number | null = null,
-    hashtags: string[] = []  // ДОБАВИТЬ ЭТОТ ПАРАМЕТР
+    hashtags: string[] = [],
+    appliedChanges: AppliedRewardBalanceChange[] = []
 ) {
     try {
         const coinId = getTopicRewardCoinId(monitor);
@@ -2634,51 +2850,24 @@ async function logToTopicChat(
         logMessage += `📖 ${topicMonitor.name}\n`;
         logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}${hashtagText}\n`;
         logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;
-        
-        // Получаем текущий баланс пользователя для отображения
-        let userBalance = 0;
-        if (coin) {
+        if (appliedChanges.length > 0) {
+            for (const change of appliedChanges) {
+                const operation = change.amountChange > 0 ? '+' : '-';
+                const operationSymbol = `"${change.coin?.smile || ''}"`;
+                const facultText = change.facult ? ` для факультета [${change.facult.smile} ${change.facult.name}]` : '';
+
+                logMessage += `🔮 ${operationSymbol} > ${change.oldAmount} ${operation} ${Math.abs(change.amountChange)} = ${change.newAmount}${facultText}\n`;
+            }
+        } else if (rewardChange !== 0 && coin) {
             const balanceCoin = await prisma.balanceCoin.findFirst({
                 where: {
                     id_coin: coin.id,
                     id_user: user.id
                 }
             });
-            userBalance = balanceCoin?.amount || 0;
-        }
-        
-        // Проверяем, нужно ли показывать информацию о факультете
-        if (user.id_facult && coin?.point && rewardChange !== 0) {
-            const facult = await prisma.allianceFacult.findFirst({ 
-                where: { id: user.id_facult } 
-            });
-            
-            if (facult) {
-                // Получаем баланс факультета
-                const balanceFacult = await prisma.balanceFacult.findFirst({
-                    where: { 
-                        id_coin: coin.id,
-                        id_facult: user.id_facult
-                    }
-                });
-                
-                if (balanceFacult) {
-                    const oldFacultBalance = balanceFacult.amount;
-                    const newFacultBalance = rewardChange > 0 ? 
-                        oldFacultBalance + rewardChange : 
-                        oldFacultBalance - Math.abs(rewardChange);
-                    
-                    const operation = rewardChange > 0 ? '+' : '-';
-                    const operationSymbol = rewardChange > 0 ? `"${coin.smile}"` : `"${coin.smile}"`;
-                    
-                    logMessage += `🔮 ${operationSymbol} > ${oldFacultBalance} ${operation} ${Math.abs(rewardChange)} = ${newFacultBalance} для факультета [${facult.smile} ${facult.name}]\n`;
-                }
-            }
-        }
-        // Если нет факультета, но есть изменение баланса - показываем в формате "205 + 10 = 215"
-        else if (rewardChange !== 0 && coin) {
+            const userBalance = balanceCoin?.amount || 0;
             const operation = rewardChange > 0 ? '+' : '-';
-            const operationSymbol = rewardChange > 0 ? `"${coin.smile}"` : `"${coin.smile}"`;
+            const operationSymbol = `"${coin.smile}"`;
             const oldBalance = userBalance - rewardChange; // Так проще вычислить старое значение
             
             logMessage += `🔮 ${operationSymbol} > ${oldBalance} ${operation} ${Math.abs(rewardChange)} = ${userBalance}\n`;

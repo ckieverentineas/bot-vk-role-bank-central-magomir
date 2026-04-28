@@ -74,12 +74,17 @@ model Monitor {
   id_alliance  Int
   id_coin      Int?
   id_topic_coin Int?
+  id_topic_extra_coin Int?
   topicMinPcLines Int?      @default(1)
   topicMinPcMessage String?
   topicRewardEnabled Boolean @default(false)
   topicLinesRewards String?
   topicUniformReward Float?
   topicRewardMinLines Int?  @default(1)
+  topicExtraRewardEnabled Boolean @default(false)
+  topicExtraLinesRewards String?
+  topicExtraUniformReward Float?
+  topicExtraRewardMinLines Int? @default(1)
   cost_like    Int       @default(2)
   cost_comment Int       @default(5)
   cost_post    Int       @default(30)
@@ -131,6 +136,10 @@ model PostStatistic {
   action          String      
   rewardGiven     Boolean     @default(false)
   rewardAmount    Float?
+  rewardCoinId    Int?
+  extraRewardGiven Boolean    @default(false)
+  extraRewardAmount Float?
+  extraRewardCoinId Int?
   hashtags        PostHashtag[]
 
   @@index([topicMonitorId])
