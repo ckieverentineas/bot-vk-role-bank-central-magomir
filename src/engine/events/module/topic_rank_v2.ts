@@ -5,6 +5,7 @@ import { Logger, Send_Message, Input_Text } from "../../core/helper";
 import { getTerminology } from "./alliance/terminology_helper";
 import { ico_list } from "./data_center/icons_lib";
 import { getHashtagRank, getMonitorHashtags } from "./alliance/hashtag_manager";
+import { resolveTopicRewardSettings } from "./topic_monitor_settings";
 
 type SortBy = 'posts' | 'characters' | 'words' | 'pc' | 'mb';
 type PeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4';
@@ -480,13 +481,18 @@ async function getActivityStatsWithRanking(
     const allPosts = await prisma.postStatistic.findMany({
         where: whereClause,
         include: {
-            topicMonitor: true
+            topicMonitor: {
+                include: {
+                    monitor: true
+                }
+            }
         }
     });
 
     // Фильтруем посты, которые не дотянули до минималки
     const validPosts = allPosts.filter(post => {
-        const minPcLines = post.topicMonitor.minPcLines || 0;
+        const settings = resolveTopicRewardSettings(post.topicMonitor.monitor, post.topicMonitor);
+        const minPcLines = settings.minPcLines || 0;
         const pcLines = Math.floor(post.pc);
         return pcLines >= minPcLines;
     });

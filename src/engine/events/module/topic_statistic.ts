@@ -1,5 +1,6 @@
 import prisma from "./prisma_client";
 import { Calc_Bonus_Activity } from "./alliance/monitor";
+import { applyMonitorTopicSettings, getTopicRewardCoinId } from "./topic_monitor_settings";
 
 // Рассчитывает статистику поста ТОЧНО как в пкметре
 export function calculatePostStats(text: string): {
@@ -164,7 +165,8 @@ export async function rewardForPost(
     monitor: any
 ): Promise<number> {
     console.warn('⚠ Функция rewardForPost устарела');
-    const rewardAmount = calculateReward(topicMonitor, characters);
+    const effectiveTopicMonitor = applyMonitorTopicSettings(topicMonitor, monitor);
+    const rewardAmount = calculateReward(effectiveTopicMonitor, characters);
     
     if (rewardAmount > 0) {
         try {
@@ -201,7 +203,7 @@ export async function rewardForPost(
                 rewardAmount,
                 'ролевой пост',
                 `https://vk.com/topic${monitor.idvk}_${topicMonitor.topicId}?post=${postId}`,
-                monitor
+                { ...monitor, id_coin: getTopicRewardCoinId(monitor) }
             );
             
             console.log(`✅ Награда ${rewardAmount} начислена пользователю ${user.name} (${user.idvk})`);
