@@ -4,15 +4,15 @@ import prisma from "./engine/events/module/prisma_client";
 
 export async function CleanupOldPostStatistics() {
     try {
-        // Рассчитываем дату 6 недель назад
-        const sixWeeksAgo = new Date(Date.now() - (6 * 7 * 24 * 60 * 60 * 1000)); // 6 недель в миллисекундах
+        // Рассчитываем дату 7 недель назад
+        const sevenWeeksAgo = new Date(Date.now() - (7 * 7 * 24 * 60 * 60 * 1000)); // 7 недель в миллисекундах
 
-        console.log(`🧹 Начинаю очистку данных старше ${sixWeeksAgo.toLocaleDateString('ru-RU')}`);
+        console.log(`🧹 Начинаю очистку данных старше ${sevenWeeksAgo.toLocaleDateString('ru-RU')}`);
 
         // 1. Проверяем, сколько данных подлежит удалению
         const countToDelete = await prisma.postStatistic.count({
             where: {
-                date: { lt: sixWeeksAgo }
+                date: { lt: sevenWeeksAgo }
             }
         });
 
@@ -30,12 +30,12 @@ export async function CleanupOldPostStatistics() {
         console.log('🗑️ Удаляю старые записи статистики...');
         const deletedCount = await prisma.postStatistic.deleteMany({
             where: {
-                date: { lt: sixWeeksAgo }
+                date: { lt: sevenWeeksAgo }
             }
         });
 
         // 4. Логируем результат
-        const logMessage = `🧹 Очистка статистики: удалено ${deletedCount.count} записей (старше 6 недель)`;
+        const logMessage = `🧹 Очистка статистики: удалено ${deletedCount.count} записей (старше 7 недель)`;
         await Logger(logMessage);
         console.log(`✅ Очистка завершена: удалено ${deletedCount.count} записей статистики`);
         
@@ -43,7 +43,7 @@ export async function CleanupOldPostStatistics() {
         await Send_Message(chat_id, 
             `🧹 Автоматическая очистка древних записей по ролевым постам\n` +
             `🗑️ Удалено записей статистики: ${deletedCount.count}\n` +
-            `📅 Старше: ${sixWeeksAgo.toLocaleDateString('ru-RU')}\n` +
+            `📅 Старше: ${sevenWeeksAgo.toLocaleDateString('ru-RU')}\n` +
             `ℹ️ Балансы пользователей не изменены`
         );
         
@@ -52,7 +52,7 @@ export async function CleanupOldPostStatistics() {
         // 6. (Опционально) Проверяем, не остались ли записи
         const remainingCount = await prisma.postStatistic.count({
             where: {
-                date: { lt: sixWeeksAgo }
+                date: { lt: sevenWeeksAgo }
             }
         });
         

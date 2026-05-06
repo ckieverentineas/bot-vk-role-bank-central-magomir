@@ -20,7 +20,7 @@ import { Auto_Backup_DB } from './engine/core/auto_backup';
 import { Start_Worker_API_Bot } from './engine/api';
 import { Monitor_Select_Person_Handler } from './engine/events/module/person/monitor_select';
 import { Alliance_Topic_Monitor_Printer } from './engine/events/module/alliance/alliance_topic_monitor';
-import { Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Search_Topic_Process, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Weeks } from './engine/events/module/topic_rank_v2';
+import { Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Search_Topic_Process, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Hashtag, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Weeks } from './engine/events/module/topic_rank_v2';
 import { CleanupOldPostStatistics } from './cleanup_old_posts';
 import { button_alliance_return } from './engine/events/module/data_center/standart';
 import { Exit, Keyboard_Admin_Main, Keyboard_User_Main, Main_Menu_Admin_Init, Main_Menu_Init } from './engine/events/contoller';
@@ -314,6 +314,7 @@ initializeGroupId().then(async () => {
             "topic_rank_v2_weeks": Topic_Rank_V2_Weeks,
             "topic_rank_v2_select_monitor": Topic_Rank_V2_Select_Monitor,
             "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,   
+            "topic_rank_v2_select_hashtag": Topic_Rank_V2_Select_Hashtag,
             "do_upgrade_action": async (ctx: any) => {
             //console.log("🔍 [do_upgrade_action] Вызван!");
             const payload = ctx.eventPayload;

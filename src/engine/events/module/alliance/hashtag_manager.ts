@@ -4,6 +4,7 @@ export async function getHashtagRank(
     allianceId: number,
     hashtag: string,
     periodStart: Date | null,
+    periodEnd: Date | null,
     sortBy: string = 'pc',
     page: number = 0,
     perPage: number = 10
@@ -19,7 +20,10 @@ export async function getHashtagRank(
     
     if (periodStart) {
         whereClause.postStatistic = {
-            date: { gte: periodStart }
+            date: {
+                gte: periodStart,
+                ...(periodEnd ? { lte: periodEnd } : {})
+            }
         };
     }
     
@@ -44,20 +48,53 @@ export async function getHashtagRank(
         return { stats: [], totalCount: 0 };
     }
     
-    // Получаем агрегированную статистику по пользователям
-    const userStats = await prisma.postStatistic.groupBy({
-        by: ['userId'],
+    const postStatistics = await prisma.postStatistic.findMany({
         where: {
             id: { in: postStatisticIds }
         },
-        _count: { id: true },
-        _sum: {
+        select: {
+            userId: true,
+            topicMonitorId: true,
             characters: true,
             words: true,
             pc: true,
             mb: true
         }
     });
+    
+    const statsMap = new Map<number, { count: number; chars: number; words: number; pc: number; mb: number; locations: Set<number> }>();
+
+    for (const post of postStatistics) {
+        const existing = statsMap.get(post.userId);
+
+        if (existing) {
+            existing.count++;
+            existing.chars += post.characters;
+            existing.words += post.words;
+            existing.pc += post.pc;
+            existing.mb += post.mb;
+            existing.locations.add(post.topicMonitorId);
+        } else {
+            statsMap.set(post.userId, {
+                count: 1,
+                chars: post.characters,
+                words: post.words,
+                pc: post.pc,
+                mb: post.mb,
+                locations: new Set([post.topicMonitorId])
+            });
+        }
+    }
+
+    const userStats = Array.from(statsMap.entries()).map(([userId, stat]) => ({
+        userId,
+        postCount: stat.count,
+        totalChars: stat.chars,
+        totalWords: stat.words,
+        totalPc: stat.pc,
+        totalMb: stat.mb,
+        totalLocations: stat.locations.size
+    }));
     
     console.log(`   Уникальных пользователей: ${userStats.length}`);
     
@@ -76,11 +113,12 @@ export async function getHashtagRank(
             userId: stat.userId,
             userIdvk: user?.idvk || 0,
             userName: user?.name || 'Неизвестный',
-            postCount: stat._count.id,
-            totalChars: stat._sum.characters || 0,
-            totalWords: stat._sum.words || 0,
-            totalPc: stat._sum.pc || 0,
-            totalMb: stat._sum.mb || 0
+            postCount: stat.postCount,
+            totalChars: stat.totalChars,
+            totalWords: stat.totalWords,
+            totalPc: stat.totalPc,
+            totalMb: stat.totalMb,
+            totalLocations: stat.totalLocations
         };
     });
     
@@ -92,6 +130,7 @@ export async function getHashtagRank(
             case 'words': return b.totalWords - a.totalWords;
             case 'pc': return b.totalPc - a.totalPc;
             case 'mb': return b.totalMb - a.totalMb;
+            case 'locations': return b.totalLocations - a.totalLocations;
             default: return b.totalPc - a.totalPc;
         }
     });

@@ -7,8 +7,8 @@ import { ico_list } from "./data_center/icons_lib";
 import { getHashtagRank, getMonitorHashtags } from "./alliance/hashtag_manager";
 import { resolveTopicRewardSettings } from "./topic_monitor_settings";
 
-type SortBy = 'posts' | 'characters' | 'words' | 'pc' | 'mb';
-type PeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4';
+type SortBy = 'posts' | 'characters' | 'words' | 'pc' | 'mb' | 'locations';
+type PeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4' | 'week_-5' | 'week_-6';
 type ViewType = 'all' | 'monitor' | 'topic' | 'facult';
 
 // В начале функции Topic_Rank_V2_Enter нужно получить хештеги монитора
@@ -44,10 +44,12 @@ export async function Topic_Rank_V2_Enter(context: any) {
     if (hashtag) {
         // Получаем данные по конкретному хештегу
         const periodStart = getPeriodStartDate(period);
+        const periodEnd = getPeriodEndDate(period);
         const hashtagResult = await getHashtagRank(
             alliance.id,
             hashtag,
             periodStart,
+            periodEnd,
             sortBy,
             page,
             perPage
@@ -310,6 +312,15 @@ function buildRankKeyboardV2(
             period, sortBy: 'mb', viewType, monitorId, topicId, facultId, hashtag, page: 0
         },
         color: sortBy === 'mb' ? 'positive' : 'secondary'
+    });
+
+    keyboard.callbackButton({
+        label: sortBy === 'locations' ? '🗺️ ✅' : '🗺️',
+        payload: {
+            command: 'topic_rank_v2',
+            period, sortBy: 'locations', viewType, monitorId, topicId, facultId, hashtag, page: 0
+        },
+        color: sortBy === 'locations' ? 'positive' : 'secondary'
     }).row();
 
     // === СТРОКА 6: ПАГИНАЦИЯ ===
@@ -427,6 +438,22 @@ function getDateRangeText(period: PeriodType): string {
             sunday.setDate(sunday.getDate() + 6);
             return formatDateRange(monday, sunday);
         }
+        case 'week_-5': {
+            const fiveWeeksAgo = new Date(now);
+            fiveWeeksAgo.setDate(fiveWeeksAgo.getDate() - 35);
+            const monday = getMondayOfWeek(fiveWeeksAgo);
+            const sunday = new Date(monday);
+            sunday.setDate(sunday.getDate() + 6);
+            return formatDateRange(monday, sunday);
+        }
+        case 'week_-6': {
+            const sixWeeksAgo = new Date(now);
+            sixWeeksAgo.setDate(sixWeeksAgo.getDate() - 42);
+            const monday = getMondayOfWeek(sixWeeksAgo);
+            const sunday = new Date(monday);
+            sunday.setDate(sunday.getDate() + 6);
+            return formatDateRange(monday, sunday);
+        }
         case 'all_time':
         default:
             return "";
@@ -497,6 +524,17 @@ async function getActivityStatsWithRanking(
         return pcLines >= minPcLines;
     });
 
+    const locationsByUser = new Map<number, Set<number>>();
+    for (const post of allPosts) {
+        const locations = locationsByUser.get(post.userId);
+
+        if (locations) {
+            locations.add(post.topicMonitorId);
+        } else {
+            locationsByUser.set(post.userId, new Set([post.topicMonitorId]));
+        }
+    }
+
     // Группируем по userId
     const statsMap = new Map<number, { count: number; chars: number; words: number; pc: number; mb: number }>();
     
@@ -526,7 +564,8 @@ async function getActivityStatsWithRanking(
         totalChars: data.chars,
         totalWords: data.words,
         totalPc: data.pc,
-        totalMb: data.mb
+        totalMb: data.mb,
+        totalLocations: locationsByUser.get(userId)?.size || 0
     }));
 
     // Получаем всех пользователей альянса
@@ -553,7 +592,8 @@ async function getActivityStatsWithRanking(
             totalChars: stat?.totalChars || 0,
             totalWords: stat?.totalWords || 0,
             totalPc: stat?.totalPc || 0,
-            totalMb: stat?.totalMb || 0
+            totalMb: stat?.totalMb || 0,
+            totalLocations: stat?.totalLocations || locationsByUser.get(user.id)?.size || 0
         };
     });
 
@@ -565,6 +605,7 @@ async function getActivityStatsWithRanking(
             case 'words': return b.totalWords - a.totalWords;
             case 'pc': return b.totalPc - a.totalPc;
             case 'mb': return b.totalMb - a.totalMb;
+            case 'locations': return b.totalLocations - a.totalLocations;
             default: return b.totalChars - a.totalChars;
         }
     });
@@ -629,6 +670,7 @@ export async function Topic_Rank_V2_Select_Facult(context: any) {
     const monitorId = context.eventPayload?.monitorId || null;
     const topicId = context.eventPayload?.topicId || null;
     const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null;
     const page = context.eventPayload?.page || 0;
 
     // Получаем все факультеты альянса
@@ -661,7 +703,7 @@ export async function Topic_Rank_V2_Select_Facult(context: any) {
             payload: {
                 command: 'topic_rank_v2',
                 period, sortBy, viewType: 'all',
-                monitorId, topicId, facultId: facult1.id, page: 0
+                monitorId, topicId, facultId: facult1.id, hashtag, page: 0
             },
             color: facultId === facult1.id ? 'positive' : 'secondary'
         });
@@ -672,7 +714,7 @@ export async function Topic_Rank_V2_Select_Facult(context: any) {
                 payload: {
                     command: 'topic_rank_v2',
                     period, sortBy, viewType: 'all',
-                    monitorId, topicId, facultId: facult2.id, page: 0
+                    monitorId, topicId, facultId: facult2.id, hashtag, page: 0
                 },
                 color: facultId === facult2.id ? 'positive' : 'secondary'
             });
@@ -691,7 +733,7 @@ export async function Topic_Rank_V2_Select_Facult(context: any) {
         payload: {
             command: 'topic_rank_v2',
             period, sortBy, viewType: 'all',
-            monitorId, topicId, facultId: null, page: 0
+            monitorId, topicId, facultId: null, hashtag, page: 0
         },
         color: 'negative'
     }).row();
@@ -701,7 +743,7 @@ export async function Topic_Rank_V2_Select_Facult(context: any) {
         label: '↩️ Назад',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: 'secondary'
     }).inline().oneTime();
@@ -726,6 +768,7 @@ export async function Topic_Rank_V2_Search_Topic(context: any) {
     const monitorId = context.eventPayload?.monitorId || null;
     const topicId = context.eventPayload?.topicId || null;
     const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null;
     const page = context.eventPayload?.page || 0;
 
     // Отправляем сообщение с инструкцией и создаем сессию для ввода
@@ -741,6 +784,7 @@ export async function Topic_Rank_V2_Search_Topic(context: any) {
         monitorId,
         topicId,
         facultId,
+        hashtag,
         page,
         command: 'topic_rank_v2_search_topic_process' // Новая команда для обработки
     };
@@ -796,6 +840,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
             monitorId: searchParams.monitorId,
             topicId: searchParams.topicId,
             facultId: searchParams.facultId,
+            hashtag: searchParams.hashtag,
             page: searchParams.page
         };
         context.eventPayload = payload;
@@ -832,6 +877,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
             monitorId: searchParams.monitorId,
             topicId: searchParams.topicId,
             facultId: searchParams.facultId,
+            hashtag: searchParams.hashtag,
             page: searchParams.page
         };
         context.eventPayload = payload;
@@ -866,6 +912,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
                 monitorId: searchParams.monitorId,
                 topicId: topic1.id,
                 facultId: searchParams.facultId,
+                hashtag: searchParams.hashtag,
                 page: 0
             },
             color: searchParams.topicId === topic1.id ? 'positive' : 'secondary'
@@ -882,6 +929,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
                     monitorId: searchParams.monitorId,
                     topicId: topic2.id,
                     facultId: searchParams.facultId,
+                    hashtag: searchParams.hashtag,
                     page: 0
                 },
                 color: searchParams.topicId === topic2.id ? 'positive' : 'secondary'
@@ -906,6 +954,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
             monitorId: searchParams.monitorId,
             topicId: null,
             facultId: searchParams.facultId,
+            hashtag: searchParams.hashtag,
             page: 0
         },
         color: 'negative'
@@ -921,6 +970,7 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
             monitorId: searchParams.monitorId,
             topicId: searchParams.topicId,
             facultId: searchParams.facultId,
+            hashtag: searchParams.hashtag,
             page: searchParams.page
         },
         color: 'secondary'
@@ -947,6 +997,7 @@ export async function Topic_Rank_V2_Select_Monitor(context: any) {
     const monitorId = context.eventPayload?.monitorId || null;
     const topicId = context.eventPayload?.topicId || null;
     const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null;
     const page = context.eventPayload?.page || 0;
 
     // Получаем все мониторы альянса
@@ -979,7 +1030,7 @@ export async function Topic_Rank_V2_Select_Monitor(context: any) {
             payload: {
                 command: 'topic_rank_v2',
                 period, sortBy, viewType: 'all',
-                monitorId: monitor1.id, topicId, facultId, page: 0
+                monitorId: monitor1.id, topicId, facultId, hashtag, page: 0
             },
             color: monitorId === monitor1.id ? 'positive' : 'secondary'
         });
@@ -990,7 +1041,7 @@ export async function Topic_Rank_V2_Select_Monitor(context: any) {
                 payload: {
                     command: 'topic_rank_v2',
                     period, sortBy, viewType: 'all',
-                    monitorId: monitor2.id, topicId, facultId, page: 0
+                    monitorId: monitor2.id, topicId, facultId, hashtag, page: 0
                 },
                 color: monitorId === monitor2.id ? 'positive' : 'secondary'
             });
@@ -1009,7 +1060,7 @@ export async function Topic_Rank_V2_Select_Monitor(context: any) {
         payload: {
             command: 'topic_rank_v2',
             period, sortBy, viewType: 'all',
-            monitorId: null, topicId, facultId, page: 0
+            monitorId: null, topicId, facultId, hashtag, page: 0
         },
         color: 'negative'
     }).row();
@@ -1019,7 +1070,7 @@ export async function Topic_Rank_V2_Select_Monitor(context: any) {
         label: '↩️ Назад',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: 'secondary'
     }).inline().oneTime();
@@ -1043,6 +1094,7 @@ export async function Topic_Rank_V2_Weeks(context: any) {
     const monitorId = context.eventPayload?.monitorId || null;
     const topicId = context.eventPayload?.topicId || null;
     const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null;
     const page = context.eventPayload?.page || 0;
 
     const keyboard = new KeyboardBuilder();
@@ -1052,6 +1104,8 @@ export async function Topic_Rank_V2_Weeks(context: any) {
         { label: '-2 нед', period: 'week_-2' },
         { label: '-3 нед', period: 'week_-3' },
         { label: '-4 нед', period: 'week_-4' },
+        { label: '-5 нед', period: 'week_-5' },
+        { label: '-6 нед', period: 'week_-6' },
     ];
 
     // Формируем текст с датами
@@ -1080,7 +1134,7 @@ export async function Topic_Rank_V2_Weeks(context: any) {
             payload: {
                 command: 'topic_rank_v2',
                 period: btn1.period,
-                sortBy, viewType, monitorId, topicId, facultId, page: 0
+                sortBy, viewType, monitorId, topicId, facultId, hashtag, page: 0
             },
             color: period === btn1.period ? 'positive' : 'secondary'
         });
@@ -1091,7 +1145,7 @@ export async function Topic_Rank_V2_Weeks(context: any) {
                 payload: {
                     command: 'topic_rank_v2',
                     period: btn2.period,
-                    sortBy, viewType, monitorId, topicId, facultId, page: 0
+                    sortBy, viewType, monitorId, topicId, facultId, hashtag, page: 0
                 },
                 color: period === btn2.period ? 'positive' : 'secondary'
             });
@@ -1107,7 +1161,7 @@ export async function Topic_Rank_V2_Weeks(context: any) {
         label: '↩️ Назад',
         payload: {
             command: 'topic_rank_v2',
-            period, sortBy, viewType, monitorId, topicId, facultId, page
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
         color: 'secondary'
     }).inline().oneTime();
@@ -1145,6 +1199,16 @@ function getPeriodStartDate(period: PeriodType): Date | null {
             const fourWeeksAgo = new Date(now);
             fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
             return getMondayOfWeek(fourWeeksAgo);
+
+        case 'week_-5':
+            const fiveWeeksAgo = new Date(now);
+            fiveWeeksAgo.setDate(fiveWeeksAgo.getDate() - 35);
+            return getMondayOfWeek(fiveWeeksAgo);
+
+        case 'week_-6':
+            const sixWeeksAgo = new Date(now);
+            sixWeeksAgo.setDate(sixWeeksAgo.getDate() - 42);
+            return getMondayOfWeek(sixWeeksAgo);
             
         case 'all_time':
         default:
@@ -1196,6 +1260,20 @@ function getPeriodEndDate(period: PeriodType): Date | null {
             fourWeeksAgoSunday.setDate(fourWeeksAgoSunday.getDate() + 6);
             fourWeeksAgoSunday.setHours(23, 59, 59, 999);
             return fourWeeksAgoSunday;
+
+        case 'week_-5':
+            const fiveWeeksAgoMonday = getMondayOfWeek(new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000));
+            const fiveWeeksAgoSunday = new Date(fiveWeeksAgoMonday);
+            fiveWeeksAgoSunday.setDate(fiveWeeksAgoSunday.getDate() + 6);
+            fiveWeeksAgoSunday.setHours(23, 59, 59, 999);
+            return fiveWeeksAgoSunday;
+
+        case 'week_-6':
+            const sixWeeksAgoMonday = getMondayOfWeek(new Date(now.getTime() - 42 * 24 * 60 * 60 * 1000));
+            const sixWeeksAgoSunday = new Date(sixWeeksAgoMonday);
+            sixWeeksAgoSunday.setDate(sixWeeksAgoSunday.getDate() + 6);
+            sixWeeksAgoSunday.setHours(23, 59, 59, 999);
+            return sixWeeksAgoSunday;
             
         case 'all_time':
         default:
@@ -1220,6 +1298,7 @@ function getScoreBySortType(stat: any, sortBy: SortBy): number {
         case 'words': return stat.totalWords;
         case 'pc': return stat.totalPc;
         case 'mb': return stat.totalMb;
+        case 'locations': return stat.totalLocations;
         default: return stat.totalChars;
     }
 }
@@ -1231,6 +1310,7 @@ function getScoreText(score: number, sortBy: SortBy): string {
         case 'words': return `${formatCompactNumber(score)}📖`;
         case 'pc': return `${score.toFixed(2)}💻`;
         case 'mb': return `${score.toFixed(2)}📱`;
+        case 'locations': return `${score}🗺️`;
         default: return `${formatCompactNumber(score)}🔤`;
     }
 }
@@ -1246,6 +1326,8 @@ function getPeriodText(period: PeriodType): string {
         case 'week_-2': return dateRange ? `нед -2 (${dateRange})` : 'нед -2';
         case 'week_-3': return dateRange ? `нед -3 (${dateRange})` : 'нед -3';
         case 'week_-4': return dateRange ? `нед -4 (${dateRange})` : 'нед -4';
+        case 'week_-5': return dateRange ? `нед -5 (${dateRange})` : 'нед -5';
+        case 'week_-6': return dateRange ? `нед -6 (${dateRange})` : 'нед -6';
         default: return '';
     }
 }
@@ -1257,6 +1339,7 @@ function getSortText(sortBy: SortBy): string {
         case 'words': return 'по словам';
         case 'pc': return 'по ПК';
         case 'mb': return 'по МБ';
+        case 'locations': return 'по локациям';
         default: return 'по символам';
     }
 }
