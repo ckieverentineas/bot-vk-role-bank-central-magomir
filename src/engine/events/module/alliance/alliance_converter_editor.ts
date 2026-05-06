@@ -1,12 +1,33 @@
-import { Alliance, AllianceCoin, User, BalanceFacult } from "@prisma/client";
+import { Alliance, AllianceCoin, BalanceCoin, User } from "@prisma/client";
 import prisma from "../prisma_client";
 import { Person_Get } from "../person/person";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, timer_text, timer_text_oper } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Format_Number_Correction, Keyboard_Index, Logger, Select_Alliance_Coin, Send_Message } from "../../../core/helper";
 import { button_alliance_return } from "../data_center/standart";
 import { ico_list } from "../data_center/icons_lib";
 import { getTerminology } from "../alliance/terminology_helper"
+
+type InternalConversionWithCoins = {
+    id: number;
+    enabled: boolean;
+    course_source: number;
+    course_target: number;
+    id_alliance: number;
+    id_source_coin: number;
+    id_target_coin: number;
+    sourceCoin: AllianceCoin;
+    targetCoin: AllianceCoin;
+};
+
+type InternalConversionCourse = {
+    course_source: number;
+    course_target: number;
+};
+
+const INTERNAL_CONVERSION_BATCH_SIZE = 5;
+const CONVERTER_MENU_INTERNAL_BATCH_SIZE = 5;
+const MAX_INTERNAL_COURSE_VALUE = 1000000;
 
 // Контроллер управления валютами альянса
 // В alliance_converter.ts исправьте функцию Alliance_Coin_Get:
@@ -22,6 +43,82 @@ async function Alliance_Coin_Get(cursor: number, alliance: Alliance) {
     });
 }
 
+async function Internal_Conversion_Get(
+    allianceId: number,
+    cursor: number,
+    onlyEnabled = false,
+    take?: number
+): Promise<InternalConversionWithCoins[]> {
+    return await prisma.allianceCoinInternalConversion.findMany({
+        where: {
+            id_alliance: allianceId,
+            ...(onlyEnabled ? { enabled: true } : {})
+        },
+        include: {
+            sourceCoin: true,
+            targetCoin: true
+        },
+        orderBy: { id: 'asc' },
+        skip: cursor,
+        ...(take ? { take } : {})
+    });
+}
+
+async function Internal_Conversion_Find(
+    id: number,
+    allianceId: number
+): Promise<InternalConversionWithCoins | null> {
+    return await prisma.allianceCoinInternalConversion.findFirst({
+        where: {
+            id,
+            id_alliance: allianceId
+        },
+        include: {
+            sourceCoin: true,
+            targetCoin: true
+        }
+    });
+}
+
+async function Balance_Coin_Get_Or_Create(userId: number, coinId: number): Promise<BalanceCoin> {
+    const balance = await prisma.balanceCoin.findFirst({
+        where: {
+            id_user: userId,
+            id_coin: coinId
+        }
+    });
+
+    if (balance) {
+        return balance;
+    }
+
+    return await prisma.balanceCoin.create({
+        data: {
+            id_user: userId,
+            id_coin: coinId,
+            amount: 0
+        }
+    });
+}
+
+function Parse_Positive_Amount(text: string): number | null {
+    const value = Number(text.replace(',', '.'));
+
+    if (!Number.isFinite(value) || value <= 0) {
+        return null;
+    }
+
+    return Math.round(value * 1000) / 1000;
+}
+
+function Calculate_Internal_Conversion(amount: number, courseSource: number, courseTarget: number): number {
+    return Math.round((amount / courseSource * courseTarget) * 1000) / 1000;
+}
+
+function Format_Currency_Amount(amount: number): number | string {
+    return Format_Number_Correction(amount);
+}
+
 export async function Alliance_Coin_Converter_Printer(context: any) {
     const user = await Person_Get(context);
     const alliance = await prisma.alliance.findFirst({ 
@@ -33,45 +130,138 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
         return;
     }
 
-    // Выбор типа конвертации
-    const keyboard = new KeyboardBuilder()
-        .textButton({ 
-            label: '🔘 Конвертация жетонов', 
-            payload: { command: 'select_converter_type', type: 'medal' }, 
-            color: 'secondary' 
-        }).row()
-        .textButton({ 
-            label: '🌕 Конвертация S-coins', 
-            payload: { command: 'select_converter_type', type: 'scoopins' }, 
-            color: 'secondary' 
-        }).row()
-        .textButton({ 
-            label: `${ico_list['stop'].ico}`, 
-            payload: { command: 'converter_cancel' }, 
-            color: 'secondary' 
+    let cursor = 0;
+
+    while (true) {
+        const internalConversions = await Internal_Conversion_Get(
+            alliance.id,
+            cursor,
+            true,
+            CONVERTER_MENU_INTERNAL_BATCH_SIZE
+        );
+        const internalConversionCount = await prisma.allianceCoinInternalConversion.count({
+            where: {
+                id_alliance: alliance.id,
+                enabled: true
+            }
+        });
+
+        const keyboard = new KeyboardBuilder()
+            .textButton({
+                label: '🔘 Конвертация жетонов',
+                payload: { command: 'select_converter_type', type: 'medal' },
+                color: 'secondary'
+            }).row()
+            .textButton({
+                label: '🌕 Конвертация S-coins',
+                payload: { command: 'select_converter_type', type: 'scoopins' },
+                color: 'secondary'
+            }).row();
+
+        for (const conversion of internalConversions) {
+            keyboard.textButton({
+                label: `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name.slice(0,12)} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name.slice(0,12)}`,
+                payload: {
+                    command: 'select_converter_type',
+                    type: 'internal',
+                    id_internal_conversion: conversion.id
+                },
+                color: 'secondary'
+            }).row();
+        }
+
+        if (cursor >= CONVERTER_MENU_INTERNAL_BATCH_SIZE) {
+            keyboard.textButton({
+                label: `${ico_list['back'].ico}`,
+                payload: {
+                    command: 'converter_page_back',
+                    cursor: Math.max(0, cursor - CONVERTER_MENU_INTERNAL_BATCH_SIZE)
+                },
+                color: 'secondary'
+            });
+        }
+
+        if (cursor + CONVERTER_MENU_INTERNAL_BATCH_SIZE < internalConversionCount) {
+            keyboard.textButton({
+                label: `${ico_list['next'].ico}`,
+                payload: {
+                    command: 'converter_page_next',
+                    cursor: cursor + CONVERTER_MENU_INTERNAL_BATCH_SIZE
+                },
+                color: 'secondary'
+            });
+        }
+
+        if (internalConversionCount > CONVERTER_MENU_INTERNAL_BATCH_SIZE) {
+            keyboard.row();
+        }
+
+        keyboard.textButton({
+            label: `${ico_list['stop'].ico}`,
+            payload: { command: 'converter_cancel' },
+            color: 'secondary'
         }).oneTime();
 
-    const typeSelect = await context.question(
-        `${ico_list['converter'].ico} Выберите тип конвертации:`, 
-        { keyboard, answerTimeLimit }
-    );
+        let eventLogger = `${ico_list['converter'].ico} Выберите тип конвертации:\n\n`;
+        eventLogger += `🔘 Конвертация жетонов\n`;
+        eventLogger += `🌕 Конвертация S-coins\n`;
 
-    if (typeSelect.isTimeout) {
-        await context.send(`⏰ Время ожидания истекло!`);
+        if (internalConversions.length > 0) {
+            const pageInfo = internalConversionCount > CONVERTER_MENU_INTERNAL_BATCH_SIZE
+                ? `: страница ${Math.floor(cursor / CONVERTER_MENU_INTERNAL_BATCH_SIZE) + 1} из ${Math.ceil(internalConversionCount / CONVERTER_MENU_INTERNAL_BATCH_SIZE)}`
+                : '';
+
+            eventLogger += `\nМестные варианты${pageInfo}:\n`;
+
+            for (const conversion of internalConversions) {
+                eventLogger += `• ${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}\n`;
+                eventLogger += `  Курс: ${Format_Currency_Amount(conversion.course_source)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${conversion.targetCoin.smile}\n`;
+            }
+        }
+
+        const typeSelect = await context.question(
+            eventLogger,
+            { keyboard, answerTimeLimit }
+        );
+
+        if (typeSelect.isTimeout) {
+            await context.send(`⏰ Время ожидания истекло!`);
+            await context.send(`${ico_list['help'].ico} Возврат к основным командам.`, { keyboard: button_alliance_return });
+            return;
+        }
+
+        const command = typeSelect.payload?.command;
+
+        if (command === 'converter_page_next' || command === 'converter_page_back') {
+            cursor = Number(typeSelect.payload?.cursor ?? 0);
+            continue;
+        }
+
+        if (command === 'converter_cancel') {
+            await context.send(`❌ Конвертация отменена`);
+            await context.send(`${ico_list['help'].ico} Возврат к основным командам.`, { keyboard: button_alliance_return });
+            return;
+        }
+
+        const converterType = typeSelect.payload?.type;
+
+        if (converterType === 'medal') {
+            await Medal_Converter_Flow(context, user, alliance);
+        } else if (converterType === 'scoopins') {
+            await Scoopins_Converter_Flow(context, user, alliance);
+        } else if (converterType === 'internal') {
+            await Internal_Converter_Edit(
+                context,
+                { id_internal_conversion: Number(typeSelect.payload?.id_internal_conversion), cursor: 0 },
+                alliance
+            );
+        } else {
+            await context.send(`${ico_list['help'].ico} Выберите вариант конвертации кнопкой.`);
+            continue;
+        }
+
+        await context.send(`${ico_list['help'].ico} Конвертация завершена.`, { keyboard: button_alliance_return });
         return;
-    }
-
-    if (typeSelect.payload?.command === 'converter_cancel') {
-        await context.send(`❌ Конвертация отменена`);
-        return;
-    }
-
-    const converterType = typeSelect.payload?.type;
-    
-    if (converterType === 'medal') {
-        await Medal_Converter_Flow(context, user, alliance);
-    } else if (converterType === 'scoopins') {
-        await Scoopins_Converter_Flow(context, user, alliance);
     }
 }
 
@@ -413,6 +603,201 @@ async function Alliance_Coin_Back_Fixed(context: any, data: any, alliance: Allia
     return { cursor: data.cursor };
 }
 
+async function Internal_Converter_Edit(context: any, data: any, alliance: Alliance) {
+    const res = { cursor: data.cursor ?? 0 };
+    const user = await Person_Get(context);
+
+    if (!user) {
+        return res;
+    }
+
+    const conversion = await Internal_Conversion_Find(Number(data.id_internal_conversion), alliance.id);
+
+    if (!conversion || !conversion.enabled) {
+        await context.send(`${ico_list['warn'].ico} Внутренняя конвертация не найдена или отключена.`);
+        return res;
+    }
+
+    const sourceBalance = await Balance_Coin_Get_Or_Create(user.id, conversion.sourceCoin.id);
+    const targetBalance = await Balance_Coin_Get_Or_Create(user.id, conversion.targetCoin.id);
+
+    if (sourceBalance.amount <= 0) {
+        await context.send(
+            `${ico_list['warn'].ico} На балансе нет ${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} для конвертации.`
+        );
+        return res;
+    }
+
+    let money_check = false;
+    let sourceAmount = Math.round(sourceBalance.amount * 1000) / 1000;
+    let targetAmount = Calculate_Internal_Conversion(sourceAmount, conversion.course_source, conversion.course_target);
+
+    while (!money_check) {
+        targetAmount = Calculate_Internal_Conversion(sourceAmount, conversion.course_source, conversion.course_target);
+
+        const answer: any = await context.question(
+            `${ico_list['converter'].ico} Внутренняя конвертация:\n\n` +
+            `Ваш баланс: ${Format_Currency_Amount(sourceBalance.amount)}${conversion.sourceCoin.smile}\n` +
+            `Курс: ${Format_Currency_Amount(conversion.course_source)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${conversion.targetCoin.smile}\n` +
+            `Будет сконвертировано: ${Format_Currency_Amount(sourceAmount)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(targetAmount)}${conversion.targetCoin.smile}\n\n` +
+            `Введите количество ${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} для конвертации:`,
+            {
+                keyboard: Keyboard.builder()
+                    .textButton({ label: '!подтвердить', payload: { command: 'confirm' }, color: 'secondary' })
+                    .textButton({ label: '!отмена', payload: { command: 'cancel' }, color: 'secondary' })
+                    .oneTime().inline(),
+                timer_text_oper
+            }
+        );
+
+        if (answer.isTimeout) {
+            await context.send(`${ico_list['time'].ico} Время ожидания истекло!`);
+            return res;
+        }
+
+        if (answer.text === '!подтвердить') {
+            if (targetAmount <= 0) {
+                await context.send(`${ico_list['warn'].ico} По этому курсу получится 0${conversion.targetCoin.smile}. Введите большее количество.`);
+                continue;
+            }
+
+            money_check = true;
+            continue;
+        }
+
+        if (answer.text === '!отмена') {
+            return res;
+        }
+
+        const input = Parse_Positive_Amount(String(answer.text ?? ''));
+
+        if (input === null) {
+            await context.send(`${ico_list['warn'].ico} Введите положительное число.`);
+            continue;
+        }
+
+        if (input > sourceBalance.amount) {
+            await context.send(
+                `${ico_list['warn'].ico} Недостаточно ${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}. Максимум: ${Format_Currency_Amount(sourceBalance.amount)}${conversion.sourceCoin.smile}`
+            );
+            continue;
+        }
+
+        sourceAmount = input;
+    }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `сконвертировать ${Format_Currency_Amount(sourceAmount)}${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} ` +
+        `в ${Format_Currency_Amount(targetAmount)}${conversion.targetCoin.smile} ${conversion.targetCoin.name}?`
+    );
+
+    await context.send(`${confirm.text}`);
+
+    if (!confirm.status) {
+        return res;
+    }
+
+    const operationSourceBalance = await Balance_Coin_Get_Or_Create(user.id, conversion.sourceCoin.id);
+
+    if (operationSourceBalance.amount < sourceAmount) {
+        await context.send(
+            `${ico_list['warn'].ico} Баланс ${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} изменился. ` +
+            `Сейчас доступно ${Format_Currency_Amount(operationSourceBalance.amount)}${conversion.sourceCoin.smile}.`
+        );
+        return res;
+    }
+
+    const operationTargetBalance = await Balance_Coin_Get_Or_Create(user.id, conversion.targetCoin.id);
+
+    const [sourceUpdate, targetUpdate] = await prisma.$transaction([
+        prisma.balanceCoin.update({
+            where: { id: operationSourceBalance.id },
+            data: { amount: { decrement: sourceAmount } }
+        }),
+        prisma.balanceCoin.update({
+            where: { id: operationTargetBalance.id },
+            data: { amount: { increment: targetAmount } }
+        })
+    ]);
+
+    const userMessage =
+        `${ico_list['success'].ico} Конвертация успешна!\n\n` +
+        `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}: ${Format_Currency_Amount(operationSourceBalance.amount)} - ${Format_Currency_Amount(sourceAmount)} = ${Format_Currency_Amount(sourceUpdate.amount)}\n` +
+        `${conversion.targetCoin.smile} ${conversion.targetCoin.name}: ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}`;
+
+    await Logger(
+        `Внутренняя конвертация: ${conversion.sourceCoin.name} ${operationSourceBalance.amount} - ${sourceAmount} = ${sourceUpdate.amount}, ` +
+        `${conversion.targetCoin.name} ${operationTargetBalance.amount} + ${targetAmount} = ${targetUpdate.amount} by player ${context.senderId}`
+    );
+    await context.send(userMessage);
+
+    const chatMessage =
+        `⌛ @id${user.idvk}(${user.name}) конвертирует ${Format_Currency_Amount(sourceAmount)} [${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}] ` +
+        `в ${Format_Currency_Amount(targetAmount)} [${conversion.targetCoin.smile} ${conversion.targetCoin.name}].\n\n` +
+        `${conversion.sourceCoin.smile} --> ${Format_Currency_Amount(operationSourceBalance.amount)} - ${Format_Currency_Amount(sourceAmount)} = ${Format_Currency_Amount(sourceUpdate.amount)}\n` +
+        `${conversion.targetCoin.smile} --> ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}`;
+
+    await Send_Message(chat_id, chatMessage);
+
+    if (alliance.id_chat && alliance.id_chat > 0) {
+        await Send_Message(alliance.id_chat, chatMessage);
+    }
+
+    await Apply_Facult_Rating_For_Conversion(context, alliance, user, conversion.targetCoin, targetAmount);
+
+    return res;
+}
+
+async function Apply_Facult_Rating_For_Conversion(
+    context: any,
+    alliance: Alliance,
+    user: User,
+    coin: AllianceCoin,
+    amount: number
+) {
+    if (!coin.point || !user.id_facult) {
+        return;
+    }
+
+    const facult = await prisma.allianceFacult.findFirst({
+        where: { id: user.id_facult }
+    });
+
+    if (!facult) {
+        return;
+    }
+
+    let facultBalance = await prisma.balanceFacult.findFirst({
+        where: {
+            id_coin: coin.id,
+            id_facult: user.id_facult
+        }
+    });
+
+    if (!facultBalance) {
+        facultBalance = await prisma.balanceFacult.create({
+            data: {
+                id_coin: coin.id,
+                id_facult: user.id_facult,
+                amount: 0
+            }
+        });
+    }
+
+    const updatedFacult = await prisma.balanceFacult.update({
+        where: { id: facultBalance.id },
+        data: { amount: { increment: amount } }
+    });
+
+    const dative = await getTerminology(alliance.id, 'dative');
+
+    await context.send(
+        `📊 Начислены рейтинги ${dative}:\n` +
+        `${facult.smile} ${facult.name}: ${Format_Currency_Amount(facultBalance.amount)} + ${Format_Currency_Amount(amount)} = ${Format_Currency_Amount(updatedFacult.amount)}`
+    );
+}
+
 export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
     const user = await Person_Get(context)
     const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } })
@@ -504,6 +889,132 @@ export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
     await Keyboard_Index(context, `${ico_list['help'].ico} Настройка конвертации жетонов завершена!`)
 }
 
+export async function Alliance_Internal_Converter_Editor_Printer(context: any) {
+    const user = await Person_Get(context);
+    const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } });
+
+    if (!alliance || !user) {
+        return;
+    }
+
+    const coinCount = await prisma.allianceCoin.count({ where: { id_alliance: alliance.id } });
+
+    if (coinCount < 2) {
+        await context.send(`${ico_list['warn'].ico} Для внутренней конвертации нужно минимум две ролевые валюты.`);
+        return;
+    }
+
+    let internalConversionStop = false;
+    let cursor = 0;
+
+    while (!internalConversionStop) {
+        const keyboard = new KeyboardBuilder();
+        const conversions = await Internal_Conversion_Get(alliance.id, cursor, false, INTERNAL_CONVERSION_BATCH_SIZE);
+        const conversionCount = await prisma.allianceCoinInternalConversion.count({
+            where: { id_alliance: alliance.id }
+        });
+
+        let event_logger = `${ico_list['converter'].ico} Настройка внутренней конвертации валют ${alliance.name}:\n\n`;
+
+        if (conversions.length === 0) {
+            event_logger += `${ico_list['warn'].ico} Внутренние курсы пока не настроены.\n\n`;
+        }
+
+        for (const conversion of conversions) {
+            keyboard.textButton({
+                label: `${ico_list['edit'].ico} ${conversion.id}: ${conversion.sourceCoin.smile}→${conversion.targetCoin.smile}`,
+                payload: {
+                    command: 'internal_conversion_edit_course',
+                    cursor,
+                    id_internal_conversion: conversion.id
+                },
+                color: 'secondary'
+            })
+            .textButton({
+                label: conversion.enabled ? `${ico_list['success'].ico}` : `${ico_list['delete'].ico}`,
+                payload: {
+                    command: 'internal_conversion_config',
+                    cursor,
+                    id_internal_conversion: conversion.id
+                },
+                color: conversion.enabled ? 'positive' : 'negative'
+            })
+            .textButton({
+                label: `${ico_list['delete'].ico}`,
+                payload: {
+                    command: 'internal_conversion_delete',
+                    cursor,
+                    id_internal_conversion: conversion.id
+                },
+                color: 'negative'
+            }).row();
+
+            event_logger += `${conversion.enabled ? '✅' : '⛔'} id${conversion.id}: `;
+            event_logger += `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}\n`;
+            event_logger += `⚖ Курс: ${Format_Currency_Amount(conversion.course_source)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${conversion.targetCoin.smile}\n\n`;
+        }
+
+        keyboard.textButton({
+            label: `${ico_list['add'].ico} Добавить`,
+            payload: { command: 'internal_conversion_add', cursor },
+            color: 'positive'
+        }).row();
+
+        if (cursor >= INTERNAL_CONVERSION_BATCH_SIZE) {
+            keyboard.textButton({
+                label: `${ico_list['back'].ico}`,
+                payload: { command: 'internal_conversion_back', cursor },
+                color: 'secondary'
+            });
+        }
+
+        if (cursor + INTERNAL_CONVERSION_BATCH_SIZE < conversionCount) {
+            keyboard.textButton({
+                label: `${ico_list['next'].ico}`,
+                payload: { command: 'internal_conversion_next', cursor },
+                color: 'secondary'
+            });
+        }
+
+        keyboard.textButton({
+            label: `${ico_list['stop'].ico}`,
+            payload: { command: 'internal_conversion_return', cursor },
+            color: 'secondary'
+        }).oneTime();
+
+        event_logger += `\n Страница ${Math.floor(cursor / INTERNAL_CONVERSION_BATCH_SIZE) + 1} из ${Math.max(1, Math.ceil(conversionCount / INTERNAL_CONVERSION_BATCH_SIZE))}`;
+
+        const answer: any = await context.question(event_logger, {
+            keyboard,
+            answerTimeLimit
+        });
+
+        if (answer.isTimeout) {
+            return await context.send(`${ico_list['time'].ico} Время ожидания истекло!`);
+        }
+
+        const config: Record<string, (ctx: any, data: any, currentAlliance: Alliance, currentUser: User) => Promise<{ cursor: number; stop?: boolean }>> = {
+            'internal_conversion_add': Internal_Conversion_Add,
+            'internal_conversion_edit_course': Internal_Conversion_Edit_Course,
+            'internal_conversion_config': Internal_Conversion_Config,
+            'internal_conversion_delete': Internal_Conversion_Delete,
+            'internal_conversion_next': Internal_Conversion_Next,
+            'internal_conversion_back': Internal_Conversion_Back,
+            'internal_conversion_return': Internal_Conversion_Return,
+        };
+
+        if (answer?.payload?.command in config) {
+            const ans = await config[answer.payload.command](context, answer.payload, alliance, user);
+            cursor = ans?.cursor || ans?.cursor === 0 ? ans.cursor : cursor;
+            internalConversionStop = ans.stop ? ans.stop : false;
+        } else {
+            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`);
+        }
+    }
+
+    await Keyboard_Index(context, `${ico_list['help'].ico} Настройка внутренней конвертации завершена!`);
+}
+
 // Функции навигации для редактора (переименуем, чтобы не конфликтовать)
 async function Alliance_Coin_Next_Editor(context: any, data: any, alliance: Alliance, user: User) {
     return { cursor: data.cursor + 5 };
@@ -519,6 +1030,312 @@ async function Alliance_Coin_Return_Editor(context: any, data: any, alliance: Al
         keyboard: button_alliance_return 
     });
     return res;
+}
+
+async function Internal_Conversion_Next(context: any, data: any, alliance: Alliance, user: User) {
+    return { cursor: data.cursor + INTERNAL_CONVERSION_BATCH_SIZE };
+}
+
+async function Internal_Conversion_Back(context: any, data: any, alliance: Alliance, user: User) {
+    return { cursor: Math.max(0, data.cursor - INTERNAL_CONVERSION_BATCH_SIZE) };
+}
+
+async function Internal_Conversion_Return(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor, stop: true };
+
+    await context.send(`${ico_list['stop'].ico} Отмена настройки внутренней конвертации`, {
+        keyboard: button_alliance_return
+    });
+
+    return res;
+}
+
+async function Internal_Conversion_Add(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const sourceCoinId = await Select_Alliance_Coin(context, alliance.id);
+
+    if (!sourceCoinId) {
+        return res;
+    }
+
+    let targetCoinId: number | null = null;
+
+    while (!targetCoinId) {
+        targetCoinId = await Select_Alliance_Coin(context, alliance.id);
+
+        if (!targetCoinId) {
+            return res;
+        }
+
+        if (targetCoinId === sourceCoinId) {
+            await context.send(`${ico_list['warn'].ico} Валюта назначения должна отличаться от исходной.`);
+            targetCoinId = null;
+        }
+    }
+
+    const sourceCoin = await prisma.allianceCoin.findFirst({
+        where: {
+            id: sourceCoinId,
+            id_alliance: alliance.id
+        }
+    });
+    const targetCoin = await prisma.allianceCoin.findFirst({
+        where: {
+            id: targetCoinId,
+            id_alliance: alliance.id
+        }
+    });
+
+    if (!sourceCoin || !targetCoin) {
+        await context.send(`${ico_list['warn'].ico} Валюта не найдена.`);
+        return res;
+    }
+
+    const existing = await prisma.allianceCoinInternalConversion.findFirst({
+        where: {
+            id_alliance: alliance.id,
+            id_source_coin: sourceCoin.id,
+            id_target_coin: targetCoin.id
+        }
+    });
+    const course = await Internal_Conversion_Ask_Course(context, sourceCoin, targetCoin, existing ?? undefined);
+
+    if (!course) {
+        return res;
+    }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `${existing ? 'обновить' : 'создать'} внутреннюю конвертацию:\n` +
+        `${sourceCoin.smile} ${sourceCoin.name} → ${targetCoin.smile} ${targetCoin.name}\n` +
+        `Курс: ${Format_Currency_Amount(course.course_source)}${sourceCoin.smile} → ${Format_Currency_Amount(course.course_target)}${targetCoin.smile}?`
+    );
+
+    await context.send(`${confirm.text}`);
+
+    if (!confirm.status) {
+        return res;
+    }
+
+    const conversion = existing
+        ? await prisma.allianceCoinInternalConversion.update({
+            where: { id: existing.id },
+            data: {
+                enabled: true,
+                course_source: course.course_source,
+                course_target: course.course_target
+            }
+        })
+        : await prisma.allianceCoinInternalConversion.create({
+            data: {
+                id_alliance: alliance.id,
+                id_source_coin: sourceCoin.id,
+                id_target_coin: targetCoin.id,
+                enabled: true,
+                course_source: course.course_source,
+                course_target: course.course_target
+            }
+        });
+
+    await Logger(`Настройка внутренней конвертации: ${sourceCoin.name} -> ${targetCoin.name} by ${user.idvk}`);
+    await context.send(
+        `${ico_list['reconfig'].ico} Внутренняя конвертация сохранена!\n\n` +
+        `id${conversion.id}: ${sourceCoin.smile} ${sourceCoin.name} → ${targetCoin.smile} ${targetCoin.name}\n` +
+        `Курс: ${Format_Currency_Amount(conversion.course_source)}${sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${targetCoin.smile}`
+    );
+    await Send_Message(chat_id,
+        `${ico_list['reconfig'].ico} Настройка внутренней конвертации\n` +
+        `${sourceCoin.smile} ${sourceCoin.name} → ${targetCoin.smile} ${targetCoin.name}\n` +
+        `Курс: ${Format_Currency_Amount(conversion.course_source)}${sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${targetCoin.smile}\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['alliance'].ico} ${alliance.name}`
+    );
+
+    return res;
+}
+
+async function Internal_Conversion_Edit_Course(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const conversion = await Internal_Conversion_Find(Number(data.id_internal_conversion), alliance.id);
+
+    if (!conversion) {
+        await context.send(`${ico_list['warn'].ico} Внутренняя конвертация не найдена.`);
+        return res;
+    }
+
+    const course = await Internal_Conversion_Ask_Course(
+        context,
+        conversion.sourceCoin,
+        conversion.targetCoin,
+        conversion
+    );
+
+    if (!course) {
+        return res;
+    }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `обновить курс внутренней конвертации:\n` +
+        `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}\n` +
+        `${Format_Currency_Amount(course.course_source)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(course.course_target)}${conversion.targetCoin.smile}?`
+    );
+
+    await context.send(`${confirm.text}`);
+
+    if (!confirm.status) {
+        return res;
+    }
+
+    const updated = await prisma.allianceCoinInternalConversion.update({
+        where: { id: conversion.id },
+        data: {
+            course_source: course.course_source,
+            course_target: course.course_target
+        }
+    });
+
+    await Logger(`Обновлен курс внутренней конвертации ${conversion.id} by ${user.idvk}`);
+    await context.send(
+        `${ico_list['reconfig'].ico} Курс внутренней конвертации обновлен!\n\n` +
+        `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}\n` +
+        `Курс: ${Format_Currency_Amount(updated.course_source)}${conversion.sourceCoin.smile} → ${Format_Currency_Amount(updated.course_target)}${conversion.targetCoin.smile}`
+    );
+
+    return res;
+}
+
+async function Internal_Conversion_Config(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const conversion = await Internal_Conversion_Find(Number(data.id_internal_conversion), alliance.id);
+
+    if (!conversion) {
+        await context.send(`${ico_list['warn'].ico} Внутренняя конвертация не найдена.`);
+        return res;
+    }
+
+    const nextEnabled = !conversion.enabled;
+    const confirm = await Confirm_User_Success(
+        context,
+        `${nextEnabled ? 'разрешить' : 'запретить'} внутреннюю конвертацию ` +
+        `[${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}]?`
+    );
+
+    await context.send(`${confirm.text}`);
+
+    if (!confirm.status) {
+        return res;
+    }
+
+    const updated = await prisma.allianceCoinInternalConversion.update({
+        where: { id: conversion.id },
+        data: { enabled: nextEnabled }
+    });
+
+    await Logger(`Изменена внутренняя конвертация ${conversion.id}: ${updated.enabled} by ${user.idvk}`);
+    await context.send(
+        `${ico_list['reconfig'].ico} Внутренняя конвертация ` +
+        `${updated.enabled ? 'разрешена ✅' : 'запрещена ⛔'}`
+    );
+
+    return res;
+}
+
+async function Internal_Conversion_Delete(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const conversion = await Internal_Conversion_Find(Number(data.id_internal_conversion), alliance.id);
+
+    if (!conversion) {
+        await context.send(`${ico_list['warn'].ico} Внутренняя конвертация не найдена.`);
+        return res;
+    }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `удалить внутреннюю конвертацию ` +
+        `[${conversion.sourceCoin.smile} ${conversion.sourceCoin.name} → ${conversion.targetCoin.smile} ${conversion.targetCoin.name}]?`
+    );
+
+    await context.send(`${confirm.text}`);
+
+    if (!confirm.status) {
+        return res;
+    }
+
+    await prisma.allianceCoinInternalConversion.delete({
+        where: { id: conversion.id }
+    });
+    await Logger(`Удалена внутренняя конвертация ${conversion.id} by ${user.idvk}`);
+    await context.send(`${ico_list['delete'].ico} Внутренняя конвертация удалена.`);
+
+    return res;
+}
+
+async function Internal_Conversion_Ask_Course(
+    context: any,
+    sourceCoin: AllianceCoin,
+    targetCoin: AllianceCoin,
+    current?: InternalConversionCourse
+): Promise<InternalConversionCourse | null> {
+    const course: InternalConversionCourse = {
+        course_source: current?.course_source ?? 1,
+        course_target: current?.course_target ?? 1
+    };
+
+    const sourceAmount = await Internal_Conversion_Ask_Positive_Number(
+        context,
+        `${ico_list['attach'].ico} Настройка курса ${sourceCoin.smile} ${sourceCoin.name} → ${targetCoin.smile} ${targetCoin.name}:\n\n` +
+        `Текущий курс: ${Format_Currency_Amount(course.course_source)}${sourceCoin.smile} → ${Format_Currency_Amount(course.course_target)}${targetCoin.smile}\n\n` +
+        `Введите, сколько ${sourceCoin.smile} ${sourceCoin.name} списывать за обмен:`
+    );
+
+    if (sourceAmount === null) {
+        return null;
+    }
+
+    course.course_source = sourceAmount;
+
+    const targetAmount = await Internal_Conversion_Ask_Positive_Number(
+        context,
+        `Введите, сколько ${targetCoin.smile} ${targetCoin.name} начислять за ${Format_Currency_Amount(course.course_source)}${sourceCoin.smile}:`
+    );
+
+    if (targetAmount === null) {
+        return null;
+    }
+
+    course.course_target = targetAmount;
+
+    return course;
+}
+
+async function Internal_Conversion_Ask_Positive_Number(context: any, message: string): Promise<number | null> {
+    while (true) {
+        const answer = await context.question(message, {
+            keyboard: Keyboard.builder()
+                .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'cancel' }, color: 'secondary' })
+                .oneTime().inline(),
+            timer_text
+        });
+
+        if (answer.isTimeout) {
+            await context.send(`${ico_list['time'].ico} Время истекло!`);
+            return null;
+        }
+
+        if (answer.text === `${ico_list['stop'].ico} Отмена`) {
+            await context.send(`${ico_list['stop'].ico} Настройка отменена`);
+            return null;
+        }
+
+        const input = Parse_Positive_Amount(String(answer.text ?? ''));
+
+        if (input !== null && input <= MAX_INTERNAL_COURSE_VALUE) {
+            return input;
+        }
+
+        await context.send(`${ico_list['help'].ico} Введите положительное число до ${MAX_INTERNAL_COURSE_VALUE}.`);
+    }
 }
 
 async function Alliance_Coin_Config(context: any, data: any, alliance: Alliance, user: User) {
@@ -557,7 +1374,7 @@ async function Alliance_Coin_Return(context: any, data: any, alliance: Alliance,
 }
 
 async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, type: string) {
-    const res = { cursor: data.cursor };
+    const res: { cursor: number; stop?: boolean } = { cursor: data.cursor };
     
     const user = await Person_Get(context);
     if (!user) { return res; }
@@ -620,6 +1437,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
         if (gold.text == '!подтвердить') {
             money_check = true;
         } else if (gold.text == '!отмена') {
+            res.stop = true;
             return res;
         } else if (typeof Number(gold.text) === "number") {
             const input = Math.floor(Number(gold.text));
@@ -646,6 +1464,11 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
     
     await context.send(`${confirm.text}`);
     
+    if (!confirm.status) {
+        res.stop = true;
+        return res;
+    }
+
     if (confirm.status) {
         // Находим или создаем баланс валюты
         let balance_check = await prisma.balanceCoin.findFirst({ 
@@ -769,6 +1592,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
         }
     }
     
+    res.stop = true;
     return res;
 }
 

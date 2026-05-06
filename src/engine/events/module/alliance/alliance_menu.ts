@@ -75,6 +75,11 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     payload: { command: "alliance_config_scoins" }, 
                     color: 'secondary' 
                 }).row()
+                keyboard.textButton({ 
+                    label: `${ico_list['config'].ico} !внутрконвертацию настроить`, 
+                    payload: { command: "alliance_config_internal_convert" }, 
+                    color: 'secondary' 
+                }).row()
                 
                 // Стрелочка навигации
                 keyboard.callbackButton({ 

@@ -25,7 +25,7 @@ import { Inventory_Printer } from "./events/module/shop/alliance_inventory_shop_
 import { Keyboard_User_Main, Main_Menu_Init } from "./events/contoller";
 import { generateAllWeeks } from "./core/weather";
 import { Operation_SBP } from "./events/module/tranzaction/sbp";
-import { Alliance_Coin_Converter_Editor_Printer, Alliance_Coin_Converter_Printer } from "./events/module/alliance/alliance_converter_editor";
+import { Alliance_Coin_Converter_Editor_Printer, Alliance_Coin_Converter_Printer, Alliance_Internal_Converter_Editor_Printer } from "./events/module/alliance/alliance_converter_editor";
 import { ico_list } from "./events/module/data_center/icons_lib";
 import { getTerminology } from "./events/module/alliance/terminology_helper";
 import { Alliance_Class_Settings_Printer } from "./events/module/alliance/alliance_class_settings";
@@ -530,6 +530,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (context.peerType == 'chat') { return }
         if (await Accessed(context) == 1) { return }
         await Alliance_Scoopins_Converter_Editor_Printer(context)
+    })
+    hearManager.hear(/(?:⚙ )?!внутрконвертацию настроить/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (context.peerType == 'chat') { return }
+        if (await Accessed(context) == 1) { return }
+        await Alliance_Internal_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !основу настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
@@ -1112,6 +1119,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [⚙ !легаси настроить] — привязка удалённых категорий магазинов к сундукам
                     \n⭐ [⚙ !конвертацию настроить] — настройка курсов конвертации валют
                     \n⭐ [⚙ !S-coins настроить] — управление S-коинами
+                    \n⭐ [⚙ !внутрконвертацию настроить] — настройка обмена одной ролевой валюты на другую
                     \n⭐ [⚙ !мониторы настроить] — вызов меню конфигурации мониторов
                     \n⭐ [⚙ !отслеживание обсуждений] — настройка мониторинга обсуждений альянса
                     \n⭐ [!привязать мониторы] — привязать чат для логов с мониторов ролевого проекта

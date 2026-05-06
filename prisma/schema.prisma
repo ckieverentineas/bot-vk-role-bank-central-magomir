@@ -334,6 +334,7 @@ model Alliance {
   skillCategories SkillCategory[]
   skills          Skill[]
   abilityCategories AbilityCategory[]
+  internalConversions AllianceCoinInternalConversion[]
 }
 
 model AllianceCoin {
@@ -355,6 +356,23 @@ model AllianceCoin {
   BalanceCoin     BalanceCoin[]
   BalanceFacult   BalanceFacult[]
   abilities       Ability[]
+  sourceInternalConversions AllianceCoinInternalConversion[] @relation("InternalConversionSource")
+  targetInternalConversions AllianceCoinInternalConversion[] @relation("InternalConversionTarget")
+}
+
+model AllianceCoinInternalConversion {
+  id             Int          @id @default(autoincrement())
+  enabled        Boolean      @default(true)
+  course_source  Float        @default(1)
+  course_target  Float        @default(1)
+  alliance       Alliance     @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance    Int
+  sourceCoin     AllianceCoin @relation("InternalConversionSource", fields: [id_source_coin], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_source_coin Int
+  targetCoin     AllianceCoin @relation("InternalConversionTarget", fields: [id_target_coin], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_target_coin Int
+
+  @@unique([id_alliance, id_source_coin, id_target_coin])
 }
 
 model BalanceCoin {
