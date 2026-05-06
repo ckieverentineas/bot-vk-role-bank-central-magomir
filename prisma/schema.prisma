@@ -43,10 +43,13 @@ model UserCard {
 model AllianceBackground {
   id          Int       @id @default(autoincrement())
   alliance    Alliance  @relation(fields: [alliance_id], references: [id], onDelete: Cascade)
-  alliance_id Int       @unique
+  alliance_id Int
+  type        String    @default("main")
   name        String
   attachment  String
   created_at  DateTime  @default(now())
+
+  @@unique([alliance_id, type])
 }
 
 model MonitorSelection {
@@ -329,7 +332,7 @@ model Alliance {
   id_chat_topic   Int                     @default(0)
   Chests          AllianceChest[]
   CardTemplate CardTemplate[]
-  AllianceBackground AllianceBackground?
+  AllianceBackground AllianceBackground[]
   skillLevels     SkillLevel[]
   skillCategories SkillCategory[]
   skills          Skill[]

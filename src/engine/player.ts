@@ -46,6 +46,127 @@ import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin"
 import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
 const fs = require('fs');
 
+async function Get_Admin_Alliance_User(context: any): Promise<User | null> {
+    if (await Accessed(context) === 1) {
+        await context.send('❌ У вас нет прав администратора для этой команды.');
+        return null;
+    }
+
+    const account: Account | null = await prisma.account.findFirst({
+        where: { idvk: context.senderId }
+    });
+    if (!account) { return null; }
+
+    const user = await prisma.user.findFirst({
+        where: { id: account.select_user }
+    });
+
+    if (!user || !user.id_alliance || user.id_alliance <= 0) {
+        await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
+        return null;
+    }
+
+    return user;
+}
+
+async function Service_Menu_Background_Setup(context: any): Promise<void> {
+    const anti_vk_defender = await Antivirus_VK(context);
+    if (anti_vk_defender) { return; }
+
+    const user = await Get_Admin_Alliance_User(context);
+    if (!user?.id_alliance) { return; }
+
+    const background = await CardSystem.getAllianceServiceMenuBackground(user.id_alliance);
+    let message = `🎨 Настройка фона меню услуг\n\n`;
+
+    if (background) {
+        message += `📂 Текущий фон: "${background.name}"\n`;
+        message += `📅 Добавлен: ${background.created_at.toLocaleDateString('ru-RU')}\n\n`;
+    } else {
+        message += `📂 Фон еще не установлен\n\n`;
+    }
+
+    message += `📷 Отправьте фотографию для фона:\n`;
+    message += `• Заменит текущий фон, если он есть\n`;
+    message += `• Используется в меню услуг участников альянса\n\n`;
+    message += `❌ Для удаления фона используйте команду !услуги удалить`;
+
+    await context.send(message);
+
+    try {
+        const photoAnswer = await context.question('Отправьте фотографию для фона меню услуг:', {
+            answerTimeLimit: 60000
+        });
+
+        if (photoAnswer.isTimeout) {
+            await context.send('⏰ Время ожидания истекло.');
+            return;
+        }
+
+        if (!photoAnswer.attachments || photoAnswer.attachments.length === 0) {
+            await context.send('❌ Фотография не получена. Отправьте фото.');
+            return;
+        }
+
+        const success = await CardSystem.setServiceMenuBackgroundForAlliance(
+            user.id_alliance,
+            photoAnswer,
+            `Фон меню услуг`
+        );
+
+        if (!success) {
+            await context.send('❌ Ошибка при сохранении фона меню услуг.');
+            return;
+        }
+
+        const alliance = await prisma.alliance.findFirst({
+            where: { id: user.id_alliance }
+        });
+
+        await context.send(
+            `✅ Фон меню услуг ${background ? 'обновлен' : 'добавлен'}!\n\n` +
+            `📌 Участники альянса "${alliance?.name}" будут видеть новый фон в меню услуг.`
+        );
+    } catch (error) {
+        console.error('[SERVICE_BG SETUP] Error:', error);
+        await context.send('❌ Произошла ошибка.');
+    }
+
+    await Keyboard_Index(context, '💡 Управление фоном меню услуг');
+}
+
+async function Service_Menu_Background_Delete(context: any): Promise<void> {
+    const anti_vk_defender = await Antivirus_VK(context);
+    if (anti_vk_defender) { return; }
+
+    const user = await Get_Admin_Alliance_User(context);
+    if (!user?.id_alliance) { return; }
+
+    const background = await CardSystem.getAllianceServiceMenuBackground(user.id_alliance);
+
+    if (!background) {
+        await context.send('❌ Фон меню услуг для этого альянса не найден.');
+        return;
+    }
+
+    const confirm = await Confirm_User_Success(context, 'удалить фон меню услуг?');
+
+    if (!confirm.status) {
+        await context.send('🚫 Удаление отменено.');
+        return;
+    }
+
+    const success = await CardSystem.deleteServiceMenuBackgroundForAlliance(user.id_alliance);
+
+    if (success) {
+        await context.send('✅ Фон меню услуг удален. Участники будут использовать стандартный фон.');
+    } else {
+        await context.send('❌ Ошибка при удалении фона меню услуг.');
+    }
+
+    await Keyboard_Index(context, '💡 Управление фоном меню услуг');
+}
+
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!Лютный переулок/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -804,6 +925,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Keyboard_Index(context, '💡 Управление фоном карточек');
     });
+    hearManager.hear(/(?:⚙\s*)?!услуги настроить/, Service_Menu_Background_Setup);
+
+    hearManager.hear(/(?:⚙\s*)?!услуги удалить/, Service_Menu_Background_Delete);
+
     hearManager.hear(/⚙ !легаси настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1134,6 +1259,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [⚙ !основу удалить] — удаление фона главного меню альянса
                     \n⭐ [⚙ !карту настроить] — установка/изменение фона карточек персонажей
                     \n⭐ [⚙ !карту удалить] — удаление фона карточек персонажей
+                    \n⭐ [⚙ !услуги настроить] — установка/изменение фона меню услуг
+                    \n⭐ [⚙ !услуги удалить] — удаление фона меню услуг
                     \n⭐ [!кикмасс] — массовое исключение игроков из ролевой
 
                     \n📞 Контакты поддержки:

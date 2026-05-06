@@ -205,7 +205,7 @@ export class CardSystem {
           if (user.id_alliance && user.id_alliance > 0) {
               // Ищем фон альянса
               const allianceBackground = await prisma.allianceBackground.findFirst({
-                  where: { alliance_id: user.id_alliance }
+                  where: { alliance_id: user.id_alliance, type: 'main' }
               });
 
               if (allianceBackground?.attachment) {
@@ -289,7 +289,7 @@ export class CardSystem {
           
           // Проверяем, есть ли уже фон для этого альянса
           const existingBackground = await prisma.allianceBackground.findFirst({
-            where: { alliance_id: allianceId }
+            where: { alliance_id: allianceId, type: 'main' }
           });
           
           // Обновляем или создаем фон
@@ -308,6 +308,7 @@ export class CardSystem {
             await prisma.allianceBackground.create({
               data: {
                 alliance_id: allianceId,
+                type: 'main',
                 name: name,
                 attachment: photoAttachment
               }
@@ -334,7 +335,7 @@ export class CardSystem {
   static async deleteMenuBackgroundForAlliance(allianceId: number): Promise<boolean> {
     try {
       const background = await prisma.allianceBackground.findFirst({
-        where: { alliance_id: allianceId }
+        where: { alliance_id: allianceId, type: 'main' }
       });
 
       if (!background) {
@@ -358,7 +359,146 @@ export class CardSystem {
   // Получить текущий фон меню альянса
   static async getAllianceMenuBackground(allianceId: number): Promise<any> {
     return await prisma.allianceBackground.findFirst({
-      where: { alliance_id: allianceId }
+      where: { alliance_id: allianceId, type: 'main' }
+    });
+  }
+
+  static async getServiceMenuBackground(user: User): Promise<string> {
+    try {
+      if (user.id_alliance && user.id_alliance > 0) {
+        const serviceBackground = await prisma.allianceBackground.findFirst({
+          where: { alliance_id: user.id_alliance, type: 'service' }
+        });
+
+        if (serviceBackground?.attachment) {
+          console.log(`[SERVICE_BG] Using alliance service background for alliance ${user.id_alliance}, user ${user.id}`);
+          return serviceBackground.attachment;
+        }
+
+        console.log(`[SERVICE_BG] No service background found for alliance ${user.id_alliance}, using default`);
+      }
+
+      return this.getDefaultServiceMenuBackground();
+    } catch (error) {
+      console.error('[SERVICE_BG] Error:', error);
+      return this.getDefaultServiceMenuBackground();
+    }
+  }
+
+  private static getDefaultServiceMenuBackground(): string {
+    return 'photo-225517872_457259285';
+  }
+
+  static async setServiceMenuBackgroundForAlliance(
+    allianceId: number,
+    context: any,
+    name: string = "Фон меню услуг"
+  ): Promise<boolean> {
+    try {
+      const attachments = context.attachments || [];
+
+      for (const attachment of attachments) {
+        if (attachment.type !== 'photo') {
+          continue;
+        }
+
+        const sizes = attachment.photo?.sizes || attachment.sizes;
+        if (!sizes || sizes.length === 0) {
+          continue;
+        }
+
+        const largestSize = sizes[sizes.length - 1];
+        const url = largestSize.url;
+        if (!url) {
+          continue;
+        }
+
+        if (!vk) {
+          throw new Error('VK client not initialized');
+        }
+
+        const tempDir = path.join(process.cwd(), 'temp');
+        await this.ensureDirectoryExists(tempDir);
+
+        const tempPath = path.join(tempDir, `service_bg_${allianceId}_${Date.now()}.jpg`);
+        await this.downloadImage(url, tempPath);
+
+        const uploadedPhoto = await vk.upload.messagePhoto({
+          source: { value: tempPath }
+        });
+
+        fs.unlinkSync(tempPath);
+
+        if (!uploadedPhoto) {
+          console.error('[SERVICE_BG] Failed to upload photo to VK');
+          return false;
+        }
+
+        const photoAttachment = `photo${uploadedPhoto.ownerId}_${uploadedPhoto.id}`;
+        const existingBackground = await prisma.allianceBackground.findFirst({
+          where: { alliance_id: allianceId, type: 'service' }
+        });
+
+        if (existingBackground) {
+          await prisma.allianceBackground.update({
+            where: { id: existingBackground.id },
+            data: {
+              name,
+              attachment: photoAttachment,
+              created_at: new Date()
+            }
+          });
+          console.log(`[SERVICE_BG] Updated service background for alliance ${allianceId}`);
+        } else {
+          await prisma.allianceBackground.create({
+            data: {
+              alliance_id: allianceId,
+              type: 'service',
+              name,
+              attachment: photoAttachment
+            }
+          });
+          console.log(`[SERVICE_BG] Created service background for alliance ${allianceId}`);
+        }
+
+        await Logger(`Set service background for alliance ${allianceId}: ${name}`);
+        return true;
+      }
+
+      console.error('[SERVICE_BG] No photo found in message');
+      return false;
+    } catch (error) {
+      console.error('[SERVICE_BG] Set background error:', error);
+      return false;
+    }
+  }
+
+  static async deleteServiceMenuBackgroundForAlliance(allianceId: number): Promise<boolean> {
+    try {
+      const background = await prisma.allianceBackground.findFirst({
+        where: { alliance_id: allianceId, type: 'service' }
+      });
+
+      if (!background) {
+        console.log(`[SERVICE_BG] No service background found for alliance ${allianceId}`);
+        return false;
+      }
+
+      await prisma.allianceBackground.delete({
+        where: { id: background.id }
+      });
+
+      await Logger(`Deleted service background for alliance ${allianceId}`);
+      return true;
+    } catch (error) {
+      console.error('[SERVICE_BG] Delete background error:', error);
+      return false;
+    }
+  }
+
+  static async getAllianceServiceMenuBackground(allianceId: number): Promise<any> {
+    return await prisma.allianceBackground.findFirst({
+      where: { alliance_id: allianceId, type: 'service' }
     });
   }
 

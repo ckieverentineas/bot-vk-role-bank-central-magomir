@@ -212,6 +212,14 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
         await ctx.send('!карту удалить');
         await ctx.answer();
     },
+    "alliance_config_service_bg": async (ctx: any) => {
+        await ctx.send('!услуги настроить');
+        await ctx.answer();
+    },
+    "alliance_config_service_bg_remove": async (ctx: any) => {
+        await ctx.send('!услуги удалить');
+        await ctx.answer();
+    },
     
     // Админ-меню альянса
     "alliance_enter_admin": async (ctx: any) => {

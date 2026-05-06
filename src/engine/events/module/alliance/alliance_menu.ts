@@ -150,6 +150,16 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     payload: { command: "alliance_config_card_bg_remove" }, 
                     color: 'negative' 
                 }).row()
+                keyboard.textButton({
+                    label: `${ico_list['config'].ico} !услуги настроить`,
+                    payload: { command: "alliance_config_service_bg" },
+                    color: 'secondary'
+                })
+                keyboard.textButton({
+                    label: `${ico_list['config'].ico} !услуги удалить`,
+                    payload: { command: "alliance_config_service_bg_remove" },
+                    color: 'negative'
+                }).row()
                 
                 // Стрелочки навигации
                 keyboard.callbackButton({ 

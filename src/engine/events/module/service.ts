@@ -5,15 +5,16 @@ import { Analyzer_Kvass_Counter } from "./analyzer"
 import { Person_Get } from "./person/person"
 import { User } from "@prisma/client"
 import { Logger } from "../../core/helper"
-import { image_kvass, image_kvass_drop, image_service } from "./data_center/system_image"
+import { CardSystem } from "../../core/card_system"
+import { image_kvass, image_kvass_drop } from "./data_center/system_image"
 import { ico_list } from "./data_center/icons_lib"
 
 const timeouter = 86400000 //время кд квестов
 
 export async function Service_Enter(context: any) {
-    const attached = image_service
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
+    const attached = await CardSystem.getServiceMenuBackground(user)
     
     const keyboard = new KeyboardBuilder()
     .callbackButton({ label: '🍷 Французское вино — оно одно', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row()
