@@ -96,14 +96,42 @@ async function AllianceShop_Edit(context: any, data: any) {
     const res = { cursor: data.cursor };
     const shop_id = data.id_shop;
 
-    // Получаем текущий магазин
-    const shop_check = await prisma.allianceShop.findFirst({ where: { id: shop_id } });
-    if (!shop_check) {
-        await context.send(`❌ Магазин не найден.`);
-        return res;
-    }
+    while (true) {
+        const shop_check = await prisma.allianceShop.findFirst({ where: { id: shop_id } });
+        if (!shop_check) {
+            await context.send(`❌ Магазин не найден.`);
+            return res;
+        }
 
-    // Запрашиваем новое имя
+        const keyboard = new KeyboardBuilder()
+            .textButton({ label: '✏ Название', payload: { command: 'allianceshop_edit_name', cursor: data.cursor, id_shop: shop_check.id }, color: 'secondary' })
+            .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshop_edit_image', cursor: data.cursor, id_shop: shop_check.id }, color: 'secondary' }).row();
+
+        const text =
+            `🛍 Редактирование магазина "${shop_check.name}"\n\n` +
+            `🧾 ID: ${shop_check.id}\n` +
+            `📷 Картинка: ${shop_check.image || 'нет'}\n\n` +
+            `Выберите, что изменить:`;
+
+        const answer = await Send_Message_Question(context, text, keyboard, shop_check.image || undefined);
+        if (answer.exit) { return res; }
+
+        const config: any = {
+            'allianceshop_edit_name': AllianceShop_Edit_Name,
+            'allianceshop_edit_image': AllianceShop_Edit_Image
+        };
+
+        if (answer.payload?.command in config) {
+            await config[answer.payload.command](context, answer.payload);
+        }
+    }
+}
+
+async function AllianceShop_Edit_Name(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const shop_check = await prisma.allianceShop.findFirst({ where: { id: data.id_shop } });
+    if (!shop_check) { return res; }
+
     const name = await context.question(
         `🧷 Вы редактируете магазин "${shop_check.name}". Введите новое название (до 100 символов):`,
         { answerTimeLimit }
@@ -118,18 +146,32 @@ async function AllianceShop_Edit(context: any, data: any) {
         await context.send(`💡 Название должно быть от 1 до 100 символов!`);
         return res;
     }
-    let image_url = ''
-    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${shop_check.image}]:`, timer_text);
-    if (imageUrl.isTimeout) return res;
-    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
-    // Обновляем магазин
+
     const updatedShop = await prisma.allianceShop.update({
         where: { id: shop_check.id },
-        data: { name: name.text, image: image_url }
-
+        data: { name: name.text }
     });
 
-    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" -->  изменено название и картинка магазина: ${shop_check.id}-${shop_check.name}-${shop_check.image} -> ${updatedShop.id}-${updatedShop.name}-${updatedShop.image}`, 'admin_solo') }
+    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" --> изменено название магазина: ${shop_check.id}-${shop_check.name} -> ${updatedShop.id}-${updatedShop.name}`, 'admin_solo') }
+
+    return res;
+}
+
+async function AllianceShop_Edit_Image(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const shop_check = await prisma.allianceShop.findFirst({ where: { id: data.id_shop } });
+    if (!shop_check) { return res; }
+
+    const imageUrl = await context.question(`📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${shop_check.image || 'нет'}]:`, timer_text);
+    if (imageUrl.isTimeout) { return res; }
+
+    const image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
+    const updatedShop = await prisma.allianceShop.update({
+        where: { id: shop_check.id },
+        data: { image: image_url }
+    });
+
+    if (updatedShop) { await Send_Message_Smart(context, `"Конфигурация магазинов" --> изменена картинка магазина [${shop_check.id}-${shop_check.name}]: ${shop_check.image || 'нет'} -> ${updatedShop.image || 'нет'}`, 'admin_solo') }
 
     return res;
 }

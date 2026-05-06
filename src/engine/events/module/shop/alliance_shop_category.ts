@@ -95,24 +95,54 @@ async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
     const res = { cursor: data.cursor };
     const category_id = data.id_category;
 
-    // Получаем текущую категорию
-    const category_check = await prisma.allianceShopCategory.findFirst({
-        where: { id: category_id },
-        include: {
-            Alliance_Shop: {
-                include: {
-                    Alliance: true
+    while (true) {
+        const category_check = await prisma.allianceShopCategory.findFirst({
+            where: { id: category_id },
+            include: {
+                Alliance_Shop: {
+                    include: {
+                        Alliance: true
+                    }
                 }
             }
+        });
+
+        if (!category_check) {
+            await context.send(`❌ Категория не найдена.`);
+            return res;
         }
-    });
 
-    if (!category_check) {
-        await context.send(`❌ Категория не найдена.`);
-        return res;
+        const keyboard = new KeyboardBuilder()
+            .textButton({ label: '✏ Название', payload: { command: 'allianceshopcategory_edit_name', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' })
+            .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopcategory_edit_image', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '🎒 Сундук', payload: { command: 'allianceshopcategory_edit_chest', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' }).row();
+
+        const text =
+            `📁 Редактирование категории "${category_check.name}"\n\n` +
+            `ID: ${category_check.id}\n` +
+            `📷 Картинка: ${category_check.image || 'нет'}\n\n` +
+            `Выберите, что изменить:`;
+
+        const answer = await Send_Message_Question(context, text, keyboard, category_check.image || undefined);
+        if (answer.exit) { return res; }
+
+        const config: any = {
+            'allianceshopcategory_edit_name': AllianceShopCategory_Edit_Name,
+            'allianceshopcategory_edit_image': AllianceShopCategory_Edit_Image,
+            'allianceshopcategory_edit_chest': AllianceShopCategory_Edit_Chest
+        };
+
+        if (answer.payload?.command in config) {
+            await config[answer.payload.command](context, answer.payload, shop);
+        }
     }
+}
 
-    // 1. Запрашиваем новое имя
+async function AllianceShopCategory_Edit_Name(context: any, data: any, shop: any) {
+    const res = { cursor: data.cursor };
+    const category_check = await prisma.allianceShopCategory.findFirst({ where: { id: data.id_category } });
+    if (!category_check) { return res; }
+
     const name = await context.question(
         `🧷 Вы редактируете категорию "${category_check.name}". Введите новое название (до 100 символов):`,
         { answerTimeLimit }
@@ -128,37 +158,73 @@ async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
         return res;
     }
 
-    // 2. Запрашиваем изображение
-    let image_url = '';
-    const imageUrl = await context.question(
-        `📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${category_check.image}]:`,
-        timer_text
-    );
-    
-    if (imageUrl.isTimeout) return res;
-    image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
-
-    // 3. ✅ НОВОЕ: Настройка привязки к сундуку
-    const alliance = category_check.Alliance_Shop?.Alliance;
-    if (alliance) {
-        await context.send(`🎒 Настраиваем привязку к сундуку для категории "${name.text}"...`);
-        await getChestSelectionForCategory(context, category_id, alliance.id);
-    }
-
-    // 4. Обновляем категорию
     const updatedCategory = await prisma.allianceShopCategory.update({
         where: { id: category_check.id },
-        data: { name: name.text, image: image_url }
+        data: { name: name.text }
     });
 
-    if (updatedCategory) { 
+    if (updatedCategory) {
         await Send_Message_Smart(
-            context, 
-            `"Конфигурация категорий магазина" --> изменено название категории магазина [${shop?.name}]: ${category_check.id}-${category_check.name}-${category_check.image} -> ${updatedCategory.id}-${updatedCategory.name}-${updatedCategory.image}`, 
+            context,
+            `"Конфигурация категорий магазина" --> изменено название категории магазина [${shop?.name}]: ${category_check.id}-${category_check.name} -> ${updatedCategory.id}-${updatedCategory.name}`,
             'admin_solo'
         );
     }
 
+    return res;
+}
+
+async function AllianceShopCategory_Edit_Image(context: any, data: any, shop: any) {
+    const res = { cursor: data.cursor };
+    const category_check = await prisma.allianceShopCategory.findFirst({ where: { id: data.id_category } });
+    if (!category_check) { return res; }
+
+    const imageUrl = await context.question(
+        `📷 Вставьте только ссылку на изображение (или "нет"), сейчас [${category_check.image || 'нет'}]:`,
+        timer_text
+    );
+
+    if (imageUrl.isTimeout) return res;
+
+    const image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
+    const updatedCategory = await prisma.allianceShopCategory.update({
+        where: { id: category_check.id },
+        data: { image: image_url }
+    });
+
+    if (updatedCategory) {
+        await Send_Message_Smart(
+            context,
+            `"Конфигурация категорий магазина" --> изменена картинка категории магазина [${shop?.name} / ${category_check.name}]: ${category_check.image || 'нет'} -> ${updatedCategory.image || 'нет'}`,
+            'admin_solo'
+        );
+    }
+
+    return res;
+}
+
+async function AllianceShopCategory_Edit_Chest(context: any, data: any, shop: any) {
+    const res = { cursor: data.cursor };
+    const category_check = await prisma.allianceShopCategory.findFirst({
+        where: { id: data.id_category },
+        include: {
+            Alliance_Shop: {
+                include: {
+                    Alliance: true
+                }
+            }
+        }
+    });
+    const alliance = category_check?.Alliance_Shop?.Alliance;
+
+    if (!category_check || !alliance) {
+        await context.send(`❌ Не удалось получить данные категории.`);
+        return res;
+    }
+
+    await context.send(`🎒 Настраиваем привязку к сундуку для категории "${category_check.name}"...`);
+    await getChestSelectionForCategory(context, category_check.id, alliance.id);
+    await Send_Message_Smart(context, `"Конфигурация категорий магазина" --> изменена привязка сундука категории [${shop?.name} / ${category_check.name}]`, 'admin_solo');
     return res;
 }
 

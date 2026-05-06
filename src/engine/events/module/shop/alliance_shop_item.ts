@@ -161,10 +161,10 @@ async function AllianceShopItem_Delete(context: any, data: any, category: any) {
     await context.send(confirm.text);
     if (!confirm.status) return res;
     const confirm2 = await Confirm_User_Success(context, `удалить товар "${item.name}", все купленные товары также исчезнут из инвентаря игроков?`);
-    await context.send(confirm.text);
+    await context.send(confirm2.text);
     if (!confirm2.status) return res;
     const confirm3 = await Confirm_User_Success(context, `удалить товар "${item.name}", вы можете скрыть товар для покупки, вы уверены?`);
-    await context.send(confirm.text);
+    await context.send(confirm3.text);
     if (!confirm3.status) return res;
 
     const item_del = await prisma.allianceShopItem.delete({ where: { id: item.id } });
@@ -186,42 +186,47 @@ async function AllianceShopItem_Back(context: any, data: any, category: any) {
 
 async function AllianceShopItem_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
-    const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
-    if (!item_check) { await context.send(`❌ Товар не найден.`); return res; }
-    const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
-    if (!alli_shop_cat) { return }
-    const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
-    if (!alli_shop) { return }
-    const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
-    let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n⚙ Выберите действие:`;
-    const keyboard = new KeyboardBuilder()
-        .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
-        .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()
-        .textButton({ label: '📉 Лимит', payload: { command: 'allianceshopitem_edit_limit', id_item: item_check.id }, color: 'secondary' })
-        .textButton({ label: '📜 Описание', payload: { command: 'allianceshopitem_edit_description', id_item: item_check.id }, color: 'secondary' }).row()
-        .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
-        .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
-        .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
-        .textButton({ label: '👜  Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
-        .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' })
-        .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
-    const attached = item_check.image ? item_check.image : null;
-    const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
-    if (item_bt.exit) { return res; }
-    const config: any = {
-        'allianceshopitem_delete': AllianceShopItem_Delete,
-        'allianceshopitem_edit_name': AllianceShopItem_Edit_Name,
-        'allianceshopitem_edit_image': AllianceShopItem_Edit_Image,
-        'allianceshopitem_edit_limit': AllianceShopItem_Edit_Limit,
-        'allianceshopitem_view_stats': AllianceShopItem_View_Stats,
-        'allianceshopitem_hide': AllianceShopItem_Hide,
-        'allianceshopitem_edit_description': AllianceShopItem_Edit_Description,
-        'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,  
-        'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin,
-        'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put
-    };
 
-    const ans = await config[item_bt.payload.command](context, item_bt.payload, category);
+    while (true) {
+        const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+        if (!item_check) { await context.send(`❌ Товар не найден.`); return res; }
+        const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
+        if (!alli_shop_cat) { return res }
+        const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
+        if (!alli_shop) { return res }
+        const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
+        let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n⚙ Выберите действие:`;
+        const keyboard = new KeyboardBuilder()
+            .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
+            .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '📉 Лимит', payload: { command: 'allianceshopitem_edit_limit', id_item: item_check.id }, color: 'secondary' })
+            .textButton({ label: '📜 Описание', payload: { command: 'allianceshopitem_edit_description', id_item: item_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
+            .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
+            .textButton({ label: '👜  Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' })
+            .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
+        const attached = item_check.image ? item_check.image : null;
+        const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
+        if (item_bt.exit) { return res; }
+        const config: any = {
+            'allianceshopitem_delete': AllianceShopItem_Delete,
+            'allianceshopitem_edit_name': AllianceShopItem_Edit_Name,
+            'allianceshopitem_edit_image': AllianceShopItem_Edit_Image,
+            'allianceshopitem_edit_limit': AllianceShopItem_Edit_Limit,
+            'allianceshopitem_view_stats': AllianceShopItem_View_Stats,
+            'allianceshopitem_hide': AllianceShopItem_Hide,
+            'allianceshopitem_edit_description': AllianceShopItem_Edit_Description,
+            'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,
+            'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin,
+            'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put
+        };
+
+        if (item_bt.payload?.command in config) {
+            await config[item_bt.payload.command](context, item_bt.payload, category);
+        }
+    }
 
     return res;
 }

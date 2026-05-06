@@ -2,7 +2,7 @@ import { Account, Alliance, AllianceCoin, BalanceFacult, Monitor, User } from "@
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, SECRET_KEY, timer_text, vk } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Select_Alliance_Coin, Send_Message, Send_Message_Question } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import * as CryptoJS from 'crypto-js';
 import { ico_list } from "../data_center/icons_lib";
@@ -100,100 +100,150 @@ async function Alliance_Monitor_Return(context: any, data: any, alliance: Allian
 
 async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
-    const monitora = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin } })
-    if (!monitora) { return }
-    const monik = { alliance: alliance.name, coin: '', id_coin: monitora.id_coin, cost_like: monitora.cost_like, cost_comment: monitora.cost_comment, cost_post: monitora.cost_post, lim_like: monitora.lim_like, lim_comment: monitora.lim_comment, starting: monitora.starting, wall_on: monitora.wall_on, like_on: monitora.like_on, comment_on: monitora.comment_on }
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alliance.id) }, orderBy: { order: 'asc' } })
-    if (!coin_pass) { return context.send(`${ico_list['warn'].ico} Валют ролевых пока еще нет, чтобы начать=)`) }
-    let coin_check = false
-    let id_builder_sent1 = 0
-    while (!coin_check) {
+
+    while (true) {
+        const monitor = await prisma.monitor.findFirst({ where: { id: data.id_alliance_coin, id_alliance: alliance.id } })
+        if (!monitor) { return res }
+
+        const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0 } })
         const keyboard = new KeyboardBuilder()
-        id_builder_sent1 = await Fixed_Number_To_Five(id_builder_sent1)
-        let event_logger = `${ico_list['money'].ico} Выберите валюту, с которой будем делать отчисления:\n\n`
-        const builder_list: AllianceCoin[] = coin_pass
-        if (builder_list.length > 0) {
-            const limiter = 5
-            let counter = 0
-            for (let i=id_builder_sent1; i < builder_list.length && counter < limiter; i++) {
-                const builder = builder_list[i]
-                keyboard.textButton({ label: `${builder.smile}-${builder.name.slice(0,30)}`, payload: { command: 'builder_control', id_builder_sent1: i, id_coin: builder.id, coin: builder.name }, color: 'secondary' }).row()
-                event_logger += `\n\n${ico_list['money'].ico} ${builder.smile} -> ${builder.id} - ${builder.name}\n`
-                counter++
-            }
-            event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent1+limiter : limiter-(builder_list.length-id_builder_sent1)} из ${builder_list.length} ~~~~` : ''}`
-            //предыдущий офис
-            if (builder_list.length > limiter && id_builder_sent1 > limiter-1 ) {
-                keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1-limiter}, color: 'secondary' })
-            }
-            //следующий офис
-            if (builder_list.length > limiter && id_builder_sent1 < builder_list.length-limiter) {
-                keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'builder_control_multi', id_builder_sent1: id_builder_sent1+limiter }, color: 'secondary' })
-            }
-        } else {
-            event_logger = `${ico_list['warn'].ico} Админы ролевой еще не создали ролевые валюты`
-            await context.send(`${event_logger}`); return res
+            .textButton({ label: '💱 Валюта', payload: { command: 'monitor_edit_coin', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+            .textButton({ label: `${ico_list['like'].ico} Лимит`, payload: { command: 'monitor_edit_lim_like', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
+            .textButton({ label: `${ico_list['like'].ico} Цена`, payload: { command: 'monitor_edit_cost_like', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+            .textButton({ label: `${ico_list['message'].ico} Лимит`, payload: { command: 'monitor_edit_lim_comment', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
+            .textButton({ label: `${ico_list['message'].ico} Цена`, payload: { command: 'monitor_edit_cost_comment', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+            .textButton({ label: `${ico_list['post'].ico} Цена`, payload: { command: 'monitor_edit_cost_post', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+            .textButton({ label: `${ico_list['run'].ico} Запуск`, payload: { command: 'monitor_toggle_starting', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
+            .textButton({ label: `${ico_list['like'].ico} Лайки`, payload: { command: 'monitor_toggle_like_on', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+            .textButton({ label: `${ico_list['message'].ico} Комменты`, payload: { command: 'monitor_toggle_comment_on', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
+            .textButton({ label: `${ico_list['post'].ico} Посты`, payload: { command: 'monitor_toggle_wall_on', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
+
+        const text =
+            `${ico_list['edit'].ico} Редактирование монитора ${monitor.id}-${monitor.name}\n\n` +
+            `${ico_list['attach'].ico} Ссылка: https://vk.com/club${monitor.idvk}\n` +
+            `${coin?.smile ?? '💰'} Валюта: ${coin?.name ?? 'не выбрана'}\n` +
+            `${ico_list['limit'].ico} Лимиты: ${monitor.lim_like}${ico_list['like'].ico} ${monitor.lim_comment}${ico_list['message'].ico}\n` +
+            `${ico_list['money'].ico} Стоимость: ${monitor.cost_like}${ico_list['like'].ico} ${monitor.cost_comment}${ico_list['message'].ico} ${monitor.cost_post}${ico_list['post'].ico}\n` +
+            `${ico_list['config'].ico} Статус: запуск ${Format_Monitor_Status(monitor.starting)}, лайки ${Format_Monitor_Status(monitor.like_on)}, комментарии ${Format_Monitor_Status(monitor.comment_on)}, посты ${Format_Monitor_Status(monitor.wall_on)}\n\n` +
+            `Выберите, что изменить:`
+
+        const answer = await Send_Message_Question(context, text, keyboard)
+        if (answer.exit) { return res }
+
+        const config: any = {
+            'monitor_edit_coin': Alliance_Monitor_Edit_Coin,
+            'monitor_edit_lim_like': Alliance_Monitor_Edit_Like_Limit,
+            'monitor_edit_cost_like': Alliance_Monitor_Edit_Like_Cost,
+            'monitor_edit_lim_comment': Alliance_Monitor_Edit_Comment_Limit,
+            'monitor_edit_cost_comment': Alliance_Monitor_Edit_Comment_Cost,
+            'monitor_edit_cost_post': Alliance_Monitor_Edit_Post_Cost,
+            'monitor_toggle_starting': Alliance_Monitor_Toggle_Starting,
+            'monitor_toggle_like_on': Alliance_Monitor_Toggle_Like,
+            'monitor_toggle_comment_on': Alliance_Monitor_Toggle_Comment,
+            'monitor_toggle_wall_on': Alliance_Monitor_Toggle_Wall
         }
-        const answer1: any = await context.question(`${event_logger}`, { keyboard: keyboard.inline(), answerTimeLimit })
-        if (answer1.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора статуса истекло!`) }
-        if (!answer1.payload) {
-            await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`)
-        } else {
-            if (answer1.text == `${ico_list['next'].ico}` || answer1.text == `${ico_list['back'].ico}`) {
-                id_builder_sent1 = answer1.payload.id_builder_sent1
-            } else {
-                monik.coin = answer1.payload.coin
-                monik.id_coin = answer1.payload.id_coin
-                coin_check = true
-            }
+
+        if (answer.payload?.command in config) {
+            await config[answer.payload.command](context, answer.payload, alliance, user)
         }
     }
+}
 
-    // меняем лимит лайков
-    const like_lim = await Input_Number(context, `Вы редактируете лимит лайков в день, cейчас, ${monik.lim_like}${ico_list['like'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
-    if (!like_lim) { return res }
-    monik.lim_like = like_lim
-    // меняем вознаграждение лайков
-    const like_cost = await Input_Number(context, `Вы редактируете стоимость лайка, cейчас, ${monik.cost_like}${ico_list['like'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
-    if (!like_cost) { return res }
-    monik.cost_like = like_cost
+function Format_Monitor_Status(value: boolean) {
+    return value ? "✅" : "⛔"
+}
 
-    // меняем лимит комментариев
-    const comment_lim = await Input_Number(context, `Вы редактируете лимит комментариев в день, cейчас, ${monik.lim_comment}${ico_list['message'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
-    if (!comment_lim) { return res }
-    monik.lim_comment = comment_lim
-    // меняем вознаграждение комментариев
-    const comment_cost = await Input_Number(context, `Вы редактируете стоимость комментария, cейчас, ${monik.cost_comment}${ico_list['message'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
-    if (!comment_cost) { return res }
-    monik.cost_comment = comment_cost
+async function Notify_Monitor_Update(context: any, alliance: Alliance, user: User, monitor: Monitor, changes: string) {
+    await Logger(`In database, updated monitor: ${monitor.id}-${monitor.name} by admin ${context.senderId}`)
+    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor.id}-${monitor.name}.\n${changes}\n\nЧтобы изменения вступили в силу, перезапустите мониторы через ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor.id}-${monitor.name}\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+}
 
-    // меняем вознаграждение поста
-    const post_cost = await Input_Number(context, `Вы редактируете стоимость поста, cейчас, ${monik.cost_post}${ico_list['post'].ico}.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, false)
-    if (!post_cost) { return res }
-    monik.cost_post = post_cost
+async function Update_Monitor_Number_Field(context: any, data: any, alliance: Alliance, user: User, field: string, label: string, icon: string, float = false) {
+    const res = { cursor: data.cursor }
+    const monitor = await prisma.monitor.findFirst({ where: { id: data.id_monitor, id_alliance: alliance.id } })
+    if (!monitor) { return res }
 
-    const starting_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `запланировать запуск бота в качестве монитора для группы ${monik.alliance}?`)
-    monik.starting = starting_tr.status
-    await context.send(`${starting_tr.text}`)
+    const currentValue = (monitor as any)[field]
+    const newValue = await Input_Number(context, `Вы редактируете ${label}, сейчас ${currentValue}${icon}.\n${ico_list['help'].ico}Отправьте новое значение:`, float)
+    if (newValue === false) { return res }
 
-    const like_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с лайками?`)
-    monik.like_on = like_on_tr.status
-    await context.send(`${like_on_tr.text}`)
-
-    const comment_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с комментариями?`)
-    monik.comment_on = comment_on_tr.status
-    await context.send(`${comment_on_tr.text}`)
-
-    const wall_on_tr: { status: boolean, text: String } = await Confirm_User_Success(context, `включить активность монитора во славу проекта ${monik.alliance} для работы с постами?`)
-    monik.wall_on = wall_on_tr.status
-    await context.send(`${wall_on_tr.text}`)
-
-    const monitor_up = await prisma.monitor.update({ where: { id: monitora.id }, data: { id_coin: monik.id_coin, cost_like: monik.cost_like, cost_comment: monik.cost_comment, cost_post: monik.cost_post, lim_like: monik.lim_like, lim_comment: monik.lim_comment, starting: monik.starting, wall_on: monik.wall_on, like_on: monik.like_on, comment_on: monik.comment_on } })
-    if (!monitor_up) { return res }
-    await Logger(`In database, updated monitor: ${monitor_up.id}-${monitor_up.name} by admin ${context.senderId}`)
-    await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor_up.id}-${monitor_up.name}, чтобы изменения вступили в силу, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы настроить --> ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_up.id}-${monitor_up.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    const updateData: any = {}
+    updateData[field] = newValue
+    const monitor_up = await prisma.monitor.update({ where: { id: monitor.id }, data: updateData })
+    await Notify_Monitor_Update(context, alliance, user, monitor_up, `${label}: ${currentValue} --> ${newValue}`)
     return res
+}
+
+async function Toggle_Monitor_Boolean_Field(context: any, data: any, alliance: Alliance, user: User, field: string, label: string) {
+    const res = { cursor: data.cursor }
+    const monitor = await prisma.monitor.findFirst({ where: { id: data.id_monitor, id_alliance: alliance.id } })
+    if (!monitor) { return res }
+
+    const currentValue = Boolean((monitor as any)[field])
+    const nextValue = !currentValue
+    const confirm: { status: boolean, text: String } = await Confirm_User_Success(context, `переключить "${label}" для монитора ${monitor.name}: ${Format_Monitor_Status(currentValue)} --> ${Format_Monitor_Status(nextValue)}?`)
+    await context.send(`${confirm.text}`)
+    if (!confirm.status) { return res }
+
+    const updateData: any = {}
+    updateData[field] = nextValue
+    const monitor_up = await prisma.monitor.update({ where: { id: monitor.id }, data: updateData })
+    await Notify_Monitor_Update(context, alliance, user, monitor_up, `${label}: ${Format_Monitor_Status(currentValue)} --> ${Format_Monitor_Status(nextValue)}`)
+    return res
+}
+
+async function Alliance_Monitor_Edit_Coin(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor }
+    const monitor = await prisma.monitor.findFirst({ where: { id: data.id_monitor, id_alliance: alliance.id } })
+    if (!monitor) { return res }
+
+    const selectedCoinId = await Select_Alliance_Coin(context, alliance.id)
+    if (!selectedCoinId) { return res }
+
+    const oldCoin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0 } })
+    const newCoin = await prisma.allianceCoin.findFirst({ where: { id: selectedCoinId, id_alliance: alliance.id } })
+    if (!newCoin) { return res }
+
+    const monitor_up = await prisma.monitor.update({ where: { id: monitor.id }, data: { id_coin: selectedCoinId } })
+    await Notify_Monitor_Update(context, alliance, user, monitor_up, `Валюта: ${oldCoin ? `${oldCoin.smile} ${oldCoin.name}` : 'не выбрана'} --> ${newCoin.smile} ${newCoin.name}`)
+    return res
+}
+
+async function Alliance_Monitor_Edit_Like_Limit(context: any, data: any, alliance: Alliance, user: User) {
+    return await Update_Monitor_Number_Field(context, data, alliance, user, 'lim_like', 'лимит лайков в день', ico_list['like'].ico)
+}
+
+async function Alliance_Monitor_Edit_Like_Cost(context: any, data: any, alliance: Alliance, user: User) {
+    return await Update_Monitor_Number_Field(context, data, alliance, user, 'cost_like', 'стоимость лайка', ico_list['like'].ico)
+}
+
+async function Alliance_Monitor_Edit_Comment_Limit(context: any, data: any, alliance: Alliance, user: User) {
+    return await Update_Monitor_Number_Field(context, data, alliance, user, 'lim_comment', 'лимит комментариев в день', ico_list['message'].ico)
+}
+
+async function Alliance_Monitor_Edit_Comment_Cost(context: any, data: any, alliance: Alliance, user: User) {
+    return await Update_Monitor_Number_Field(context, data, alliance, user, 'cost_comment', 'стоимость комментария', ico_list['message'].ico)
+}
+
+async function Alliance_Monitor_Edit_Post_Cost(context: any, data: any, alliance: Alliance, user: User) {
+    return await Update_Monitor_Number_Field(context, data, alliance, user, 'cost_post', 'стоимость поста', ico_list['post'].ico)
+}
+
+async function Alliance_Monitor_Toggle_Starting(context: any, data: any, alliance: Alliance, user: User) {
+    return await Toggle_Monitor_Boolean_Field(context, data, alliance, user, 'starting', 'запланированный запуск')
+}
+
+async function Alliance_Monitor_Toggle_Like(context: any, data: any, alliance: Alliance, user: User) {
+    return await Toggle_Monitor_Boolean_Field(context, data, alliance, user, 'like_on', 'работа с лайками')
+}
+
+async function Alliance_Monitor_Toggle_Comment(context: any, data: any, alliance: Alliance, user: User) {
+    return await Toggle_Monitor_Boolean_Field(context, data, alliance, user, 'comment_on', 'работа с комментариями')
+}
+
+async function Alliance_Monitor_Toggle_Wall(context: any, data: any, alliance: Alliance, user: User) {
+    return await Toggle_Monitor_Boolean_Field(context, data, alliance, user, 'wall_on', 'работа с постами')
 }
 
 async function Alliance_Monitor_Next(context: any, data: any, alliance: Alliance, user: User) {

@@ -2,7 +2,7 @@ import { Alliance, AllianceCoin, User } from "@prisma/client";
 import prisma from "./../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id, timer_text } from "../../../..";
-import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "./../../../core/helper";
+import { Confirm_User_Success, Keyboard_Index, Logger, Send_Message, Send_Message_Question } from "./../../../core/helper";
 import { Person_Get } from "./../person/person";
 import { ico_list } from "./../data_center/icons_lib";
 import { button_alliance_return } from "./../data_center/standart";
@@ -185,120 +185,145 @@ async function Scoopins_Coin_Edit(context: any, data: any, alliance: Alliance, u
 
 async function Scoopins_Coin_Config(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor };
-    
-    const alliance_coin = await prisma.allianceCoin.findFirst({ 
-        where: { id: data.id_alliance_coin } 
-    });
-    
-    if (!alliance_coin) {
-        await context.send(`${ico_list['warn'].ico} Валюта не найдена!`);
-        return res;
-    }
-    
-    let config_complete = false;
-    const new_course = {
-        course_scoopins_medal: alliance_coin.course_scoopins_medal,
-        course_scoopins_coin: alliance_coin.course_scoopins_coin
-    };
-    
-    // Настройка курса: сколько S-coins за 1 единицу валюты
-    while (!config_complete) {
-        const response = await context.question(
-            `${ico_list['attach'].ico} Настройка курса для ${alliance_coin.smile} ${alliance_coin.name}:\n\n` +
-            `Текущий курс: ${alliance_coin.course_scoopins_medal}🌕 → ${alliance_coin.course_scoopins_coin}${alliance_coin.smile}\n\n` +
-            `Введите, сколько 🌕 S-coins нужно для получения 1${alliance_coin.smile}:`,
-            {   
-                keyboard: Keyboard.builder()
-                    .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'cancel' }, color: 'secondary' })
-                    .oneTime().inline(),
-                timer_text
-            }
-        );
-        
-        if (response.isTimeout) {
-            await context.send(`${ico_list['time'].ico} Время истекло!`);
-            return res;
-        }
-        
-        if (response.text === `${ico_list['stop'].ico} Отмена`) {
-            await context.send(`${ico_list['stop'].ico} Отмена настройки курса`);
-            return res;
-        }
-        
-        const input = parseInt(response.text);
-        if (!isNaN(input) && input > 0 && input <= 10000) {
-            new_course.course_scoopins_medal = input;
-            config_complete = true;
-        } else {
-            await context.send(`${ico_list['help'].ico} Введите число от 1 до 10000!`);
-        }
-    }
-    
-    config_complete = false;
-    
-    // Настройка курса: сколько единиц валюты за 1 S-coin
-    while (!config_complete) {
-        const response = await context.question(
-            `Введите, сколько ${alliance_coin.smile} получится из 1🌕 S-coin:\n` +
-            `(рекомендуется: ${Math.floor(1 / new_course.course_scoopins_medal * 100) / 100})`,
-            {   
-                keyboard: Keyboard.builder()
-                    .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'cancel' }, color: 'secondary' })
-                    .oneTime().inline(),
-                timer_text
-            }
-        );
-        
-        if (response.isTimeout) {
-            await context.send(`${ico_list['time'].ico} Время истекло!`);
-            return res;
-        }
-        
-        if (response.text === `${ico_list['stop'].ico} Отмена`) {
-            await context.send(`${ico_list['stop'].ico} Отмена настройки курса`);
-            return res;
-        }
-        
-        const input = parseFloat(response.text);
-        if (!isNaN(input) && input > 0 && input <= 1000) {
-            new_course.course_scoopins_coin = input;
-            config_complete = true;
-        } else {
-            await context.send(`${ico_list['help'].ico} Введите число от 0.01 до 1000!`);
-        }
-    }
-    
-    const confirm = await Confirm_User_Success(
-        context, 
-        `установить курс: ${new_course.course_scoopins_medal}🌕 → ${new_course.course_scoopins_coin}${alliance_coin.smile}?`
-    );
-    
-    if (confirm.status) {
-        const update = await prisma.allianceCoin.update({
-            where: { id: alliance_coin.id },
-            data: {
-                course_scoopins_medal: new_course.course_scoopins_medal,
-                course_scoopins_coin: new_course.course_scoopins_coin
-            }
+
+    while (true) {
+        const alliance_coin = await prisma.allianceCoin.findFirst({
+            where: { id: data.id_alliance_coin, id_alliance: alliance.id }
         });
-        
-        await context.send(
-            `${ico_list['reconfig'].ico} Курс обновлен!\n` +
-            `${new_course.course_scoopins_medal}🌕 → ${new_course.course_scoopins_coin}${alliance_coin.smile}`
-        );
-        
-        await Logger(`Обновлен курс S-coins для ${alliance_coin.name} by ${user.idvk}`);
-        await Send_Message(chat_id,
-            `${ico_list['reconfig'].ico} Обновление курса S-coins\n` +
+
+        if (!alliance_coin) {
+            await context.send(`${ico_list['warn'].ico} Валюта не найдена!`);
+            return res;
+        }
+
+        const keyboard = new KeyboardBuilder()
+            .textButton({ label: '🌕 Списывать', payload: { command: 'scoopins_course_medal', cursor: data.cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' })
+            .textButton({ label: `${alliance_coin.smile} Начислять`, payload: { command: 'scoopins_course_coin', cursor: data.cursor, id_alliance_coin: alliance_coin.id }, color: 'secondary' }).row();
+
+        const text =
+            `${ico_list['attach'].ico} Настройка курса S-coins\n\n` +
             `${alliance_coin.smile} ${alliance_coin.name}\n` +
-            `Курс: ${new_course.course_scoopins_medal}🌕 → ${new_course.course_scoopins_coin}${alliance_coin.smile}\n` +
-            `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
-            `${ico_list['alliance'].ico} ${alliance.name}`
-        );
-    } else {
-        await context.send(`${ico_list['stop'].ico} Изменения отменены`);
+            `Текущий курс: ${alliance_coin.course_scoopins_medal}🌕 → ${alliance_coin.course_scoopins_coin}${alliance_coin.smile}\n\n` +
+            `Выберите, какую сторону курса изменить:`;
+
+        const answer = await Send_Message_Question(context, text, keyboard);
+        if (answer.exit) { return res; }
+
+        const config: any = {
+            'scoopins_course_medal': Scoopins_Coin_Config_Medal,
+            'scoopins_course_coin': Scoopins_Coin_Config_Coin
+        };
+
+        if (answer.payload?.command in config) {
+            await config[answer.payload.command](context, answer.payload, alliance, user);
+        }
+
     }
-    
+}
+
+async function Ask_Scoopins_Course_Integer(context: any, message: string, maxValue: number): Promise<number | null> {
+    while (true) {
+        const response = await context.question(message, {
+            keyboard: Keyboard.builder()
+                .textButton({ label: `${ico_list['stop'].ico} Отмена`, payload: { command: 'cancel' }, color: 'secondary' })
+                .oneTime().inline(),
+            ...timer_text
+        });
+
+        if (response.isTimeout) {
+            await context.send(`${ico_list['time'].ico} Время истекло!`);
+            return null;
+        }
+
+        if (response.text === `${ico_list['stop'].ico} Отмена`) {
+            await context.send(`${ico_list['stop'].ico} Отмена настройки курса`);
+            return null;
+        }
+
+        const input = Number(String(response.text ?? '').trim());
+
+        if (Number.isInteger(input) && input > 0 && input <= maxValue) {
+            return input;
+        }
+
+        await context.send(`${ico_list['help'].ico} Введите целое число от 1 до ${maxValue}!`);
+    }
+}
+
+async function Notify_Scoopins_Course_Update(context: any, alliance: Alliance, user: User, coinBefore: AllianceCoin, coinAfter: AllianceCoin, changes: string) {
+    await context.send(
+        `${ico_list['reconfig'].ico} Курс S-coins обновлен!\n` +
+        `${changes}\n` +
+        `Текущий курс: ${coinAfter.course_scoopins_medal}🌕 → ${coinAfter.course_scoopins_coin}${coinAfter.smile}`
+    );
+    await Logger(`Обновлен курс S-coins для ${coinAfter.name} by ${user.idvk}`);
+    await Send_Message(chat_id,
+        `${ico_list['reconfig'].ico} Обновление курса S-coins\n` +
+        `${coinBefore.smile} ${coinBefore.name}\n` +
+        `${changes}\n` +
+        `Курс: ${coinAfter.course_scoopins_medal}🌕 → ${coinAfter.course_scoopins_coin}${coinAfter.smile}\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['alliance'].ico} ${alliance.name}`
+    );
+}
+
+async function Scoopins_Coin_Config_Medal(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const alliance_coin = await prisma.allianceCoin.findFirst({ where: { id: data.id_alliance_coin, id_alliance: alliance.id } });
+    if (!alliance_coin) { return res; }
+
+    const value = await Ask_Scoopins_Course_Integer(
+        context,
+        `${ico_list['attach'].ico} Сколько 🌕 S-coins списывать за обмен?\n\n` +
+        `Текущий курс: ${alliance_coin.course_scoopins_medal}🌕 → ${alliance_coin.course_scoopins_coin}${alliance_coin.smile}`,
+        10000
+    );
+    if (value === null) { return res; }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `установить списание ${value}🌕 для курса ${alliance_coin.smile} ${alliance_coin.name}?`
+    );
+    await context.send(`${confirm.text}`);
+
+    if (confirm.status) {
+        const updated = await prisma.allianceCoin.update({
+            where: { id: alliance_coin.id },
+            data: { course_scoopins_medal: value }
+        });
+        await Notify_Scoopins_Course_Update(context, alliance, user, alliance_coin, updated, `Списывать: ${alliance_coin.course_scoopins_medal}🌕 --> ${updated.course_scoopins_medal}🌕`);
+    }
+
+    return res;
+}
+
+async function Scoopins_Coin_Config_Coin(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor };
+    const alliance_coin = await prisma.allianceCoin.findFirst({ where: { id: data.id_alliance_coin, id_alliance: alliance.id } });
+    if (!alliance_coin) { return res; }
+
+    const value = await Ask_Scoopins_Course_Integer(
+        context,
+        `${ico_list['attach'].ico} Сколько ${alliance_coin.smile} ${alliance_coin.name} начислять за обмен?\n\n` +
+        `Текущий курс: ${alliance_coin.course_scoopins_medal}🌕 → ${alliance_coin.course_scoopins_coin}${alliance_coin.smile}`,
+        10000
+    );
+    if (value === null) { return res; }
+
+    const confirm = await Confirm_User_Success(
+        context,
+        `установить начисление ${value}${alliance_coin.smile} для курса S-coins?`
+    );
+    await context.send(`${confirm.text}`);
+
+    if (confirm.status) {
+        const updated = await prisma.allianceCoin.update({
+            where: { id: alliance_coin.id },
+            data: { course_scoopins_coin: value }
+        });
+        await Notify_Scoopins_Course_Update(context, alliance, user, alliance_coin, updated, `Начислять: ${alliance_coin.course_scoopins_coin}${alliance_coin.smile} --> ${updated.course_scoopins_coin}${updated.smile}`);
+    }
+
     return res;
 }
 

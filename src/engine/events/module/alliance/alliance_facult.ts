@@ -2,7 +2,7 @@ import { Alliance, AllianceFacult, AllianceTerminology, User } from "@prisma/cli
 import prisma from "../prisma_client";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import { Facult_Rank_Printer } from "./facult_rank";
 import { Person_Coin_Printer } from "../person/person_coin";
@@ -129,20 +129,69 @@ async function Alliance_Facult_Return(context: any, data: any, alliance: Allianc
 async function Alliance_Facult_Edit(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
     const terminology = await getFacultyTerminology(alliance.id);
-    const alliance_facult_check = await prisma.allianceFacult.findFirst({ where: { id: data.id_alliance_facult } })
-    // изменение названия факультета
-    const facult_name = await Input_Text(context, `Вы редактируете название ${terminology.genitive}: [${alliance_facult_check?.name}].\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`)
-    if (!facult_name) { return res}
-    // изменение смайлика факультета
-    const facult_smile = await Input_Text(context, `Введите смайлик для обозначения редактируемого ${terminology.genitive} [${facult_name}], сейчас стоит [${alliance_facult_check?.smile}]:.\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 10)
-    if (!facult_smile) { return res}
-    // сохранение
-    const facult_up = await prisma.allianceFacult.update({ where: { id: alliance_facult_check?.id }, data: { name: facult_name, smile: facult_smile } })
-    if (facult_up) {
-        await Logger(`In database, updated alliance facult: ${facult_up.id}-${facult_up.name} by admin ${context.senderId}`)
-        await context.send(`${ico_list['reconfig'].ico} Изменен ${terminology.singular}:\nНазвание: ${alliance_facult_check?.id}-${alliance_facult_check?.name} --> ${facult_up.id}-${facult_up.name}\nСмайлик: ${alliance_facult_check?.smile} --> ${facult_up.smile}\n`)
-        await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевого(ой) ${terminology.genitive}\n${ico_list['message'].ico} Сообщение:\nНазвание: ${alliance_facult_check?.id}-${alliance_facult_check?.name} --> ${facult_up.id}-${facult_up.name}\nСмайлик: ${alliance_facult_check?.smile} --> ${facult_up.smile}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+
+    while (true) {
+        const alliance_facult_check = await prisma.allianceFacult.findFirst({ where: { id: data.id_alliance_facult, id_alliance: alliance.id } })
+        if (!alliance_facult_check) {
+            await context.send(`${ico_list['warn'].ico} ${terminology.singular} не найден.`)
+            return res
+        }
+
+        const keyboard = new KeyboardBuilder()
+            .textButton({ label: '✏ Название', payload: { command: 'alliance_facult_edit_name', cursor: data.cursor, id_alliance_facult: alliance_facult_check.id }, color: 'secondary' })
+            .textButton({ label: '😀 Смайлик', payload: { command: 'alliance_facult_edit_smile', cursor: data.cursor, id_alliance_facult: alliance_facult_check.id }, color: 'secondary' }).row()
+
+        const text =
+            `${ico_list['edit'].ico} Редактирование ${terminology.genitive}\n\n` +
+            `${alliance_facult_check.smile} ${alliance_facult_check.name}\n` +
+            `ID: ${alliance_facult_check.id}\n\n` +
+            `Выберите, что изменить:`
+
+        const answer = await Send_Message_Question(context, text, keyboard)
+        if (answer.exit) { return res }
+
+        const config: any = {
+            'alliance_facult_edit_name': Alliance_Facult_Edit_Name,
+            'alliance_facult_edit_smile': Alliance_Facult_Edit_Smile
+        }
+
+        if (answer.payload?.command in config) {
+            await config[answer.payload.command](context, answer.payload, alliance, user)
+        }
     }
+}
+
+async function Notify_Alliance_Facult_Update(context: any, alliance: Alliance, user: User, terminology: AllianceTerminology, facult: AllianceFacult, changes: string) {
+    await Logger(`In database, updated alliance facult: ${facult.id}-${facult.name} by admin ${context.senderId}`)
+    await context.send(`${ico_list['reconfig'].ico} Изменен ${terminology.singular}:\n${changes}`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевого(ой) ${terminology.genitive}\n${ico_list['message'].ico} Сообщение:\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+}
+
+async function Alliance_Facult_Edit_Name(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor }
+    const terminology = await getFacultyTerminology(alliance.id);
+    const facult = await prisma.allianceFacult.findFirst({ where: { id: data.id_alliance_facult, id_alliance: alliance.id } })
+    if (!facult) { return res }
+
+    const facult_name = await Input_Text(context, `Текущее название ${terminology.genitive}: [${facult.name}].\n${ico_list['help'].ico}Отправьте новое название:`, 80)
+    if (!facult_name) { return res }
+
+    const facult_up = await prisma.allianceFacult.update({ where: { id: facult.id }, data: { name: facult_name } })
+    await Notify_Alliance_Facult_Update(context, alliance, user, terminology, facult_up, `Название: ${facult.id}-${facult.name} --> ${facult_up.id}-${facult_up.name}`)
+    return res
+}
+
+async function Alliance_Facult_Edit_Smile(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor }
+    const terminology = await getFacultyTerminology(alliance.id);
+    const facult = await prisma.allianceFacult.findFirst({ where: { id: data.id_alliance_facult, id_alliance: alliance.id } })
+    if (!facult) { return res }
+
+    const facult_smile = await Input_Text(context, `Текущий смайлик ${terminology.genitive} ${facult.name}: [${facult.smile}].\n${ico_list['help'].ico}Отправьте новый смайлик:`, 10)
+    if (!facult_smile) { return res }
+
+    const facult_up = await prisma.allianceFacult.update({ where: { id: facult.id }, data: { smile: facult_smile } })
+    await Notify_Alliance_Facult_Update(context, alliance, user, terminology, facult_up, `Смайлик ${facult.id}-${facult.name}: ${facult.smile} --> ${facult_up.smile}`)
     return res
 }
 
