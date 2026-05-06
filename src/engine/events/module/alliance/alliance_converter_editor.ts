@@ -25,9 +25,91 @@ type InternalConversionCourse = {
     course_target: number;
 };
 
+type FacultRatingOperation = 'increment' | 'decrement';
+
+type FacultRatingChange = {
+    line: string;
+};
+
 const INTERNAL_CONVERSION_BATCH_SIZE = 5;
 const CONVERTER_MENU_INTERNAL_BATCH_SIZE = 5;
 const MAX_INTERNAL_COURSE_VALUE = 1000000;
+
+async function Send_Finance_Log(allianceChatId: number | null | undefined, message: string) {
+    if (allianceChatId && allianceChatId > 0) {
+        const sentToAllianceChat = await Send_Message(allianceChatId, message);
+        if (sentToAllianceChat) {
+            return;
+        }
+    }
+
+    await Send_Message(chat_id, message);
+}
+
+function Format_Facult_Rating_Block(changes: FacultRatingChange[]) {
+    if (changes.length === 0) {
+        return '';
+    }
+
+    return `\n\n📊 Факультетские рейтинги:\n${changes.map((change) => change.line).join('\n')}`;
+}
+
+async function Apply_Facult_Rating_Change(
+    alliance: Alliance,
+    user: User,
+    coin: AllianceCoin,
+    amount: number,
+    operation: FacultRatingOperation
+): Promise<FacultRatingChange | null> {
+    if (!coin.point || !user.id_facult) {
+        return null;
+    }
+
+    const facult = await prisma.allianceFacult.findFirst({
+        where: {
+            id: user.id_facult,
+            id_alliance: alliance.id
+        }
+    });
+
+    if (!facult) {
+        return null;
+    }
+
+    let facultBalance = await prisma.balanceFacult.findFirst({
+        where: {
+            id_coin: coin.id,
+            id_facult: user.id_facult
+        }
+    });
+
+    if (!facultBalance) {
+        facultBalance = await prisma.balanceFacult.create({
+            data: {
+                id_coin: coin.id,
+                id_facult: user.id_facult,
+                amount: 0
+            }
+        });
+    }
+
+    const updatedFacult = operation === 'increment'
+        ? await prisma.balanceFacult.update({
+            where: { id: facultBalance.id },
+            data: { amount: { increment: amount } }
+        })
+        : await prisma.balanceFacult.update({
+            where: { id: facultBalance.id },
+            data: { amount: { decrement: amount } }
+        });
+
+    const sign = operation === 'increment' ? '+' : '-';
+
+    return {
+        line: `${facult.smile} ${facult.name} [${coin.smile} ${coin.name}]: ` +
+            `${Format_Currency_Amount(facultBalance.amount)} ${sign} ${Format_Currency_Amount(amount)} = ${Format_Currency_Amount(updatedFacult.amount)}`
+    };
+}
 
 // Контроллер управления валютами альянса
 // В alliance_converter.ts исправьте функцию Alliance_Coin_Get:
@@ -721,81 +803,35 @@ async function Internal_Converter_Edit(context: any, data: any, alliance: Allian
         })
     ]);
 
+    const facultyChanges = [
+        await Apply_Facult_Rating_Change(alliance, user, conversion.sourceCoin, sourceAmount, 'decrement'),
+        await Apply_Facult_Rating_Change(alliance, user, conversion.targetCoin, targetAmount, 'increment')
+    ].filter((change): change is FacultRatingChange => change !== null);
+    const facultyBlock = Format_Facult_Rating_Block(facultyChanges);
+
     const userMessage =
         `${ico_list['success'].ico} Конвертация успешна!\n\n` +
         `${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}: ${Format_Currency_Amount(operationSourceBalance.amount)} - ${Format_Currency_Amount(sourceAmount)} = ${Format_Currency_Amount(sourceUpdate.amount)}\n` +
-        `${conversion.targetCoin.smile} ${conversion.targetCoin.name}: ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}`;
+        `${conversion.targetCoin.smile} ${conversion.targetCoin.name}: ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}` +
+        facultyBlock;
 
     await Logger(
         `Внутренняя конвертация: ${conversion.sourceCoin.name} ${operationSourceBalance.amount} - ${sourceAmount} = ${sourceUpdate.amount}, ` +
-        `${conversion.targetCoin.name} ${operationTargetBalance.amount} + ${targetAmount} = ${targetUpdate.amount} by player ${context.senderId}`
+        `${conversion.targetCoin.name} ${operationTargetBalance.amount} + ${targetAmount} = ${targetUpdate.amount}` +
+        `${facultyChanges.length > 0 ? `, факультет: ${facultyChanges.map((change) => change.line).join('; ')}` : ''} by player ${context.senderId}`
     );
     await context.send(userMessage);
 
     const chatMessage =
-        `⌛ @id${user.idvk}(${user.name}) конвертирует ${Format_Currency_Amount(sourceAmount)} [${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}] ` +
+        `⌛ @id${user.idvk}(${user.name}) (UID: ${user.id}) конвертирует ${Format_Currency_Amount(sourceAmount)} [${conversion.sourceCoin.smile} ${conversion.sourceCoin.name}] ` +
         `в ${Format_Currency_Amount(targetAmount)} [${conversion.targetCoin.smile} ${conversion.targetCoin.name}].\n\n` +
         `${conversion.sourceCoin.smile} --> ${Format_Currency_Amount(operationSourceBalance.amount)} - ${Format_Currency_Amount(sourceAmount)} = ${Format_Currency_Amount(sourceUpdate.amount)}\n` +
-        `${conversion.targetCoin.smile} --> ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}`;
+        `${conversion.targetCoin.smile} --> ${Format_Currency_Amount(operationTargetBalance.amount)} + ${Format_Currency_Amount(targetAmount)} = ${Format_Currency_Amount(targetUpdate.amount)}` +
+        facultyBlock;
 
-    await Send_Message(chat_id, chatMessage);
-
-    if (alliance.id_chat && alliance.id_chat > 0) {
-        await Send_Message(alliance.id_chat, chatMessage);
-    }
-
-    await Apply_Facult_Rating_For_Conversion(context, alliance, user, conversion.targetCoin, targetAmount);
+    await Send_Finance_Log(alliance.id_chat, chatMessage);
 
     return res;
-}
-
-async function Apply_Facult_Rating_For_Conversion(
-    context: any,
-    alliance: Alliance,
-    user: User,
-    coin: AllianceCoin,
-    amount: number
-) {
-    if (!coin.point || !user.id_facult) {
-        return;
-    }
-
-    const facult = await prisma.allianceFacult.findFirst({
-        where: { id: user.id_facult }
-    });
-
-    if (!facult) {
-        return;
-    }
-
-    let facultBalance = await prisma.balanceFacult.findFirst({
-        where: {
-            id_coin: coin.id,
-            id_facult: user.id_facult
-        }
-    });
-
-    if (!facultBalance) {
-        facultBalance = await prisma.balanceFacult.create({
-            data: {
-                id_coin: coin.id,
-                id_facult: user.id_facult,
-                amount: 0
-            }
-        });
-    }
-
-    const updatedFacult = await prisma.balanceFacult.update({
-        where: { id: facultBalance.id },
-        data: { amount: { increment: amount } }
-    });
-
-    const dative = await getTerminology(alliance.id, 'dative');
-
-    await context.send(
-        `📊 Начислены рейтинги ${dative}:\n` +
-        `${facult.smile} ${facult.name}: ${Format_Currency_Amount(facultBalance.amount)} + ${Format_Currency_Amount(amount)} = ${Format_Currency_Amount(updatedFacult.amount)}`
-    );
 }
 
 export async function Alliance_Coin_Converter_Editor_Printer(context: any) {
@@ -1527,6 +1563,23 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                 user_message += `🌕 S-coins: ${user.scoopins} - ${coi} = ${currency_update.scoopins}\n`;
                 user_message += `${alliance_coin.smile} ${alliance_coin.name}: ${balance_check.amount} + ${calc} = ${balance_update.amount}`;
             }
+
+            const facultyChanges: FacultRatingChange[] = [];
+
+            if (alliance_coin.converted_point) {
+                const facultyChange = await Apply_Facult_Rating_Change(alliance, user, alliance_coin, calc, 'increment');
+
+                if (facultyChange) {
+                    facultyChanges.push(facultyChange);
+                }
+            }
+
+            const facultyBlock = Format_Facult_Rating_Block(facultyChanges);
+
+            if (facultyBlock) {
+                user_message += facultyBlock;
+                log_message += `, факультет: ${facultyChanges.map((change) => change.line).join('; ')}`;
+            }
             
             await Logger(`Конвертация: ${log_message} by player ${context.senderId}`);
             await context.send(user_message);
@@ -1535,60 +1588,12 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, t
                 where: { id: user.id_alliance ?? 0 } 
             });
 
-            const chatMessage = `⌛ @id${user.idvk}(${user.name}) конвертирует ${coi} [${currency_emoji} ${type === 'medal' ? 'Жетоны' : 'S-coins'}] в ${calc} [${alliance_coin.smile} ${alliance_coin.name}].\n\n` +
+            const chatMessage = `⌛ @id${user.idvk}(${user.name}) (UID: ${user.id}) конвертирует ${coi} [${currency_emoji} ${type === 'medal' ? 'Жетоны' : 'S-coins'}] в ${calc} [${alliance_coin.smile} ${alliance_coin.name}].\n\n` +
                 `${currency_emoji} --> ${currency_balance} - ${coi} = ${type === 'medal' ? currency_update.medal : currency_update.scoopins}\n` +
-                `${alliance_coin.smile} --> ${balance_check.amount} + ${calc} = ${balance_update.amount}`;
+                `${alliance_coin.smile} --> ${balance_check.amount} + ${calc} = ${balance_update.amount}` +
+                facultyBlock;
 
-            // 1. Всегда отправляем в глобальный лог-чат
-            await Send_Message(chat_id, chatMessage);
-
-            // 2. Отправляем в чат альянса (финансовый), если он привязан
-            if (allianceObj?.id_chat && allianceObj.id_chat > 0) {
-                await Send_Message(allianceObj.id_chat, chatMessage);
-            }
-            
-            // Если валюта рейтинговая и разрешена конвертация в рейтинги
-            if (alliance_coin.point && alliance_coin.converted_point) {
-                if (user.id_facult) {
-                    const facult = await prisma.allianceFacult.findFirst({ 
-                        where: { id: user.id_facult } 
-                    });
-                    
-                    if (facult) {
-                        let facult_balance = await prisma.balanceFacult.findFirst({ 
-                            where: { 
-                                id_coin: alliance_coin.id, 
-                                id_facult: user.id_facult
-                            } 
-                        });
-                        
-                        if (!facult_balance) {
-                            facult_balance = await prisma.balanceFacult.create({
-                                data: {
-                                    id_coin: alliance_coin.id,
-                                    id_facult: user.id_facult,
-                                    amount: 0
-                                }
-                            });
-                        }
-                        
-                        const updated_facult = await prisma.balanceFacult.update({ 
-                            where: { id: facult_balance.id }, 
-                            data: { amount: { increment: calc } } 
-                        });
-                        
-                        if (updated_facult) {
-                            const singular = await getTerminology(alliance.id, 'singular');
-                            const dative = await getTerminology(alliance.id, 'dative');
-                            
-                            await context.send(
-                                `📊 Начислены рейтинги ${dative}:\n` +
-                                `${facult.smile} ${facult.name}: ${facult_balance.amount} + ${calc} = ${updated_facult.amount}`
-                            );
-                        }
-                    }
-                }
-            }
+            await Send_Finance_Log(allianceObj?.id_chat, chatMessage);
         }
     }
     

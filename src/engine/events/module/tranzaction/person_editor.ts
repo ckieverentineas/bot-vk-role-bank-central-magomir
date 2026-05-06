@@ -573,15 +573,11 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                 if (coin.point == false) { continue }
                 const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: update_facult.id }})
                 if (!bal_usr || bal_usr.amount == 0) { continue }
-                
-                // Получаем терминологию перед использованием
-                const currentAlliance = await prisma.alliance.findFirst({ 
-                    where: { id: user.id_alliance ?? 0 } 
-                });
-                const singular = await getTerminology(currentAlliance?.id || 0, 'singular');
-                const genitive = await getTerminology(currentAlliance?.id || 0, 'genitive');
-                
-                // Если был факультет - вычитаем из старого
+
+                const facultTerm = singular.charAt(0).toUpperCase() + singular.slice(1)
+                let oldFacultLog = `Не было ${genitive}`
+                let targetFacultLog = `Без зачисления на/в ${singular}`
+
                 if (alli_fac) {
                     const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user.id_facult! }})
                     if (bal_fac) {
@@ -589,19 +585,24 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                             where: { id: bal_fac.id }, 
                             data: { amount: { decrement: bal_usr.amount } } 
                         })
+                        oldFacultLog = `${facultTerm} [${alli_fac.smile} ${alli_fac.name}] ${coin.smile}: ${bal_fac.amount} - ${bal_usr.amount} = ${bal_fac_ch.amount}`
+                    } else {
+                        oldFacultLog = `${facultTerm} [${alli_fac.smile} ${alli_fac.name}] ${coin.smile}: баланс не найден, вычет ${bal_usr.amount} не выполнен`
                     }
                 }
-                
-                // Если есть новый факультет - зачисляем на него
+
                 if (alli_fac_tar) {
                     const bal_fac_tar = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: update_facult.id_facult! }})
+                    const targetAmountBefore = bal_fac_tar?.amount ?? 0
+                    let targetAmountAfter = bal_usr.amount
+
                     if (bal_fac_tar) {
                         const bal_fac_tar_ch = await prisma.balanceFacult.update({ 
                             where: { id: bal_fac_tar.id }, 
                             data: { amount: { increment: bal_usr.amount } } 
                         })
+                        targetAmountAfter = bal_fac_tar_ch.amount
                     } else {
-                        // Создаем запись баланса для нового факультета, если её нет
                         const bal_fac_tar_ch = await prisma.balanceFacult.create({
                             data: {
                                 id_coin: coin.id,
@@ -609,10 +610,13 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                                 amount: bal_usr.amount
                             }
                         })
+                        targetAmountAfter = bal_fac_tar_ch.amount
                     }
+
+                    targetFacultLog = `${facultTerm} [${alli_fac_tar.smile} ${alli_fac_tar.name}] ${coin.smile}: ${targetAmountBefore} + ${bal_usr.amount} = ${targetAmountAfter}`
                 }
                 
-                const ans_log = `🌐 "${person.rank_action}${coin.smile}" >\n${alli_fac ? `Старый(ая) ${singular} уменьшен(а) на ${bal_usr.amount}` : `Не было ${genitive}`},\n${alli_fac_tar ? `Новый(ая) ${singular} увеличен(а) на ${bal_usr.amount}` : `Без зачисления на/в ${singular}`} \nдля @id${user.idvk}(${user.name})`
+                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${coin.name}\n${oldFacultLog}\n${targetFacultLog}\nдля @id${user.idvk}(${user.name})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
