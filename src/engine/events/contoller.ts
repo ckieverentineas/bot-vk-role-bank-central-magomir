@@ -20,7 +20,7 @@ import { Monitor_Select_Person_Handler } from "./module/person/monitor_select";
 import { Service_Enter, Service_Cancel, Service_Kvass_Open } from "./module/service";
 import { Shop_Category_Enter, Shop_Enter_Multi, Shop_Enter, Shop_Cancel, Shop_Bought, Shop_Buy } from "./module/shop/engine";
 import { Operation_Enter, Right_Enter } from "./module/tool";
-import { Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Weeks, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Hashtag } from "./module/topic_rank_v2";
+import { Topic_Rank_V2_Custom_Period, Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Weeks, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Hashtag } from "./module/topic_rank_v2";
 
 export async function Main_Menu_Init(context: any) {
     const user: User | null | undefined = await Person_Get(context)
@@ -178,6 +178,7 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
     "topic_rank_v2": Topic_Rank_V2_Enter,
     "topic_rank_v2_search_topic": Topic_Rank_V2_Search_Topic,
     "topic_rank_v2_weeks": Topic_Rank_V2_Weeks,
+    "topic_rank_v2_custom_period": Topic_Rank_V2_Custom_Period,
     "topic_rank_v2_select_monitor": Topic_Rank_V2_Select_Monitor,
     "topic_rank_v2_select_facult": Topic_Rank_V2_Select_Facult,
     "topic_rank_v2_select_hashtag": Topic_Rank_V2_Select_Hashtag,

@@ -8,8 +8,22 @@ import { getHashtagRank, getMonitorHashtags } from "./alliance/hashtag_manager";
 import { resolveTopicRewardSettings } from "./topic_monitor_settings";
 
 type SortBy = 'posts' | 'characters' | 'words' | 'pc' | 'mb' | 'locations';
-type PeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4' | 'week_-5' | 'week_-6';
+type FixedPeriodType = 'week' | 'month' | 'all_time' | 'week_-1' | 'week_-2' | 'week_-3' | 'week_-4' | 'week_-5' | 'week_-6';
+type CustomPeriodType = `custom:${string}:${string}`;
+type PeriodType = FixedPeriodType | CustomPeriodType;
 type ViewType = 'all' | 'monitor' | 'topic' | 'facult';
+
+type TopicRankSessionParams = {
+    userId: number;
+    period: PeriodType;
+    sortBy: SortBy;
+    viewType: ViewType;
+    monitorId: number | null;
+    topicId: number | null;
+    facultId: number | null;
+    hashtag: string | null;
+    page: number;
+};
 
 // В начале функции Topic_Rank_V2_Enter нужно получить хештеги монитора
 export async function Topic_Rank_V2_Enter(context: any) {
@@ -178,12 +192,12 @@ function buildRankKeyboardV2(
     });
 
     keyboard.callbackButton({
-        label: '📆 Недели',
+        label: Is_Custom_Period(period) ? '📆 Даты ✅' : '📆 Недели',
         payload: {
             command: 'topic_rank_v2_weeks',
             period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
         },
-        color: 'secondary'
+        color: Is_Custom_Period(period) ? 'positive' : 'secondary'
     }).row();
 
     // === СТРОКА 2: ОСНОВНЫЕ ФИЛЬТРЫ ===
@@ -390,8 +404,92 @@ function formatDateRange(startDate: Date, endDate: Date): string {
     return `${formatDate(startDate)}-${formatDate(endDate)}`;
 }
 
+function formatDateForPayload(date: Date): string {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function Is_Custom_Period(period: PeriodType): period is CustomPeriodType {
+    return period.startsWith('custom:');
+}
+
+function Build_Custom_Period(startDate: Date, endDate: Date): CustomPeriodType {
+    return `custom:${formatDateForPayload(startDate)}:${formatDateForPayload(endDate)}`;
+}
+
+function Parse_Custom_Period(period: PeriodType): { startDate: Date; endDate: Date } | null {
+    if (!Is_Custom_Period(period)) { return null; }
+
+    const [, startRaw, endRaw] = period.split(':');
+    const startDate = Parse_Date_Token(startRaw);
+    const endDate = Parse_Date_Token(endRaw);
+    if (!startDate || !endDate || startDate > endDate) { return null; }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+}
+
+function Parse_Custom_Date_Range(input: string): { startDate: Date; endDate: Date } | null {
+    const tokens = Extract_Date_Tokens(input);
+    if (tokens.length < 2) { return null; }
+
+    const startDate = Parse_Date_Token(tokens[0]);
+    const endDate = Parse_Date_Token(tokens[1]);
+    if (!startDate || !endDate || startDate > endDate) { return null; }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+}
+
+function Extract_Date_Tokens(input: string): string[] {
+    return input.match(/\b(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?)\b/g) ?? [];
+}
+
+function Parse_Date_Token(token: string | undefined): Date | null {
+    if (!token) { return null; }
+
+    const isoMatch = token.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+        return Build_Valid_Date(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+    }
+
+    const ruMatch = token.match(/^(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?$/);
+    if (!ruMatch) { return null; }
+
+    const year = Normalize_Input_Year(ruMatch[3]);
+    return Build_Valid_Date(year, Number(ruMatch[2]), Number(ruMatch[1]));
+}
+
+function Normalize_Input_Year(rawYear: string | undefined): number {
+    if (!rawYear) { return new Date().getFullYear(); }
+
+    const year = Number(rawYear);
+    return rawYear.length === 2 ? 2000 + year : year;
+}
+
+function Build_Valid_Date(year: number, month: number, day: number): Date | null {
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) { return null; }
+    if (year < 2000 || month < 1 || month > 12 || day < 1 || day > 31) { return null; }
+
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return null;
+    }
+
+    return date;
+}
+
 // Функция для получения диапазона дат в формате "дд.мм-дд.мм"
 function getDateRangeText(period: PeriodType): string {
+    const customPeriod = Parse_Custom_Period(period);
+    if (customPeriod) {
+        return formatDateRange(customPeriod.startDate, customPeriod.endDate);
+    }
+
     const now = new Date();
     
     switch(period) {
@@ -771,6 +869,8 @@ export async function Topic_Rank_V2_Search_Topic(context: any) {
     const hashtag = context.eventPayload?.hashtag || null;
     const page = context.eventPayload?.page || 0;
 
+    Remove_User_Session('topicRankCustomPeriodSessions', user.id);
+
     // Отправляем сообщение с инструкцией и создаем сессию для ввода
     const sessionId = `topic_search_${Date.now()}_${user.id}`;
     
@@ -980,6 +1080,117 @@ export async function Topic_Rank_V2_Search_Topic_Process(context: any): Promise<
     return true;
 }
 
+export async function Topic_Rank_V2_Custom_Period(context: any) {
+    const user = await Person_Get(context);
+    if (!user) return;
+
+    const alliance = await prisma.alliance.findFirst({
+        where: { id: user.id_alliance ?? 0 }
+    });
+    if (!alliance) return;
+
+    const period = (context.eventPayload?.period || 'week') as PeriodType;
+    const sortBy = (context.eventPayload?.sortBy || 'pc') as SortBy;
+    const viewType = (context.eventPayload?.viewType || 'all') as ViewType;
+    const monitorId = context.eventPayload?.monitorId || null;
+    const topicId = context.eventPayload?.topicId || null;
+    const facultId = context.eventPayload?.facultId || null;
+    const hashtag = context.eventPayload?.hashtag || null;
+    const page = context.eventPayload?.page || 0;
+
+    Remove_User_Session('topicSearchSessions', user.id);
+    Remove_User_Session('topicRankCustomPeriodSessions', user.id);
+
+    const sessionId = `topic_custom_period_${Date.now()}_${user.id}`;
+    const params: TopicRankSessionParams = {
+        userId: user.id,
+        period,
+        sortBy,
+        viewType,
+        monitorId,
+        topicId,
+        facultId,
+        hashtag,
+        page
+    };
+
+    (global as any).topicRankCustomPeriodSessions = (global as any).topicRankCustomPeriodSessions || {};
+    (global as any).topicRankCustomPeriodSessions[sessionId] = params;
+
+    const text = `📆 Введите интервал дат для рейтинга:\n\n` +
+        `Примеры:\n` +
+        `01.05.2026-07.05.2026\n` +
+        `01.05 07.05\n` +
+        `2026-05-01 2026-05-07\n\n` +
+        `❌ Или отправьте "отмена" для возврата`;
+
+    await Send_Message(context.peerId, text);
+    await Logger(`Пользователь ${user.idvk} начал выбор произвольного периода рейтинга, сессия: ${sessionId}`);
+}
+
+export async function Topic_Rank_V2_Custom_Period_Process(context: any): Promise<boolean> {
+    const user = await Person_Get(context);
+    if (!user) return false;
+
+    const activeSessions = (global as any).topicRankCustomPeriodSessions || {};
+    const sessionKey = Object.keys(activeSessions).find(key =>
+        activeSessions[key]?.userId === user.id
+    );
+
+    if (!sessionKey) { return false; }
+
+    const params = activeSessions[sessionKey] as TopicRankSessionParams;
+    const input = context.text?.trim();
+
+    if (!input || input.toLowerCase() === 'отмена') {
+        delete (global as any).topicRankCustomPeriodSessions[sessionKey];
+        context.eventPayload = {
+            command: 'topic_rank_v2',
+            period: params.period,
+            sortBy: params.sortBy,
+            viewType: params.viewType,
+            monitorId: params.monitorId,
+            topicId: params.topicId,
+            facultId: params.facultId,
+            hashtag: params.hashtag,
+            page: params.page
+        };
+        await Topic_Rank_V2_Enter(context);
+        return true;
+    }
+
+    const customRange = Parse_Custom_Date_Range(input);
+    if (!customRange) {
+        await context.send(`⚠ Не удалось разобрать интервал. Введите две даты, например: 01.05.2026-07.05.2026`);
+        return true;
+    }
+
+    delete (global as any).topicRankCustomPeriodSessions[sessionKey];
+    context.eventPayload = {
+        command: 'topic_rank_v2',
+        period: Build_Custom_Period(customRange.startDate, customRange.endDate),
+        sortBy: params.sortBy,
+        viewType: params.viewType,
+        monitorId: params.monitorId,
+        topicId: params.topicId,
+        facultId: params.facultId,
+        hashtag: params.hashtag,
+        page: 0
+    };
+    await Topic_Rank_V2_Enter(context);
+    return true;
+}
+
+function Remove_User_Session(storageName: 'topicSearchSessions' | 'topicRankCustomPeriodSessions', userId: number): void {
+    const activeSessions = (global as any)[storageName] || {};
+
+    for (const sessionKey of Object.keys(activeSessions)) {
+        if (activeSessions[sessionKey]?.userId === userId) {
+            delete activeSessions[sessionKey];
+        }
+    }
+}
+
 // ФУНКЦИЯ: Выбор монитора
 export async function Topic_Rank_V2_Select_Monitor(context: any) {
     const user = await Person_Get(context);
@@ -1156,6 +1367,18 @@ export async function Topic_Rank_V2_Weeks(context: any) {
     // Добавляем информацию о текущей неделе
     const currentWeekRange = getDateRangeText('week');
     text += `\n📅 Текущая неделя: ${currentWeekRange}`;
+    if (Is_Custom_Period(period)) {
+        text += `\n✏️ Выбранный интервал: ${getDateRangeText(period)}`;
+    }
+
+    keyboard.callbackButton({
+        label: Is_Custom_Period(period) ? '✏️ Свои даты ✅' : '✏️ Свои даты',
+        payload: {
+            command: 'topic_rank_v2_custom_period',
+            period, sortBy, viewType, monitorId, topicId, facultId, hashtag, page
+        },
+        color: Is_Custom_Period(period) ? 'positive' : 'secondary'
+    }).row();
 
     keyboard.callbackButton({
         label: '↩️ Назад',
@@ -1171,6 +1394,9 @@ export async function Topic_Rank_V2_Weeks(context: any) {
 
 // ИСПРАВЛЕННАЯ функция определения даты начала периода
 function getPeriodStartDate(period: PeriodType): Date | null {
+    const customPeriod = Parse_Custom_Period(period);
+    if (customPeriod) { return customPeriod.startDate; }
+
     const now = new Date();
     
     switch(period) {
@@ -1218,6 +1444,9 @@ function getPeriodStartDate(period: PeriodType): Date | null {
 
 // ФУНКЦИЯ: Определение даты конца периода
 function getPeriodEndDate(period: PeriodType): Date | null {
+    const customPeriod = Parse_Custom_Period(period);
+    if (customPeriod) { return customPeriod.endDate; }
+
     const now = new Date();
     
     switch(period) {
@@ -1317,6 +1546,9 @@ function getScoreText(score: number, sortBy: SortBy): string {
 
 function getPeriodText(period: PeriodType): string {
     const dateRange = getDateRangeText(period);
+    if (Is_Custom_Period(period)) {
+        return dateRange ? `интервал (${dateRange})` : 'интервал';
+    }
     
     switch(period) {
         case 'week': return dateRange ? `неделю (${dateRange})` : 'неделя';
