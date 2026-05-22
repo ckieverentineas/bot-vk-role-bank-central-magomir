@@ -216,10 +216,15 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
         await context.send(`✅ Категория "${category.name}" привязана к сундуку: ${selectedChest.name} (ID: ${selectedChestId})`);
         
         // Логируем
+        const admin = await prisma.user.findFirst({ where: { idvk: context.senderId } });
+        const adminLogName = admin
+            ? `@id${admin.idvk}(${admin.name}) (UID: ${admin.id})`
+            : `@id${context.senderId}`;
+
         const logMessage = `🧷 Привязка категории магазина\n\n` +
             `📁 Категория: "${category.name}" (ID: ${categoryId})\n` +
             `🎒 Сундук: "${selectedChest.name}" (ID: ${selectedChestId})\n` +
-            `👤 Админ: @id${context.senderId}`;
+            `👤 Админ: ${adminLogName}`;
         
         // Отправляем в чат магазина если настроен
         const shop = await prisma.allianceShop.findFirst({

@@ -750,9 +750,9 @@ async function Inventory_Group_Delete(context: any, data: any, user: User, user_
         
         if(user_adm) {
             await Send_Message(user.idvk, `🎒 Ваши покупки "${group.name} × ${success_count}" выкрали из инвентаря, надеемся, что их раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name})`);
+            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
         } else { 
-            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) удаляет "${group.name} × ${success_count}" из инвентаря`);
+            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из инвентаря`);
         }
     }
 
@@ -918,12 +918,12 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
             );
             await Send_Message(
                 chat_id, 
-                `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name})`
+                `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
             );
         } else { 
             await Send_Message(
                 chat_id, 
-                `🎒 @id${user.idvk}(${user.name}) удаляет "${deleted.id}-${itemName}" из инвентаря`
+                `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из инвентаря`
             );
         }
     }
@@ -1094,7 +1094,7 @@ async function Inventory_Present(context: any, data: any, user: User, user_adm?:
     }
     // ===== КОНЕЦ НОВОГО КОДА =====
     
-    const notif = `"<🎁>" --> передача товара "${itemName}" от игрока @id${user.idvk}(${user.name}) игроку @id${person_goten_check.idvk}(${person_goten_check.name})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name})` : ''}`;
+    const notif = `"<🎁>" --> передача товара "${itemName}" от игрока @id${user.idvk}(${user.name}) (UID: ${user.id}) игроку @id${person_goten_check.idvk}(${person_goten_check.name}) (UID: ${person_goten_check.id})${comment ? `\n💬 Комментарий: "${comment}"` : ''}${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id})` : ''}`;
     
     // УВЕДОМЛЕНИЕ ДЛЯ ПОЛУЧАТЕЛЯ С КОММЕНТАРИЕМ
     const receiver_message = `🎁 Вам подарен предмет от @id${user.idvk}(${user.name}) (UID: ${user.id})!\n\n🎯 Получено персонажем: ${person_goten_check.name} (UID: ${person_goten_check.id})\n📦 Предмет: ${itemName}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;

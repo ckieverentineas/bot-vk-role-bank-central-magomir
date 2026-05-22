@@ -131,7 +131,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance) {
         if (quest_up && medal_down) {
             await Logger(`Converted, coin: ${alliance_coin_check?.name}-${alliance_coin_check?.smile} 🔘 --> ${user?.medal} - ${coi} = ${medal_down.medal} ${alliance_coin_check?.smile} --> ${balance_check.amount} + ${calc} = ${quest_up.amount} by player ${context.senderId}`)
             await context.send(`⚙ Вы успешно сконвертировали валюту. Ваш баланс поменялся следующим образом:\n\n🔘 --> ${user?.medal} - ${coi} = ${medal_down.medal} \n${alliance_coin_check?.smile} --> ${balance_check.amount} + ${calc} = ${quest_up.amount}\n\n`)
-            answer += `⌛ @id${user.idvk}(${user.name}) конвертирует ${coi} [🔘 Жетоны] в  ${calc} [${alliance_coin_check?.smile} ${alliance_coin_check?.name}].\n\n🔘 --> ${user?.medal} - ${coi} = ${medal_down.medal} \n${alliance_coin_check?.smile} --> ${balance_check.amount} + ${calc} = ${quest_up.amount}\n\n`
+            answer += `⌛ @id${user.idvk}(${user.name}) (UID: ${user.id}) конвертирует ${coi} [🔘 Жетоны] в  ${calc} [${alliance_coin_check?.smile} ${alliance_coin_check?.name}].\n\n🔘 --> ${user?.medal} - ${coi} = ${medal_down.medal} \n${alliance_coin_check?.smile} --> ${balance_check.amount} + ${calc} = ${quest_up.amount}\n\n`
         }
         if (quest_up && medal_down && alliance_coin_check.point && alliance_coin_check.converted_point) {
             const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0 } })

@@ -788,7 +788,7 @@ async function Topic_Monitor_Create(context: any, data: any, monitor: any, user:
             `📝 ${topicMonitor.name}\n` +
             `🔗 ${topicMonitor.topicUrl}\n` +
             `🎯 Монитор: ${monitor.name}\n` +
-            `👤 @id${user.idvk}(${user.name})\n` +
+            `👤 @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
             `${ico_list['alliance'].ico} ${alliance.name}`
         );
     }

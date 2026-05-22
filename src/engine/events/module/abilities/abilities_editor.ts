@@ -347,7 +347,7 @@ async function handleEditUserAbility(
     );
     
     const alliance = await prisma.alliance.findFirst({ where: { id: targetUser.id_alliance ?? 0 } });
-    const deleteLogMessage = `❌ @id${user_adm.idvk}(${user_adm.name}) удалил способность "${ability.name}" (${currentLevelName}) из категории "${categoryName}" у игрока @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
+    const deleteLogMessage = `❌ @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удалил способность "${ability.name}" (${currentLevelName}) из категории "${categoryName}" у игрока @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
     
     if (alliance?.id_chat_ability && alliance.id_chat_ability > 0) {
       await Send_Message(alliance.id_chat_ability, deleteLogMessage);
@@ -535,7 +535,7 @@ async function handleEditUserAbility(
 
         // Логируем в чат
         const alliance = await prisma.alliance.findFirst({ where: { id: targetUser.id_alliance ?? 0 } });
-        let logMessage = `⚡ @id${user_adm.idvk}(${user_adm.name}) добавил способность "${ability.name}" (${await getLevelName(targetLevelId)}) из категории "${categoryName}" игроку @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
+        let logMessage = `⚡ @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) добавил способность "${ability.name}" (${await getLevelName(targetLevelId)}) из категории "${categoryName}" игроку @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id})`;
 
         if (price > 0 && balance) {
           const oldBalance = balance.amount + price;

@@ -65,7 +65,7 @@ async function Apply_Facult_Rating_Change(
     amount: number,
     operation: FacultRatingOperation
 ): Promise<FacultRatingChange | null> {
-    if (!coin.point || !user.id_facult) {
+    if (!user.id_facult) {
         return null;
     }
 
@@ -86,6 +86,13 @@ async function Apply_Facult_Rating_Change(
             id_facult: user.id_facult
         }
     });
+
+    const shouldIncrementRating = operation === 'increment' && coin.point && coin.converted_point;
+    const shouldDecrementRating = operation === 'decrement' && Boolean(facultBalance);
+
+    if (!shouldIncrementRating && !shouldDecrementRating) {
+        return null;
+    }
 
     if (!facultBalance) {
         facultBalance = await prisma.balanceFacult.create({
@@ -516,7 +523,7 @@ async function Notify_Medal_Course_Update(context: any, alliance: Alliance, user
         `${coinBefore.smile} ${coinBefore.name}\n` +
         `${changes}\n` +
         `Курс: ${coinAfter.course_medal}🔘 → ${coinAfter.course_coin}${coinAfter.smile}\n` +
-        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `${ico_list['alliance'].ico} ${alliance.name}`
     );
 }
@@ -1191,7 +1198,7 @@ async function Internal_Conversion_Add(context: any, data: any, alliance: Allian
         `${ico_list['reconfig'].ico} Настройка внутренней конвертации\n` +
         `${sourceCoin.smile} ${sourceCoin.name} → ${targetCoin.smile} ${targetCoin.name}\n` +
         `Курс: ${Format_Currency_Amount(conversion.course_source)}${sourceCoin.smile} → ${Format_Currency_Amount(conversion.course_target)}${targetCoin.smile}\n` +
-        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `${ico_list['alliance'].ico} ${alliance.name}`
     );
 
@@ -1466,7 +1473,7 @@ async function Notify_Alliance_Coin_Config_Update(context: any, alliance: Allian
     const plural_genitive = await getTerminology(alliance.id, 'plural_genitive');
     await Logger(`In database, updated config alliance coin: ${coinAfter.id}-${coinAfter.name} by admin ${context.senderId}`)
     await context.send(`${ico_list['reconfig'].ico} Вы скорректировали конфигурацию валюты:\n${changes}`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Корректировка конфигурации курса конвертации ролевой валюты\n${ico_list['message'].ico} Сообщение:\nНазвание: ${coinBefore.id}-${coinBefore.name}\n${changes}\nТекущее состояние: конвертация ${Format_Switch_Status(coinAfter.converted)}, в рейтинги ${Format_Switch_Status(coinAfter.converted_point)} ${plural_genitive}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Корректировка конфигурации курса конвертации ролевой валюты\n${ico_list['message'].ico} Сообщение:\nНазвание: ${coinBefore.id}-${coinBefore.name}\n${changes}\nТекущее состояние: конвертация ${Format_Switch_Status(coinAfter.converted)}, в рейтинги ${Format_Switch_Status(coinAfter.converted_point)} ${plural_genitive}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
 }
 
 async function Alliance_Coin_Config_Converted(context: any, data: any, alliance: Alliance, user: User) {

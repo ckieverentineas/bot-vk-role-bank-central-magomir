@@ -113,7 +113,7 @@ async function Alliance_Facult_Delete(context: any, data: any, alliance: Allianc
         if (alliance_facult_del) {
             await Logger(`In database, deleted alliance facult: ${alliance_facult_del.id}-${alliance_facult_del.name} by admin ${context.senderId}`)
             await context.send(`${ico_list['delete'].ico} Удален ${terminology.singular}: ${alliance_facult_del.id}-${alliance_facult_del.name} для ролевой ${alliance.name}!`)
-            await Send_Message(chat_id, `${ico_list['delete'].ico} Удаление ролевого ${terminology.genitive}\n${ico_list['message'].ico} Сообщение: ${alliance_facult_del.id}-${alliance_facult_del.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+            await Send_Message(chat_id, `${ico_list['delete'].ico} Удаление ролевого ${terminology.genitive}\n${ico_list['message'].ico} Сообщение: ${alliance_facult_del.id}-${alliance_facult_del.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
         }
     }
     return res
@@ -164,7 +164,7 @@ async function Alliance_Facult_Edit(context: any, data: any, alliance: Alliance,
 async function Notify_Alliance_Facult_Update(context: any, alliance: Alliance, user: User, terminology: AllianceTerminology, facult: AllianceFacult, changes: string) {
     await Logger(`In database, updated alliance facult: ${facult.id}-${facult.name} by admin ${context.senderId}`)
     await context.send(`${ico_list['reconfig'].ico} Изменен ${terminology.singular}:\n${changes}`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевого(ой) ${terminology.genitive}\n${ico_list['message'].ico} Сообщение:\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевого(ой) ${terminology.genitive}\n${ico_list['message'].ico} Сообщение:\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
 }
 
 async function Alliance_Facult_Edit_Name(context: any, data: any, alliance: Alliance, user: User) {
@@ -219,7 +219,7 @@ async function Alliance_Facult_Create(context: any, data: any, alliance: Allianc
     if (facult_cr) {
         await Logger(`In database, created alliance facult: ${facult_cr.id}-${facult_cr.name} by admin ${context.senderId}`)
         await context.send(`${ico_list['save'].ico} Вы добавили новый ${terminology.singular} ${facult_cr.id}-${facult_cr.name} для ролевой ${alliance.name}`)
-        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого ${terminology.genitive}\n${ico_list['message'].ico} Сообщение: ${facult_cr.id}-${facult_cr.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого ${terminology.genitive}\n${ico_list['message'].ico} Сообщение: ${facult_cr.id}-${facult_cr.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
     }
     return res
 }

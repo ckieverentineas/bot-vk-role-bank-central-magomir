@@ -86,7 +86,7 @@ async function Alliance_Monitor_Delete(context: any, data: any, alliance: Allian
             await Logger(`In database, deleted alliance monitor: ${alliance_coin_del.id} by admin ${context.senderId}`)
             await context.send(`${ico_list['delete'].ico} Вы удалили монитор: ${alliance_coin_del.id} для ролевой ${alliance.name}!`)
             await Send_Message(chat_id, `🎥 Удален монитор ${alliance_coin_del.name}-${alliance_coin_del.id} для ролевой ${alliance.name}-${alliance.id}`)
-            Send_Message(chat_id, `${ico_list['delete'].ico} Удален монитор \n${ico_list['message'].ico} Сообщение: ${alliance_coin_del.name}-${alliance_coin_del.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+            Send_Message(chat_id, `${ico_list['delete'].ico} Удален монитор \n${ico_list['message'].ico} Сообщение: ${alliance_coin_del.name}-${alliance_coin_del.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
         }
     }
     return res
@@ -156,7 +156,7 @@ function Format_Monitor_Status(value: boolean) {
 async function Notify_Monitor_Update(context: any, alliance: Alliance, user: User, monitor: Monitor, changes: string) {
     await Logger(`In database, updated monitor: ${monitor.id}-${monitor.name} by admin ${context.senderId}`)
     await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor.id}-${monitor.name}.\n${changes}\n\nЧтобы изменения вступили в силу, перезапустите мониторы через ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor.id}-${monitor.name}\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor.id}-${monitor.name}\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
 }
 
 async function Update_Monitor_Number_Field(context: any, data: any, alliance: Alliance, user: User, field: string, label: string, icon: string, float = false) {
@@ -379,7 +379,7 @@ async function Alliance_Monitor_Create(context: any, data: any, alliance: Allian
     if (monitor_cr) {
         await Logger(`In database, created monitor for group ${monik.alliance} by admin ${context.senderId}`)
         await context.send(`${ico_list['reconfig'].ico} Вы добавили новый монитор ${monitor_cr.id} для ролевой ${monik.alliance}\n Чтобы его поднять на пятый этаж, пройдемтесь по пути !банк --> ${ico_list['alliance'].ico} ${alliance.name} --> ${ico_list['config'].ico} Админам --> ${ico_list['config'].ico} !мониторы настроить --> ${ico_list['run'].ico} !моники_on`)
-        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_cr.name}-${monitor_cr.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение нового ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor_cr.name}-${monitor_cr.id}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
     }
     return res
 }
@@ -475,7 +475,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { increment: reward } } })
                 if (balance_facult_plus) {
                     answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;
@@ -489,7 +489,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: reward } } })
                 if (balance_facult_plus) {
                     answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;
@@ -499,7 +499,7 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
     if (!answer.status) { return }
     if (user.notification) { await Send_Message(account.idvk, answer.message) } 
     if (coin?.point == false) {
-        const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, `👤 Для ${user.name}-${user.id} -->\n ${answer.message}`)
+        const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, `👤 Для ${user.name} (UID: ${user.id}) -->\n ${answer.message}`)
         if (!notif_ans_chat) { await Send_Message(chat_id, answer.message) } 
     }
     await Logger(answer.console)

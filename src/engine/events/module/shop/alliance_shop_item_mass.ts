@@ -507,8 +507,13 @@ async function writeTransferLogs(
         `"Массовый перенос товаров" --> товары [${itemText}] перенесены в категорию ` +
         `[${targetCategory.id}-${targetCategory.name}]${migrationText}`;
 
+    const admin = await prisma.user.findFirst({ where: { idvk: context.senderId } });
+    const adminLogName = admin
+        ? `@id${admin.idvk}(${admin.name}) (UID: ${admin.id})`
+        : `@id${context.senderId}`;
+
     await Send_Message_Smart(context, logMessage, "admin_solo");
-    await sendShopLogMessage(allianceId, `🧳 Массовый перенос товаров\n\n${logMessage}\n👤 Админ: @id${context.senderId}`);
+    await sendShopLogMessage(allianceId, `🧳 Массовый перенос товаров\n\n${logMessage}\n👤 Админ: ${adminLogName}`);
 }
 
 async function sendShopLogMessage(allianceId: number, message: string): Promise<void> {

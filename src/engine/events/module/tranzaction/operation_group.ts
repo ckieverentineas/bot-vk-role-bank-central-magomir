@@ -318,8 +318,8 @@ async function Medal_Custom_Many(uids: number[], context: any, person_adm: User)
         }
         
         const log_message = ui.operation === '+'
-            ? `🎯 @id${context.senderId}(Admin) > "+🔘" > ${user_get.medal}🔘+${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
-            : `🎯 @id${context.senderId}(Admin) > "-🔘" > ${user_get.medal}🔘-${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`;
+            ? `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "+🔘" > ${user_get.medal}🔘+${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
+            : `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "-🔘" > ${user_get.medal}🔘-${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`;
             
         await Send_Message(chat_id, log_message)
         
@@ -576,7 +576,7 @@ async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm:
             facult_income
         )
         
-        const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) > "${ui.operation}${person.coin?.smile}" > ${current_balance.amount} ${ui.operation} ${ui.amount} = ${updated_balance.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+        const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${ui.operation}${person.coin?.smile}" > ${current_balance.amount} ${ui.operation} ${ui.amount} = ${updated_balance.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
         if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
         await Logger(`User ${pers.idvk} ${ui.operation} ${ui.amount} ${person.coin?.smile}. Balance now ${updated_balance.amount}`)
@@ -711,7 +711,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         facult_income
                     )
                     
-                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                     await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
@@ -755,7 +755,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         facult_income
                     )
                     
-                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                     await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
@@ -906,7 +906,7 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
                     facult_income
                 )
                 
-                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                 await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
@@ -951,7 +951,7 @@ async function Coin_Engine_Many(uids: number[], context: any, person_adm: User) 
                     facult_income
                 )
                 
-                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) 🧷: ${messa}\n${facult_income}`
+                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                 await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
@@ -976,7 +976,7 @@ async function Medal_Up_Many(uids: number[], context: any, person_adm: User) {
         const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal + count } })
         const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "+ ${count}🔘" --> ${user_get.medal} + ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
-        const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+        const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "+🔘" > ${money_put.medal-count}🔘+${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
         await Send_Message(chat_id, ans_log)
         await Logger(`In a private chat, user ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
     }
@@ -992,7 +992,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
             const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
             const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "- ${count}🔘" --> ${user_get.medal} - ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция с 💳UID ${id} завершена успешно`)
-            const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+            const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
             await Send_Message(chat_id, ans_log)
             await Logger(`In a private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
         } else {
@@ -1010,7 +1010,7 @@ async function Medal_Down_Many(uids: number[], context: any, person_adm: User) {
                 const money_put = await prisma.user.update({ where: { id: user_get.id }, data: { medal: user_get.medal - count } })
                 const notif_ans = await Send_Message(user_get.idvk, `🔔 Уведомление для ${user_get.name} (UID: ${user_get.id})\n💬 "- ${count}🔘" --> ${user_get.medal} - ${count} = ${money_put.medal}\n🧷 Сообщение: ${messa}`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю с 💳UID ${id} не доставлено`) : await context.send(`⚙ Операция завершена успешно`)
-                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) 🧷: ${messa}`
+                const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "-🔘" > ${money_put.medal+count}🔘-${count}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
                 await Send_Message(chat_id, ans_log)
                 await Logger(`In a private chat, user ${user_get.idvk} lost ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
             } else {

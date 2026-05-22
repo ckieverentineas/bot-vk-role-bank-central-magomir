@@ -168,7 +168,7 @@ export async function Shop_Buy(context: any) {
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `🛍 @id${user.idvk}(${user.name}) покупает ${input.name}`
+                message: `🛍 @id${user.idvk}(${user.name}) (UID: ${user.id}) покупает ${input.name}`
             });
             
             await Analyzer_Buying_Counter(context);

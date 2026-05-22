@@ -261,7 +261,7 @@ async function updateSettingsMode(
   await Send_Message(chat_id, 
     `${ico_list['config'].ico} Изменение режима положений\n` +
     `${ico_list['message'].ico} Режим: ${modeText}\n` +
-    `${ico_list['person'].ico} @id${user?.idvk}(${user?.name})\n` +
+    `${ico_list['person'].ico} @id${user?.idvk}(${user?.name}) (UID: ${user?.id})\n` +
     `${ico_list['alliance'].ico} ${alliance?.name}`
   );
 }
@@ -316,7 +316,7 @@ async function editCustomButtons(allianceId: number, context: any) {
   await Send_Message(chat_id, 
     `${ico_list['reconfig'].ico} Изменение кастомных кнопок\n` +
     `${ico_list['message'].ico} Новые кнопки: ${newOptions.option1}, ${newOptions.option2}, ${newOptions.option3}, ${newOptions.option4}, ${newOptions.option5}, ${newOptions.option6}\n` +
-    `${ico_list['person'].ico} @id${user?.idvk}(${user?.name})\n` +
+    `${ico_list['person'].ico} @id${user?.idvk}(${user?.name}) (UID: ${user?.id})\n` +
     `${ico_list['alliance'].ico} ${alliance?.name}`
   );
 }

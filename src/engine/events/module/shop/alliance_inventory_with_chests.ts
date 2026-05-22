@@ -1156,7 +1156,7 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
     
     // Логируем действие
     const logMessage = `🎒 Перемещение предмета администратором\n\n` +
-        `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'})\n` +
+        `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'}) (UID: ${user_adm?.id ?? 'N/A'})\n` +
         `🎯 Владелец предмета: @id${player.idvk}(${player.name}) (UID: ${player.id})\n` +
         `📦 Предмет: ${itemName} (ID инвентаря: ${inventoryItem.id})\n` +
         `📁 Из сундука: ${oldChestName} (ID: ${oldChestId})\n` +
@@ -1379,7 +1379,7 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
     
     // Логируем действие
     const logMessage = `🎒 Перемещение группы предметов администратором\n\n` +
-        `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'})\n` +
+        `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'}) (UID: ${user_adm?.id ?? 'N/A'})\n` +
         `🎯 Владелец предметов: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `📦 Предмет: ${group.name} × ${movedCount}\n` +
         `📁 Из сундука: ${oldChestName}\n` +
@@ -4596,7 +4596,7 @@ async function handleItemDelete(context: any, data: any, user: User, user_adm?: 
     if (deleted) {
         // Обновляем логирование
         if (user_adm) {
-            await Logger(`Администратор @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${itemName}" из инвентаря ${user.name} (UID: ${user.id})`);
+            await Logger(`Администратор @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря ${user.name} (UID: ${user.id})`);
             await context.send(`Вы удалили "${deleted.id}-${itemName}" из инвентаря ${user.name}.`);
             
             await Send_Message(
@@ -4605,10 +4605,10 @@ async function handleItemDelete(context: any, data: any, user: User, user_adm?: 
             );
             await Send_Message(
                 chat_id, 
-                `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
+                `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
             );
         } else { 
-            await Logger(`Игрок @id${user.idvk}(${user.name}) удаляет "${deleted.id}-${itemName}" из своего инвентаря`);
+            await Logger(`Игрок @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из своего инвентаря`);
             await context.send(`Вы удалили "${deleted.id}-${itemName}" из своего инвентаря.`);
             await Send_Message(
                 chat_id, 
@@ -4670,13 +4670,13 @@ async function handleGroupItemDelete(context: any, data: any, user: User, user_a
     // Логируем и уведомляем с информацией о владельце
     if (success_count > 0) {
         if (user_adm) {
-            await Logger(`Администратор @id${user_adm.idvk}(${user_adm.name}) удаляет "${group.name} × ${success_count}" из инвентаря ${user.name} (UID: ${user.id})`);
+            await Logger(`Администратор @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря ${user.name} (UID: ${user.id})`);
             await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря ${user.name}.`);
             
             await Send_Message(user.idvk, `🎒 Администратор ${user_adm.name} удалил "${group.name} × ${success_count}" из вашего инвентаря.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
+            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
         } else { 
-            await Logger(`Игрок @id${user.idvk}(${user.name}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
+            await Logger(`Игрок @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
             await context.send(`Вы удалили "${group.name} × ${success_count}" из своего инвентаря.`);
             await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
         }

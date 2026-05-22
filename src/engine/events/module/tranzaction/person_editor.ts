@@ -77,7 +77,7 @@ async function Edit_Name(id: number, context: any, user_adm: User){
                 
                 const notif_ans = await Send_Message(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed name user from ${user.name} on ${update_name.name} for ${update_name.idvk} by admin ${context.senderId}`)
@@ -148,7 +148,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                     await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
                     const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                     !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
-                    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                    const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                     await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
@@ -188,7 +188,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
                 const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                 await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
@@ -250,7 +250,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
                         const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
-                        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name})`
+                        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) } 
                         await Logger(`In a private chat, changed status user from ${user.class} on ${update_class.class} for ${update_class.idvk} by admin ${context.senderId}`)
@@ -277,7 +277,7 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена специализации с ${user.spec} на ${update_spec.spec}.`)
                 const notif_ans = await Send_Message(user.idvk, `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
-                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name})`
+                const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
                 await Logger(`In a private chat, changed specialization user from ${user.spec} on ${update_spec.spec} for ${update_spec.idvk} by admin ${context.senderId}`)
@@ -414,7 +414,7 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
         const notif_ans = await Send_Message(user.idvk, `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
-        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name})`
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
         let tr = 0
         if (alli_get_was) {
             alli_get_was.id_chat ? await Send_Message(alli_get_was.id_chat, ans_log) : tr++
@@ -520,7 +520,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ${genitive} с ${facult_sel} на ${person.facult}.`)
         const notif_ans = await Send_Message(user.idvk, `⚙ Ваш(а) ${singular} ролевой сменился(лась) с ${facult_sel} на ${person.facult}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены ${genitive} пользователя завершена успешно.`)
-        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) > "✏👤${singular.charAt(0).toUpperCase() + singular.slice(1)}" > ${singular.charAt(0).toUpperCase() + singular.slice(1)} изменился(лась) с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name})`
+        const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤${singular.charAt(0).toUpperCase() + singular.slice(1)}" > ${singular.charAt(0).toUpperCase() + singular.slice(1)} изменился(лась) с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
         if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
         await Logger(`In a private chat, changed facult user from ${facult_sel} on ${person.facult} for ${update_facult.idvk} by admin ${context.senderId}`)
@@ -563,7 +563,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                 const singular = await getTerminology(currentAlliance?.id || 0, 'singular');
                 const genitive = await getTerminology(currentAlliance?.id || 0, 'genitive');
                 
-                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${alli_fac ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} [${alli_fac.smile} ${alli_fac.name}] уменьшен(а) на ${bal_usr.amount}` : `Без вычета из ${genitive}`}, баланс пользователя: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name})`
+                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${alli_fac ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} [${alli_fac.smile} ${alli_fac.name}] уменьшен(а) на ${bal_usr.amount}` : `Без вычета из ${genitive}`}, баланс пользователя: ${bal_usr_ch.amount}${coin.smile} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }
@@ -616,7 +616,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
                     targetFacultLog = `${facultTerm} [${alli_fac_tar.smile} ${alli_fac_tar.name}] ${coin.smile}: ${targetAmountBefore} + ${bal_usr.amount} = ${targetAmountAfter}`
                 }
                 
-                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${coin.name}\n${oldFacultLog}\n${targetFacultLog}\nдля @id${user.idvk}(${user.name})`
+                const ans_log = `🌐 "${person.rank_action}${coin.smile}" > ${coin.name}\n${oldFacultLog}\n${targetFacultLog}\nдля @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                 if (!notif_ans_chat) { await Send_Message(chat_id, ans_log) }
             }

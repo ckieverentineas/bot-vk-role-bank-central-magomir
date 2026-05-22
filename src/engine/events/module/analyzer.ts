@@ -64,7 +64,7 @@ export async function Analyzer_Birthday_Counter(context: any) {
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
+                                message: `🌟 @id${user.idvk}(${user.name}) (UID: ${user.id}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
                             })
                         }
                     }
@@ -117,7 +117,7 @@ export async function Analyzer_Kvass_Counter(context: any) {
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
+                                message: `🌟 @id${user.idvk}(${user.name}) (UID: ${user.id}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
                             })
                         }
                     }
@@ -170,7 +170,7 @@ export async function Analyzer_Convert_MO_Counter(context: any) {
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
+                                message: `🌟 @id${user.idvk}(${user.name}) (UID: ${user.id}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
                             })
                         }
                     }
@@ -223,7 +223,7 @@ export async function Analyzer_Buying_Counter(context: any) {
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
+                                message: `🌟 @id${user.idvk}(${user.name}) (UID: ${user.id}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🔘.`
                             })
                         }
                     }
@@ -275,7 +275,7 @@ export async function Analyzer_THERE_Counter(context: any) {
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `🌟 @id${user.idvk}(${user.name}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
+                                message: `🌟 @id${user.idvk}(${user.name}) (UID: ${user.id}) выполняет достижение:\n${achive_add.name} и получает на счет ${xp}🧙.`
                             })
                         }
                     }

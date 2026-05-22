@@ -176,7 +176,7 @@ async function Scoopins_Coin_Edit(context: any, data: any, alliance: Alliance, u
         `${ico_list['reconfig'].ico} Изменение конвертации S-coins\n` +
         `${alliance_coin.smile} ${alliance_coin.name}\n` +
         `Конвертация: ${newStatus ? '✅' : '⛔'}\n` +
-        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `${ico_list['alliance'].ico} ${alliance.name}`
     );
     
@@ -262,7 +262,7 @@ async function Notify_Scoopins_Course_Update(context: any, alliance: Alliance, u
         `${coinBefore.smile} ${coinBefore.name}\n` +
         `${changes}\n` +
         `Курс: ${coinAfter.course_scoopins_medal}🌕 → ${coinAfter.course_scoopins_coin}${coinAfter.smile}\n` +
-        `${ico_list['person'].ico} @id${user.idvk}(${user.name})\n` +
+        `${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `${ico_list['alliance'].ico} ${alliance.name}`
     );
 }

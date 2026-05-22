@@ -237,7 +237,7 @@ export async function Operation_Kick_Mass(context: any) {
             await Send_Message(context.senderId, adminMessage)
             
             // Лог в основной чат
-            const logMessage = `⚙ @id${context.senderId}(${person_adm.name}) > "👠👤" > исключён @id${user_get.idvk}(${user_get.name}).`
+            const logMessage = `⚙ @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "👠👤" > исключён @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}).`
             await Send_Message(chat_id, logMessage)
             
             await Logger(`User ${user_get.idvk} kicked by admin ${context.senderId}. Action: ${actionText}`)

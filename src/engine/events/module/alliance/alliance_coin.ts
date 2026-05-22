@@ -86,7 +86,7 @@ async function Alliance_Coin_Delete(context: any, data: any, alliance: Alliance,
         if (alliance_coin_del) {
             await Logger(`In database, deleted alliance coin: ${alliance_coin_del.id}-${alliance_coin_del.name} by admin ${context.senderId}`)
             await context.send(`${ico_list['delete'].ico} Валюта [${alliance_coin_del.id}-${alliance_coin_del.name}] для ролевой ${alliance.name} удалена успешно!`)
-            await Send_Message(chat_id, `${ico_list['delete'].ico} Удаление ролевой валюты\n${ico_list['message'].ico} Сообщение: ${alliance_coin_del.id}-${alliance_coin_del.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+            await Send_Message(chat_id, `${ico_list['delete'].ico} Удаление ролевой валюты\n${ico_list['message'].ico} Сообщение: ${alliance_coin_del.id}-${alliance_coin_del.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
         }
     }
     return res
@@ -141,7 +141,7 @@ async function Alliance_Coin_Edit(context: any, data: any, alliance: Alliance, u
 async function Notify_Alliance_Coin_Update(context: any, alliance: Alliance, user: User, after: AllianceCoin, changes: string) {
     await Logger(`In database, updated alliance coin: ${after.id}-${after.name} by admin ${context.senderId}`)
     await context.send(`${ico_list['reconfig'].ico} Вы скорректировали валюту:\n${changes}`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевой валюты\n${ico_list['message'].ico} Сообщение:\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение ролевой валюты\n${ico_list['message'].ico} Сообщение:\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
 }
 
 async function Alliance_Coin_Edit_Name(context: any, data: any, alliance: Alliance, user: User) {
@@ -232,7 +232,7 @@ async function Alliance_Coin_Create(context: any, data: any, alliance: Alliance,
     if (loc_cr) {
         await Logger(`In database, created alliance coin: ${loc_cr.id}-${loc_cr.name} by admin ${context.senderId}`)
         await context.send(`${ico_list['save'].ico} Добавлена новая ролевая валюта ${loc_cr.id}-${loc_cr.name} для ролевой ${alliance.name}`)
-        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение новой ролевой валюты\n${ico_list['message'].ico} Сообщение: ${loc_cr.id}-${loc_cr.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name})\n${ico_list['alliance'].ico} ${alliance.name}`)
+        await Send_Message(chat_id, `${ico_list['save'].ico} Сохранение новой ролевой валюты\n${ico_list['message'].ico} Сообщение: ${loc_cr.id}-${loc_cr.name}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
     }
     return res
 }

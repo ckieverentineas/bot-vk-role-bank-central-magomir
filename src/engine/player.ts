@@ -173,6 +173,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
+            const rootUser = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+            const rootLogName = rootUser
+                ? `@id${rootUser.idvk}(${rootUser.name}) (UID: ${rootUser.id})`
+                : `@id${context.senderId}`
             console.log(`Admin ${context.senderId} enter in shopping`)
             const category:any = await prisma.category.findMany({})
             if (category.length == 0) {
@@ -191,7 +195,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await vk?.api.messages.send({
                         peer_id: chat_id,
                         random_id: 0,
-                        message: `⚙ @id${context.senderId}(ROOT) пользователь открывает следующий магазин ${shop_create.name}`
+                        message: `⚙ ${rootLogName} пользователь открывает следующий магазин ${shop_create.name}`
                     })
                     await context.send(`⚙ Вы открыли следующий магазин ${shop_create.name}`)
                 }
@@ -215,7 +219,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await vk?.api.messages.send({
                         peer_id: chat_id,
                         random_id: 0,
-                        message: `⚙ @id${context.senderId}(ROOT) пользователь закрывает следующий магазин ${shop_delete.name}`
+                        message: `⚙ ${rootLogName} пользователь закрывает следующий магазин ${shop_delete.name}`
                     })
                     await context.send(`⚙ Удален магазин ${shop_delete.name}`)
                 }
@@ -227,7 +231,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await vk?.api.messages.send({
                         peer_id: chat_id,
                         random_id: 0,
-                        message: `⚙ @id${context.senderId}(ROOT) пользователь открыл следующий магазин ${shop_create.name}`
+                        message: `⚙ ${rootLogName} пользователь открыл следующий магазин ${shop_create.name}`
                     })
                 }
                 if (category.find((i: any) => i.name == ans.text)) {
@@ -275,7 +279,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         await vk?.api.messages.send({
                             peer_id: chat_id,
                             random_id: 0,
-                            message: `⚙ @id${context.senderId}(ROOT) пользователь добавляет новый товар ${item_name.text} стоимостью ${item_price.text} галлеонов`
+                            message: `⚙ ${rootLogName} пользователь добавляет новый товар ${item_name.text} стоимостью ${item_price.text} галлеонов`
                         })
                     }
                     if (ans_item.payload.command == 'continue') { await context.send(`💡 Нажимайте кнопку купить у желаемого товара`) }
@@ -292,6 +296,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await Logger(`In a private chat, stop correction item type user is viewed by admin ${context.senderId}`)
             return
         }
+        const rootUser = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+        const rootLogName = rootUser
+            ? `@id${rootUser.idvk}(${rootUser.name}) (UID: ${rootUser.id})`
+            : `@id${context.senderId}`
         const item_buy:any = await prisma.item.findFirst({ where: { name: context.messagePayload.command } })
         if (item_buy) {
             const item_type: any = await context.question( `🧷 Укажите тип товара для ${item_buy.name}: \n 🕐 — покупается пользователем однажды; \n ♾ — покупается пользователем бесконечное количество раз. \n Текущий тип: ${item_buy.type}`,
@@ -308,7 +316,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(ROOT) пользователь корректирует тип предмета ${item_buy.name} с ${item_buy.type} на ${item_update.type}`
+                message: `⚙ ${rootLogName} пользователь корректирует тип предмета ${item_buy.name} с ${item_buy.type} на ${item_update.type}`
             })
         } else {
             console.log(`Admin ${context.senderId} can't edit type item ${item_buy.id}`)
@@ -324,6 +332,10 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await Logger(`In a private chat, stop correction name item is viewed by admin ${context.senderId}`)
             return
         }
+        const rootUser = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+        const rootLogName = rootUser
+            ? `@id${rootUser.idvk}(${rootUser.name}) (UID: ${rootUser.id})`
+            : `@id${context.senderId}`
         const item_buy:any = await prisma.item.findFirst({ where: { name: context.messagePayload.command } })
         if (item_buy) {
             const name: any = await context.question(`🧷 Предмет: ${item_buy.name}.\nВведите новое имя для товара:`)
@@ -333,7 +345,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(ROOT) пользователь корректирует имя предмета с ${item_buy.name} на ${item_update.name}`
+                message: `⚙ ${rootLogName} пользователь корректирует имя предмета с ${item_buy.name} на ${item_update.name}`
             })
         } else {
             console.log(`Admin ${context.senderId} can't edit name item ${item_buy.id}`)
@@ -377,7 +389,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(${user.name}) становится администратором!)`
+                message: `⚙ @id${context.senderId}(${user.name}) (UID: ${user.id}) становится администратором!)`
             })
             await Logger(`Super user ${context.senderId} got root`)
         }
@@ -389,6 +401,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (context.peerType == 'chat') { return }
         if (context.senderId == root) {
             const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
+            if (!user) { return }
             const role_check = await prisma.role.findFirst({ where: { name: `root`}})
             if (!role_check) {
                 const adm = await prisma.role.create({ data: { name: `root` } })
@@ -408,7 +421,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `⚙ @id${context.senderId}(Root) становится администратором!)`
+                message: `⚙ @id${context.senderId}(${user.name}) (UID: ${user.id}) становится администратором!)`
             })
             await Logger(`Super user ${context.senderId} got root`)
         }
@@ -461,7 +474,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `⚙ @id${context.senderId}(Root) > делает администратором @id${get_user.idvk}(${get_user.name})`
+                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
                             })
                             await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
@@ -486,7 +499,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `⚙ @id${context.senderId}(Root) > делает Супер администратором @id${get_user.idvk}(${get_user.name})`
+                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает Супер администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
                             })
                             await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
@@ -511,7 +524,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             await vk?.api.messages.send({
                                 peer_id: chat_id,
                                 random_id: 0,
-                                message: `⚙ @id${context.senderId}(Root) > делает обычным пользователем @id${get_user.idvk}(${get_user.name})`
+                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает обычным пользователем @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
                             })
                             await Logger(`In private chat, left status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
@@ -556,11 +569,16 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }, { 
                 message: '💡 Открывать на сайте: https://sqliteonline.com/' 
             });
+
+            const admin = await Person_Get(context);
+            const adminLogName = admin
+                ? `@id${admin.idvk}(${admin.name}) (UID: ${admin.id})`
+                : `@id${context.senderId}`;
             
             await vk?.api.messages.send({
                 peer_id: chat_id,
                 random_id: 0,
-                message: `‼ @id${context.senderId}(Admin) делает бекап баз данных dev.db.`
+                message: `‼ ${adminLogName} делает бекап баз данных dev.db.`
             });
             
             await Logger(`Backup database by admin ${context.senderId}`);
@@ -1114,7 +1132,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_get) { return }
         const alli_log_up = await prisma.alliance.update({ where: { id: alli_get.id }, data: { id_chat: context.peerId }})
         if (!alli_log_up) { return }
-        await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по финансовым транзакциям\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
+        await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по финансовым транзакциям\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
     })
     hearManager.hear(/!привязать мониторы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -1130,7 +1148,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_get) { return }
         const alli_log_up = await prisma.alliance.update({ where: { id: alli_get.id }, data: { id_chat_monitor: context.peerId }})
         if (!alli_log_up) { return }
-        await Send_Message( alli_log_up.id_chat_monitor, `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по программе вознаграждений\n💬 id_chat_monitor: ${alli_get.id_chat_monitor} --> ${alli_log_up.id_chat_monitor}`)
+        await Send_Message( alli_log_up.id_chat_monitor, `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по программе вознаграждений\n💬 id_chat_monitor: ${alli_get.id_chat_monitor} --> ${alli_log_up.id_chat_monitor}`)
     })
     hearManager.hear(/!привязать покупки/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -1151,7 +1169,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_log_up) { return }
         await Send_Message( 
             alli_log_up.id_chat_shop, 
-            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по покупкам из ролевых магазинов\n💬 id_chat_shop: ${alli_get.id_chat_shop} --> ${alli_log_up.id_chat_shop}`
+            `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по покупкам из ролевых магазинов\n💬 id_chat_shop: ${alli_get.id_chat_shop} --> ${alli_log_up.id_chat_shop}`
         )
     })
     hearManager.hear(/!привязать обсуждения/, async (context: any) => {
@@ -1179,7 +1197,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Send_Message( 
             alli_log_up.id_chat_topic, 
-            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по активности в обсуждениях\n💬 id_chat_topic: ${alli_get.id_chat_topic} → ${alli_log_up.id_chat_topic}`
+            `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по активности в обсуждениях\n💬 id_chat_topic: ${alli_get.id_chat_topic} → ${alli_log_up.id_chat_topic}`
         )
     })
     hearManager.hear(/!привязать прокачку/, async (context: any) => {
@@ -1207,7 +1225,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Send_Message( 
             alli_log_up.id_chat_ability!, 
-            `✅ @id${account.idvk}(${user_check.name}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по прокачке способностей\n💬 id_chat_ability: ${alli_get.id_chat_ability} --> ${alli_log_up.id_chat_ability}`
+            `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по прокачке способностей\n💬 id_chat_ability: ${alli_get.id_chat_ability} --> ${alli_log_up.id_chat_ability}`
         )
     })
     hearManager.hear(/⚙ !мониторы настроить/, async (context: any) => {
@@ -1286,7 +1304,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const keyboard = new KeyboardBuilder()
         await AllianceShop_Printer(context, user_check.id_alliance!)
-        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/!товармасс/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -1349,7 +1367,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const keyboard = new KeyboardBuilder()
         await AllianceShop_Selector(context, user_check.id_alliance!)
-        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/👜 Инвентарь/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -1484,7 +1502,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     
                 // Формируем строки изменений
                 const balanceChanges = users1000.map(u =>
-                    `📉 UID-${u.id} [БАЛАНС] ${u.name} (VK: ${u.idvk}) — 1000 → 0`
+                    `📉 UID-${u.id} [БАЛАНС] ${u.name} (UID: ${u.id}, VK: ${u.idvk}) — 1000 → 0`
                 );
     
                 const balanceLog = `📉 ИЗМЕНЕНИЯ БАЛАНСА (всего: ${users1000.length}):\n\n` + balanceChanges.join('\n');
@@ -1494,7 +1512,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             // === Нестандартные значения (для контекста) ===
             if (usersCustom.length > 0) {
                 const customLines = usersCustom.map(u =>
-                    `🔸 ${u.name} (VK: ${u.idvk}) → ${u.scoopins}`
+                    `🔸 ${u.name} (UID: ${u.id}, VK: ${u.idvk}) → ${u.scoopins}`
                 );
                 const customLog = `🔍 Пользователи с НЕСТАНДАРТНЫМ \`scoopins\` (≠0,≠1000), всего: ${usersCustom.length}:\n\n` + customLines.join('\n');
                 await sendLongMessage(vk, chatId, customLog);
@@ -1591,7 +1609,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     
             // === Формируем лог изменений ===
             const changeLines = changes.map(ch =>
-                `📈 [БАЛАНС] ${ch.name} (VK: ${ch.idvk}) — +${ch.add} → итого ${ch.newTotal}`
+                `📈 [БАЛАНС] ${ch.name} (UID: ${ch.id}, VK: ${ch.idvk}) — +${ch.add} → итого ${ch.newTotal}`
             );
     
             const fullLog = `🎲 Случайное начисление \`scoopins\` (${MIN_COINS}–${MAX_COINS}) для ${users.length} пользователей:\n\n` + changeLines.join('\n');
