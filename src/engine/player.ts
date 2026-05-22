@@ -44,6 +44,7 @@ import { SkillLevels_Manager } from "./events/module/skills/skill_levels_manager
 import { SkillCategories_Manager } from "./events/module/skills/skill_categories_manager";
 import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin";
 import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
+import { Finance_Statistics_Command } from "./events/module/alliance/finance_statistics";
 const fs = require('fs');
 
 async function Get_Admin_Alliance_User(context: any): Promise<User | null> {
@@ -1118,6 +1119,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Keyboard_Index(context, `⌛ Настройки уведомлений обновлены!`)
     })
+    hearManager.hear(/^!стата\s+\d+\s+\d+$/i, Finance_Statistics_Command)
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
