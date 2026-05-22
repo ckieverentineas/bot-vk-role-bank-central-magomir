@@ -2852,7 +2852,7 @@ async function logToTopicChat(
             hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
         }
         
-        let logMessage = `🌐 [${alliance.name}] --> (обсуждение №${monitor.id}):\n`;
+        let logMessage = `🌐 [${alliance.name}] --> (${topicMonitor.name}):\n`;
         logMessage += `📖 ${topicMonitor.name}\n`;
         logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}${hashtagText}\n`;
         logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;
