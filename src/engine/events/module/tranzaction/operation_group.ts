@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -307,8 +307,8 @@ async function Medal_Custom_Many(uids: number[], context: any, person_adm: User)
         
         try {
             const operation_message = ui.operation === '+' 
-                ? `⚙ Вам начислено ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`
-                : `⚙ С вас снято ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`;
+                ? `⚙ ${formatUserNameUid(user_get)}, вам начислено ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`
+                : `⚙ ${formatUserNameUid(user_get)}, с вас снято ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`;
                 
             await Send_Message(user_get.idvk, operation_message)
             await context.send(`✅ Успешная операция для UID ${ui.id}: ${operation_text}`)

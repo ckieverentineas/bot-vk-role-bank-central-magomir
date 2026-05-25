@@ -2806,6 +2806,16 @@ async function updateFacultBalance(facultId: number, coinId: number | null, amou
     });
 }
 
+function buildTopicChatLogHeader(allianceName: string, monitorName?: string | null): string {
+    const cleanAllianceName = allianceName.trim();
+    const normalizedAllianceName = cleanAllianceName.toLocaleLowerCase('ru-RU');
+    const cleanMonitorName = monitorName?.trim();
+    const shouldShowMonitorName = cleanMonitorName && cleanMonitorName.toLocaleLowerCase('ru-RU') !== normalizedAllianceName;
+    const monitorSuffix = shouldShowMonitorName ? ` --> (${cleanMonitorName})` : '';
+
+    return `🌐 [${cleanAllianceName}]${monitorSuffix}:`;
+}
+
 // Логирование в чат обсуждений (ВСЕГДА, независимо от настроек пользователя)
 async function logToTopicChat(
     topicMonitor: any, 
@@ -2852,7 +2862,7 @@ async function logToTopicChat(
             hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
         }
         
-        let logMessage = `🌐 [${alliance.name}] --> (${topicMonitor.name}):\n`;
+        let logMessage = `${buildTopicChatLogHeader(alliance.name, monitor.name)}\n`;
         logMessage += `📖 ${topicMonitor.name}\n`;
         logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}${hashtagText}\n`;
         logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;

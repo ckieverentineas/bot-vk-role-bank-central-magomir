@@ -11,6 +11,12 @@ export function Sleep(ms: number) {
     });
 }
 
+type UserNameUid = Pick<User, 'name' | 'id'>
+
+export function formatUserNameUid(user: UserNameUid): string {
+    return `${user.name} (UID: ${user.id})`
+}
+
 export async function Accessed(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }

@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Logger, Send_Message, formatUserNameUid } from "../../../core/helper"
 import { answerTimeLimit, chat_id } from "../../../.."
 import prisma from "../prisma_client"
 import { ico_list } from "../data_center/icons_lib"
@@ -139,7 +139,7 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             const user_del = await prisma.user.update({ where: { id: id }, data: { id_alliance: 0, id_facult: 0, id_role: 1 } })
             
             await context.send(`❗ Выпнут пользователь ${user_del.name}`)
-            const notif_ans = await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не состоит в ролевой.`)
+            const notif_ans = await Send_Message(user_del.idvk, `❗ ${formatUserNameUid(user_del)}, ваш персонаж больше не состоит в ролевой.`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователя завершена успешно.`)
             const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name}) (UID: ${user_del.id})`
             if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
@@ -226,7 +226,7 @@ async function User_delete(id: number, context: any, user_adm: User) {
                 } else {
                     await context.send(`⚙ @id${user_del.idvk}(${user_del.name}) (UID: ${user_del.id}) депортируется НА РОДИНУ уже не в первый раз.`)
                 }
-                const notif_ans = await Send_Message(user_del.idvk, `❗ Ваш персонаж 💳UID: ${user_del.id} больше не обслуживается. Спасибо, что пользовались РП-банком Онлайн 🏦, ${user_del.name}. Возвращайтесь к нам снова!`)
+                const notif_ans = await Send_Message(user_del.idvk, `❗ ${formatUserNameUid(user_del)}, ваш персонаж больше не обслуживается. Спасибо, что пользовались РП-банком Онлайн 🏦. Возвращайтесь к нам снова!`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция удаления пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "🚫👤" > удаляется из банковской системы карточка @id${user_del.idvk}(${user_del.name}) (UID: ${user_del.id})`
                 await Send_Message(chat_id, ans_log)

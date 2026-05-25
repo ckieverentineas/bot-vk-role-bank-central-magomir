@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper"
+import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Logger, Send_Message, Send_Message_Smart, formatUserNameUid } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -244,7 +244,7 @@ export async function Operation_Kick_Mass(context: any) {
 
             // Уведомление исключённому игроку
             await Send_Message(user_get.idvk, 
-                `❗ Ваш персонаж 💳UID: ${user_get.id} исключён из ролевого проекта.`
+                `❗ ${formatUserNameUid(user_get)}, ваш персонаж исключён из ролевого проекта.`
             )
 
             successCount++

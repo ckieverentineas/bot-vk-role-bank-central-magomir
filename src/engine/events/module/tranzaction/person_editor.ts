@@ -1,7 +1,7 @@
 import { Alliance, AllianceFacult, User } from "@prisma/client"
 import prisma from "../prisma_client"
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Logger, Send_Message } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Logger, Send_Message, formatUserNameUid } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Ipnut_Gold } from "./operation_global"
 import { getTerminology } from "../alliance/terminology_helper"
@@ -75,7 +75,7 @@ async function Edit_Name(id: number, context: any, user_adm: User){
             if (update_name) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена имени с ${user.name} на ${update_name.name}. Карточка пользователя будет перегенерирована с новым именем при следующем запросе.`)
                 
-                const notif_ans = await Send_Message(user.idvk, `⚙ Ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
+                const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваше имя в ${alli_sel} изменилось с ${user.name} на ${update_name.name}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены имени пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤ФИО" > имя изменилось с ${user.name} на ${update_name.name} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
@@ -146,7 +146,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                 
                 if (update_class) {
                     await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
-                    const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
+                    const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                     !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
                     const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
@@ -186,7 +186,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
             
             if (update_class) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
-                const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
+                const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
@@ -248,7 +248,7 @@ async function Edit_Class(id: number, context: any, user_adm: User){
                     
                     if (update_class) {
                         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена положения с ${user.class} на ${update_class.class}.`)
-                        const notif_ans = await Send_Message(user.idvk, `⚙ Ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
+                        const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваше положение в ${alli_sel} изменилось с ${user.class} на ${update_class.class}.`)
                         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены положения пользователя завершена успешно.`)
                         const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Положение" > положение изменилось с ${user.class} на ${update_class.class} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
@@ -275,7 +275,7 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
             const update_spec = await prisma.user.update({ where: { id: user.id }, data: { spec: spec.text } })
             if (update_spec) {
                 await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена специализации с ${user.spec} на ${update_spec.spec}.`)
-                const notif_ans = await Send_Message(user.idvk, `⚙ Ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
+                const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваша специализация в ${alli_sel} изменилась с ${user.spec} на ${update_spec.spec}.`)
                 !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены специализации пользователя завершена успешно.`)
                 const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Специализация" > специализация изменилась с ${user.spec} на ${update_spec.spec} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
                 const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
@@ -412,7 +412,7 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
     const alli_get_be: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(update_alliance.id_alliance) } })
     if (update_alliance) {
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ролевой с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
-        const notif_ans = await Send_Message(user.idvk, `⚙ Ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
+        const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваша принадлежность ролевой сменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены альянса пользователя завершена успешно.`)
         const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤Альянс" > Ролевая изменилась с ${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get_was?.name} на ${update_alliance.id_alliance == 0 ? `Соло` : update_alliance.id_alliance == -1 ? `Не союзник` : alli_get_be?.name} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
         let tr = 0
@@ -518,7 +518,7 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
     const update_facult = await prisma.user.update({ where: { id: user.id }, data: { id_facult: person.id_facult } })
     if (update_facult) {
         await context.send(`⚙ Для пользователя 💳UID которого ${user.id}, произведена смена ${genitive} с ${facult_sel} на ${person.facult}.`)
-        const notif_ans = await Send_Message(user.idvk, `⚙ Ваш(а) ${singular} ролевой сменился(лась) с ${facult_sel} на ${person.facult}.`)
+        const notif_ans = await Send_Message(user.idvk, `⚙ ${formatUserNameUid(user)}, ваш(а) ${singular} ролевой сменился(лась) с ${facult_sel} на ${person.facult}.`)
         !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user.name} не доставлено`) : await context.send(`⚙ Операция смены ${genitive} пользователя завершена успешно.`)
         const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "✏👤${singular.charAt(0).toUpperCase() + singular.slice(1)}" > ${singular.charAt(0).toUpperCase() + singular.slice(1)} изменился(лась) с ${facult_sel} на ${person.facult} для @id${user.idvk}(${user.name}) (UID: ${user.id})`
         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
