@@ -8,6 +8,10 @@ import { Calc_Bonus_Activity, User_Bonus_Check } from "./engine/events/module/al
 import { handleTopicPost } from "./engine/events/module/alliance/alliance_topic_monitor";
 import { MonitorStartupReportItem, buildMonitorStartupReportMessages } from "./engine/core/monitor_startup_report";
 
+const commentDeleteEvents: string[] = [];
+const commentRestoreEvents: string[] = [];
+const commentEvents: string[] = [];
+
 // Функция для расшифровки данных
 function Decrypt_Data(encryptedData: string): string {
     try {
@@ -117,7 +121,6 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
         });
 
         // === ОБРАБОТКА КОММЕНТАРИЕВ ===
-        const commentEvents: string[] = [];
         vks.updates.on('wall_reply_new', async (context: CommentContext, next: any) => {
             const pattern_def = `${context.fromId}_${context.objectId}_${context.id}`;
             if (commentEvents.includes(`${pattern_def}`)) {
@@ -151,6 +154,238 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
             return await next();
         });
 
+        // === ОБРАБОТКА УДАЛЕНИЯ ЛАЙКОВ ===
+        const unlikeEvents: string[] = [];
+        vks.updates.on('like_remove', async (context: any, next: any) => {
+            const eventKey = `${context.likerId}_${context.objectId}`;
+            
+            if (unlikeEvents.includes(eventKey)) {
+                await Logger(`🔁 Событие удаления лайка уже обработано: ${eventKey}`);
+                return next();
+            }
+            unlikeEvents.push(eventKey);
+            
+            // Очистка массива от старых событий
+            if (unlikeEvents.length > 500) {
+                unlikeEvents.splice(0, 250);
+            }
+            
+            // Проверяем, что это пост (не комментарий и не фото)
+            const whitelist = ['post'];
+            if (!whitelist.includes(context.objectType)) { 
+                return next(); 
+            }
+            
+            // Проверяем, что монитор обрабатывает лайки
+            if (!monitor.like_on) { 
+                return next(); 
+            }
+            
+            // Проверяем, что лайк был не очень старый (опционально)
+            if (Date.now() - new Date(context.createdAt).getTime() > 1 * 86400000) { 
+                return next(); 
+            }
+            
+            // Проверяем, существует ли пользователь
+            const user = await User_Bonus_Check(context.likerId, monitor);
+            if (!user) { 
+                return next(); 
+            }
+            
+            // СНИМАЕМ НАГРАДУ за удалённый лайк
+            await Calc_Bonus_Activity(
+                context.likerId, 
+                '-',  // ВАЖНО: минус!
+                monitor.cost_like, 
+                'лайк', 
+                `https://vk.com/club${Math.abs(context.objectOwnerId)}?w=wall${context.objectOwnerId}_${context.objectId}`,
+                monitor
+            );
+            
+            return next();
+        });
+        
+        // === ОБРАБОТКА ВОССТАНОВЛЕНИЯ КОММЕНТАРИЕВ ===
+        vks.updates.on('wall_reply_restore', async (context: any, next: any) => {
+            
+            // Определяем пользователя
+            let userId = context.fromId || 
+                        context.payload?.from_id || 
+                        context.payload?.user_id ||
+                        context.userId || 
+                        context.deleterUserId || 
+                        context.deleterId;
+            
+            console.log('✅ Итоговый userId (после всех проверок):', userId);
+            
+            await Logger(`[RESTORE] id=${context.id}, найденный userId=${userId}, objectId=${context.objectId}`);
+            
+            const eventKey = `${userId}_${context.objectId}_${context.id}_restore`;
+            
+            if (commentRestoreEvents.includes(eventKey)) {
+                console.log(`⚠️ Дубликат события, пропускаем: ${eventKey}`);
+                await Logger(`🔁 Событие восстановления комментария уже обработано: ${eventKey}`);
+                return next();
+            }
+            commentRestoreEvents.push(eventKey);
+            
+            if (commentRestoreEvents.length > 500) {
+                commentRestoreEvents.splice(0, 250);
+            }
+            
+            if (!monitor.comment_on) { 
+                console.log(`⚠️ Монитор ${monitor.id} не обрабатывает комментарии`);
+                await Logger(`[RESTORE] Монитор ${monitor.id} не обрабатывает комментарии`);
+                return next(); 
+            }
+            
+            if (!userId) {
+                console.log(`❌ Не удалось определить userId для комментария ${context.id}`);
+                await Logger(`⚠ Не удалось определить пользователя для восстановленного комментария ${context.id}`);
+                return next();
+            }
+            
+            console.log(`🔍 Проверяем пользователя ${userId} в альянсе...`);
+            
+            // Проверяем пользователя
+            const user = await User_Bonus_Check(userId, monitor);
+            if (!user) { 
+                console.log(`❌ Пользователь ${userId} не найден в альянсе ${monitor.id_alliance}`);
+                await Logger(`[RESTORE] Пользователь ${userId} не найден в альянсе`);
+                return next(); 
+            }
+            
+            console.log(`✅ Пользователь найден: ${user.name} (UID: ${user.id})`);
+            await Logger(`[RESTORE] Пользователь найден: ${user.name} (UID: ${user.id})`);
+            
+            // Проверяем лимитер
+            let limiter = await prisma.limiter.findFirst({ 
+                where: { id_monitor: monitor.id, id_user: user.id } 
+            });
+            
+            if (!limiter) { 
+                limiter = await prisma.limiter.create({ 
+                    data: { id_monitor: monitor.id, id_user: user.id } 
+                }); 
+            }
+            limiter = await Date_Compare_Resetor(limiter);
+            
+            console.log(`📊 Лимитер: comment=${limiter.comment}/${monitor.lim_comment}`);
+            await Logger(`[RESTORE] Лимитер: comment=${limiter.comment}/${monitor.lim_comment}`);
+            
+            // Восстанавливаем награду (только если лимит не превышен)
+            if (limiter.comment < monitor.lim_comment) {
+                const limiter_up = await prisma.limiter.update({ 
+                    where: { id: limiter.id }, 
+                    data: { comment: { increment: 1 } } 
+                });
+                
+                console.log(`💰 Начисляем награду ${monitor.cost_comment} пользователю ${userId}`);
+                await Logger(`[RESTORE] Начисляем награду ${monitor.cost_comment} пользователю ${userId}`);
+                
+                const result = await Calc_Bonus_Activity(
+                    userId, 
+                    '+', 
+                    monitor.cost_comment, 
+                    'комментарий (восстановлен)', 
+                    `https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}`,
+                    monitor
+                );
+                
+                console.log(`📊 Результат Calc_Bonus_Activity:`, result);
+                await Logger(`[RESTORE] Результат начисления: status=${result?.status}`);
+                
+                // ✅ ВАЖНО: удаляем ключ удаления из кэша, чтобы повторное удаление сработало
+                // Это нужно, так как комментарий может быть удалён снова после восстановления
+                const deleteEventKey = `${userId}_${context.objectId}_${context.id}_delete`;
+                // Используем глобальный массив commentDeleteEvents (нужно сделать его доступным)
+                if (typeof commentDeleteEvents !== 'undefined' && commentDeleteEvents.indexOf) {
+                    const index = commentDeleteEvents.indexOf(deleteEventKey);
+                    if (index !== -1) {
+                        commentDeleteEvents.splice(index, 1);
+                        console.log(`🗑️ Удалили ключ удаления из кэша: ${deleteEventKey}`);
+                        await Logger(`[RESTORE] Удалили ключ удаления из кэша: ${deleteEventKey}`);
+                    }
+                }
+            } else {
+                console.log(`⚠️ Лимит превышен, награда не начислена`);
+                await Logger(`[RESTORE] Лимит превышен, награда не начислена`);
+            }
+            
+            return next();
+        });
+
+        // === ОБРАБОТКА УДАЛЕНИЯ КОММЕНТАРИЕВ ===
+        vks.updates.on('wall_reply_delete', async (context: any, next: any) => {
+            
+            // Пробуем определить userId (приоритет как в restore)
+            let userId = context.fromId || 
+                        context.payload?.from_id || 
+                        context.payload?.deleter_id || 
+                        context.deleterUserId || 
+                        context.deleterId || 
+                        context.userId;
+            
+            console.log('✅ Итоговый userId (после всех проверок):', userId);
+            
+            await Logger(`[DELETE] id=${context.id}, найденный userId=${userId}, objectId=${context.objectId}`);
+            
+            const eventKey = `${userId}_${context.objectId}_${context.id}_delete`;
+            
+            if (commentDeleteEvents.includes(eventKey)) {
+                console.log(`⚠️ Дубликат события, пропускаем: ${eventKey}`);
+                await Logger(`🔁 Событие удаления комментария уже обработано: ${eventKey}`);
+                return next();
+            }
+            commentDeleteEvents.push(eventKey);
+            
+            // Очистка массива от старых событий
+            if (commentDeleteEvents.length > 500) {
+                commentDeleteEvents.splice(0, 250);
+            }
+            
+            // Проверяем, что монитор обрабатывает комментарии
+            if (!monitor.comment_on) { 
+                console.log(`⚠️ Монитор ${monitor.id} не обрабатывает комментарии`);
+                await Logger(`[DELETE] Монитор ${monitor.id} не обрабатывает комментарии`);
+                return next(); 
+            }
+            
+            if (!userId) {
+                console.log(`❌ Не удалось определить userId для комментария ${context.id}`);
+                await Logger(`⚠ Не удалось определить пользователя для удалённого комментария ${context.id}`);
+                return next();
+            }
+            
+            console.log(`🔍 Проверяем пользователя ${userId} в альянсе...`);
+            
+            // Проверяем, существует ли пользователь
+            const user = await User_Bonus_Check(userId, monitor);
+            if (!user) { 
+                console.log(`❌ Пользователь ${userId} не найден в альянсе ${monitor.id_alliance}`);
+                await Logger(`[DELETE] Пользователь ${userId} не найден в альянсе`);
+                return next(); 
+            }
+            
+            console.log(`✅ Пользователь найден: ${user.name} (UID: ${user.id}), снимаем награду ${monitor.cost_comment}`);
+            await Logger(`[DELETE] Пользователь найден: ${user.name} (UID: ${user.id}), списание ${monitor.cost_comment}`);
+            
+            // СНИМАЕМ НАГРАДУ за удалённый комментарий
+            const result = await Calc_Bonus_Activity(
+                userId, 
+                '-', 
+                monitor.cost_comment, 
+                'комментарий', 
+                `https://vk.com/wall${context.ownerId}_${context.objectId}?reply=${context.id}`,
+                monitor
+            );
+            
+            console.log(`📊 Результат Calc_Bonus_Activity:`, result);
+            await Logger(`[DELETE] Результат списания: status=${result?.status}, message=${result?.message}`);
+            
+            return next();
+        });
+        
         // === ОБРАБОТКА ОБСУЖДЕНИЙ (ТОПИКОВ) ===
         const boardEvents: string[] = [];
 

@@ -474,8 +474,12 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
             if (coin?.point == true && balance_facult_check) {
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { increment: reward } } })
                 if (balance_facult_plus) {
-                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.message += `\n🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    
+                    // Используем название монитора вместо номера
+                    const monitorDisplay = getMonitorDisplayName(alliance?.name, monitor.name);
+                    const monitorPart = monitorDisplay ? ` --> (${monitorDisplay})` : '';
+                    answer.logging += `🌐 [${alliance?.name}]${monitorPart}:\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ✅${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;
@@ -488,15 +492,19 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
             if (coin?.point == true && balance_facult_check) {
                 const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: balance_facult_check.id }, data: { amount: { decrement: reward } } })
                 if (balance_facult_plus) {
-                    answer.message += `🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
-                    answer.logging += `🌐 [${alliance?.name}] --> (монитор №${monitor.id}):\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    answer.message += `\n🌐 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
+                    
+                    // Используем название монитора вместо номера
+                    const monitorDisplay = getMonitorDisplayName(alliance?.name, monitor.name);
+                    const monitorPart = monitorDisplay ? ` --> (${monitorDisplay})` : '';
+                    answer.logging += `🌐 [${alliance?.name}]${monitorPart}:\n👤 @id${account.idvk}(${user.name}) (UID: ${user.id}) --> ⛔${target}\n🔮 "${operation}${coin?.smile}" > ${balance_facult_check.amount} ${operation} ${reward} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`
                 }
             }
             break;
         default:
             break;
     }
-    if (!answer.status) { return }
+    if (!answer.status) { return answer; }
     if (user.notification) { await Send_Message(account.idvk, answer.message) } 
     if (coin?.point == false) {
         const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, `👤 Для ${user.name} (UID: ${user.id}) -->\n ${answer.message}`)
@@ -507,4 +515,23 @@ export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', re
         const notif_ans_chat = await Send_Message(alliance?.id_chat_monitor ?? 0, answer.logging)
         if (!notif_ans_chat) { await Send_Message(chat_id, answer.logging) } 
     }
+    
+    // ✅ ВАЖНО: возвращаем answer
+    return answer;
+}
+
+function getMonitorDisplayName(allianceName: string | undefined, monitorName: string | undefined): string {
+    if (!allianceName || !monitorName) {
+        return monitorName || '';
+    }
+    
+    const cleanAllianceName = allianceName.trim();
+    const cleanMonitorName = monitorName.trim();
+    
+    // Если название совпадает — возвращаем пустую строку (не показываем монитор)
+    if (cleanMonitorName.toLowerCase() === cleanAllianceName.toLowerCase()) {
+        return '';  // ✅ пустая строка
+    }
+    
+    return cleanMonitorName;
 }

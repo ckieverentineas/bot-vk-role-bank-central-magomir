@@ -2806,14 +2806,22 @@ async function updateFacultBalance(facultId: number, coinId: number | null, amou
     });
 }
 
-function buildTopicChatLogHeader(allianceName: string, monitorName?: string | null): string {
+function buildTopicChatLogHeader(allianceName: string, monitor?: any): string {
     const cleanAllianceName = allianceName.trim();
-    const normalizedAllianceName = cleanAllianceName.toLocaleLowerCase('ru-RU');
-    const cleanMonitorName = monitorName?.trim();
-    const shouldShowMonitorName = cleanMonitorName && cleanMonitorName.toLocaleLowerCase('ru-RU') !== normalizedAllianceName;
-    const monitorSuffix = shouldShowMonitorName ? ` --> (${cleanMonitorName})` : '';
-
-    return `🌐 [${cleanAllianceName}]${monitorSuffix}:`;
+    
+    if (!monitor) {
+        return `🌐 [${cleanAllianceName}]:`;
+    }
+    
+    const cleanMonitorName = monitor.name?.trim();
+    
+    // Если название совпадает — только альянс
+    if (cleanMonitorName && cleanMonitorName.toLowerCase() === cleanAllianceName.toLowerCase()) {
+        return `🌐 [${cleanAllianceName}]:`;
+    }
+    
+    // Иначе с иконкой монитора
+    return `🌐 [${cleanAllianceName}] --> (${ico_list['monitor'].ico} ${cleanMonitorName}):`;
 }
 
 // Логирование в чат обсуждений (ВСЕГДА, независимо от настроек пользователя)
