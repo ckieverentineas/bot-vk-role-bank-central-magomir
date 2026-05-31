@@ -2870,7 +2870,7 @@ async function logToTopicChat(
             hashtagText = `\n🏷️ Хештеги: #${hashtags.join(', #')}`;
         }
         
-        let logMessage = `${buildTopicChatLogHeader(alliance.name, monitor.name)}\n`;
+        let logMessage = `${buildTopicChatLogHeader(alliance.name, monitor)}\n`;
         logMessage += `📖 ${topicMonitor.name}\n`;
         logMessage += `👤 @id${user.idvk}(${user.name}) (UID: ${user.id}) --> ${actionEmoji}${rewardEmoji}${uidInfo}${hashtagText}\n`;
         logMessage += `📊 ${stats.words} слов | ${stats.characters} симв | ${displayPc.toFixed(2)} ПК | ${stats.mb.toFixed(2)} МБ\n`;
