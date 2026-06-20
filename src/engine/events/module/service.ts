@@ -12,19 +12,41 @@ import { ico_list } from "./data_center/icons_lib"
 const timeouter = 86400000 //время кд квестов
 
 export async function Service_Enter(context: any) {
-    const user: User | null | undefined = await Person_Get(context)
-    if (!user) { return }
-    const attached = await CardSystem.getServiceMenuBackground(user)
-    
-    const keyboard = new KeyboardBuilder()
-    .callbackButton({ label: '🍷 Французское вино — оно одно', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row()
-    .textButton({ label: '!пкметр', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row()
-    .callbackButton({ label: '📊 Активность в РП', payload: { command: 'topic_rank_v2' }, color: 'secondary' }).row() // ← ИЗМЕНЕНО: topic_rank_v2
-    .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime()
-    
-    const text = `✉ В данный момент доступны следующие операции:`
-    await vk?.api.messages.edit({peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString()})  
-    
+    const user: User | null | undefined = await Person_Get(context);
+    if (!user) { return; }
+    const attached = await CardSystem.getServiceMenuBackground(user);
+
+    const keyboard = new KeyboardBuilder();
+
+    if (user.medal > 5) {
+        keyboard.callbackButton({ label: '🍷 Французское вино — оно одно', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
+    }
+
+    keyboard.textButton({ label: '!пкметр', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
+
+    let showTopicActivity = false;
+    if (user.id_alliance && user.id_alliance > 0) {
+        const topicMonitorsCount = await prisma.topicMonitor.count({
+            where: {
+                monitor: {
+                    id_alliance: user.id_alliance
+                }
+            }
+        });
+        if (topicMonitorsCount > 0) {
+            showTopicActivity = true;
+        }
+    }
+
+    if (showTopicActivity) {
+        keyboard.callbackButton({ label: '📊 Активность в РП', payload: { command: 'topic_rank_v2' }, color: 'secondary' }).row();
+    }
+
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime();
+
+    const text = `✉ В данный момент доступны следующие операции:`;
+    await vk?.api.messages.edit({ peer_id: context.peerId, conversation_message_id: context.conversationMessageId, message: `${text}`, keyboard: keyboard, attachment: attached?.toString() });
+
     if (context?.eventPayload?.command == "service_enter") {
         await vk?.api.messages.sendMessageEventAnswer({
             event_id: context.eventId,
@@ -34,7 +56,7 @@ export async function Service_Enter(context: any) {
                 type: "show_snackbar",
                 text: `🔔 Ваш баланс: ${user?.medal}🔘`
             })
-        })
+        });
     }
 }
 

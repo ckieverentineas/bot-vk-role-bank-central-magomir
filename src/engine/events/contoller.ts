@@ -26,27 +26,15 @@ export async function Main_Menu_Init(context: any) {
     const user: User | null | undefined = await Person_Get(context)
     if (!user) { return }
     
-    // Получаем фон меню (автоматически определяет альянс или дефолт)
     const attached = await CardSystem.getMenuBackground(user);
-    
     const coin = await Person_Coin_Printer(context)
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
     
-    // Проверяем, есть ли у альянса рейтинговые валюты (point == true)
-    const hasRatingCurrencies = alli_get ? await prisma.allianceCoin.findFirst({ 
-        where: { 
-            id_alliance: alli_get.id,
-            point: true 
-        } 
-    }) : false;
-    
     let text = ''
     if (alli_get) {
         text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
-        
-        // Добавляем факультетские рейтинги только если есть рейтинговые валюты
-        if (hasRatingCurrencies && facult_rank) {
+        if (facult_rank) {
             text += ` \n${facult_rank}`
         }
     } else {
@@ -70,33 +58,78 @@ export async function Exit(context: any) {
 }
 
 export async function Keyboard_User_Main(context: Context) {
-    await Person_Detector(context)
-    const user = await Person_Get(context)
-    const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
+    await Person_Detector(context);
+    const user = await Person_Get(context);
+    const alliance = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } });
     const keyboard_user = new KeyboardBuilder()
-    .callbackButton({ label: '💳 Карта', payload: { command: 'card_enter' }, color: 'secondary' })
-    .textButton({ label: '👜 Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row()
-    
+        .callbackButton({ label: '💳 Карта', payload: { command: 'card_enter' }, color: 'secondary' })
+        .textButton({ label: '👜 Инвентарь', payload: { command: 'inventory_enter' }, color: 'secondary' }).row();
+
     if (alliance) {
-        keyboard_user.callbackButton({ label: `${ico_list['statistics'].ico} Рейтинги`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' })
-        .textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row()
-        .textButton({ label: `🛍 Магазины`, payload: { command: 'operation_enter' }, color: 'secondary' })
-        .textButton({ label: `${ico_list[`converter`].ico} Конвертер`, payload: { command: 'operation_enter' }, color: 'secondary' }).row()
+        const hasAnyCurrency = await prisma.allianceCoin.findFirst({
+            where: { id_alliance: alliance.id }
+        });
+
+        if (hasAnyCurrency) {
+            keyboard_user.callbackButton({ label: `${ico_list['statistics'].ico} Рейтинги`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' })
+                .textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row();
+        }
+
+        const hasShop = await prisma.allianceShop.findFirst({
+            where: { id_alliance: alliance.id }
+        });
+
+        const hasConverter = await prisma.allianceCoin.findFirst({
+            where: {
+                id_alliance: alliance.id,
+                converted: true
+            }
+        });
+
+        if (hasShop) {
+            keyboard_user.textButton({ label: `🛍 Магазины`, payload: { command: 'operation_enter' }, color: 'secondary' });
+        }
+        if (hasConverter) {
+            keyboard_user.textButton({ label: `${ico_list['converter'].ico} Конвертер`, payload: { command: 'operation_enter' }, color: 'secondary' });
+        }
+        if (hasShop || hasConverter) {
+            keyboard_user.row();
+        }
     }
-    
-    keyboard_user
-        .callbackButton({ label: '🧚‍♀ Услуги', payload: { command: 'service_enter' }, color: 'secondary' })
-        .callbackButton({ label: '⚡ Прокачка', payload: { command: 'abilities_upgrade_enter' }, color: 'secondary' }).row()
-    
-    keyboard_user
-        .callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row()
-    
-    if (await Accessed(context) != 1) { 
-        keyboard_user.callbackButton({ label: '🔧 Еще', payload: { command: 'system_call_admin' }, color: 'positive' })
+
+    let showUpgrade = false;
+    if (user && alliance) {
+        const hasLevels = await prisma.skillLevel.count({
+            where: { allianceId: alliance.id }
+        });
+        if (hasLevels > 0) {
+            const userAbilitiesCount = await prisma.userAbility.count({
+                where: { userId: user.id }
+            });
+            if (userAbilitiesCount > 0) {
+                showUpgrade = true;
+            }
+        }
     }
+
+    keyboard_user
+        .callbackButton({ label: '🧚‍♀ Услуги', payload: { command: 'service_enter' }, color: 'secondary' });
     
-    keyboard_user.oneTime().inline()
-    return keyboard_user
+    if (showUpgrade) {
+        keyboard_user.callbackButton({ label: '⚡ Прокачка', payload: { command: 'abilities_upgrade_enter' }, color: 'secondary' });
+    }
+    keyboard_user.row();
+
+    if (user && user.medal > 5) {
+        keyboard_user.callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row();
+    }
+
+    if (await Accessed(context) != 1) {
+        keyboard_user.callbackButton({ label: '🔧 Еще', payload: { command: 'system_call_admin' }, color: 'positive' });
+    }
+
+    keyboard_user.oneTime().inline();
+    return keyboard_user;
 }
 
 export async function Keyboard_Admin_Main(context: Context) {
@@ -123,20 +156,10 @@ export async function Main_Menu_Admin_Init(context: any) {
     const facult_rank = await Facult_Rank_Printer(context)
     const alli_get = await prisma.alliance.findFirst({ where: { id: user?.id_alliance ?? 0 } })
     
-    // Проверяем, есть ли у альянса рейтинговые валюты (point == true)
-    const hasRatingCurrencies = alli_get ? await prisma.allianceCoin.findFirst({ 
-        where: { 
-            id_alliance: alli_get.id,
-            point: true 
-        } 
-    }) : false;
-    
     let text = ''
     if (alli_get) {
         text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
-        
-        // Добавляем факультетские рейтинги только если есть рейтинговые валюты
-        if (hasRatingCurrencies && facult_rank) {
+        if (facult_rank) {
             text += ` \n${facult_rank}`
         }
     } else {
