@@ -9,21 +9,14 @@ import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
 import { getTerminology } from "../alliance/terminology_helper"
 
-//контроллер управления валютами альянса
 async function Alliance_Monitor_Get(cursor: number, alliance: Alliance) {
-    const batchSize = 5;
-    let counter = 0
-    let limiter = 0
-    let res: Monitor[] = []
-    for (const allicoin of await prisma.monitor.findMany({ where: { id_alliance: alliance.id } })) {
-        if ((cursor <= counter && batchSize+cursor >= counter) && limiter < batchSize) {
-            res.push(allicoin)
-            limiter++
-        }
-        counter++
-    }
-    
-   return res
+    // ✅ Оптимизированная версия с использованием Prisma пагинации
+    return await prisma.monitor.findMany({
+        where: { id_alliance: alliance.id },
+        take: 5,
+        skip: cursor,
+        orderBy: { id: 'asc' }
+    })
 }
 
 export async function Alliance_Monitor_Printer(context: any) {
@@ -36,24 +29,41 @@ export async function Alliance_Monitor_Printer(context: any) {
     while (!allicoin_tr) {
         const keyboard = new KeyboardBuilder()
         let event_logger = ``
-        for await (const monitor of await Alliance_Monitor_Get(cursor, alliance!)) {
+        
+        // Получаем мониторы для текущей страницы
+        const monitors = await Alliance_Monitor_Get(cursor, alliance!)
+        for await (const monitor of monitors) {
             const coins = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0 } })
             keyboard.textButton({ label: `${ico_list['edit'].ico} ${monitor.id}-${monitor.name.slice(0,30)}`, payload: { command: 'alliance_coin_edit', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' })
             .textButton({ label: `${ico_list['delete'].ico}`, payload: { command: 'alliance_coin_delete', cursor: cursor, id_alliance_coin: monitor.id }, color: 'secondary' }).row()
-            event_logger += `${ico_list['monitor'].ico} ${monitor.name}: id${monitor.id}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n${ico_list['limit'].ico} Лимиты: ${monitor.lim_like}${ico_list['like'].ico} ${monitor.lim_comment}${ico_list['message'].ico} ♾${ico_list['post'].ico}\n${ico_list['money'].ico} Стоимость: ${monitor.cost_like}${ico_list['like'].ico} ${monitor.cost_comment}${ico_list['message'].ico} ${monitor.cost_post}${ico_list['post'].ico}\n${ico_list['config'].ico} Статус: ${monitor.like_on}${ico_list['like'].ico} ${monitor.comment_on}${ico_list['message'].ico} ${monitor.wall_on}${ico_list['post'].ico}\n\n`
+            event_logger +=`${ico_list['monitor'].ico} ${monitor.name}: id${monitor.id}\n🧷 Ссылка: https://vk.com/club${monitor.idvk}\n${coins?.smile} Валюта: ${coins?.name}\n🚧 Лимиты: ${monitor.lim_like}${ico_list['like'].ico} ${monitor.lim_comment}${ico_list['message'].ico} ♾${ico_list['post'].ico}\n💰 Стоимость: ${monitor.cost_like}${ico_list['like'].ico} ${monitor.cost_comment}${ico_list['message'].ico} ${monitor.cost_post}${ico_list['post'].ico}\n⚙ Статус: ${monitor.like_on}${ico_list['like'].ico} ${monitor.comment_on}${ico_list['message'].ico} ${monitor.wall_on}${ico_list['post'].ico}\n\n`
         }
-        if (cursor >= 5) { keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) }
-        const alliance_coin_counter = await prisma.allianceCoin.count({ where: { id_alliance: alliance!.id! } })
-        if (5+cursor < alliance_coin_counter) { keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) }
+        
+        // ✅ ИСПРАВЛЕНО: считаем МОНИТОРЫ, а не валюты
+        const monitors_count = await prisma.monitor.count({ where: { id_alliance: alliance!.id! } })
+        
+        // Навигация
+        if (cursor >= 5) { 
+            keyboard.textButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_coin_back', cursor: cursor }, color: 'secondary' }) 
+        }
+        if (5 + cursor < monitors_count) { 
+            keyboard.textButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_coin_next', cursor: cursor }, color: 'secondary' }) 
+        }
+        
+        // Кнопки действий
         keyboard.textButton({ label: `${ico_list['add'].ico}`, payload: { command: 'alliance_coin_create', cursor: cursor }, color: 'secondary' }).row()
         .textButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'alliance_coin_return', cursor: cursor }, color: 'secondary' }).oneTime()
-        event_logger += `\n ${1+cursor} из ${alliance_coin_counter}`
-        const allicoin_bt: any = await context.question(`${ico_list['monitor'].ico} Выберите подключенную группу к ${alliance?.name}:\n\n ${event_logger}`,
+        
+        // ✅ ИСПРАВЛЕНО: показываем правильное количество
+        event_logger += `\n ${1 + cursor} из ${monitors_count}`
+        
+        const allicoin_bt: any = await context.question(`${ico_list['monitor'].ico} Выберите подключенную группу к ${alliance?.name}:\n\n${event_logger}`,
             {	
                 keyboard: keyboard, answerTimeLimit
             }
         )
         if (allicoin_bt.isTimeout) { return await context.send(`${ico_list['time'].ico} Время ожидания выбора подключенной группы для проекта ${alliance?.name} истекло!`) }
+        
         const config: any = {
             'alliance_coin_edit': Alliance_Monitor_Edit,
             'alliance_coin_create': Alliance_Monitor_Create,
@@ -98,6 +108,35 @@ async function Alliance_Monitor_Return(context: any, data: any, alliance: Allian
     return res
 }
 
+async function Alliance_Monitor_Edit_Name(context: any, data: any, alliance: Alliance, user: User) {
+    const res = { cursor: data.cursor }
+    const monitor = await prisma.monitor.findFirst({ where: { id: data.id_monitor, id_alliance: alliance.id } })
+    if (!monitor) { return res }
+
+    const newName = await Input_Text(context, 
+        `✏️ Редактирование названия монитора\n\n` +
+        `Текущее название: ${monitor.name}\n` +
+        `${ico_list['help'].ico} Введите новое название или "отмена" для отмены:`
+    )
+    
+    if (!newName || newName.toLowerCase() === 'отмена') { 
+        return res 
+    }
+    
+    if (newName.length < 1 || newName.length > 100) {
+        await context.send(`${ico_list['warn'].ico} Название должно быть от 1 до 100 символов!`)
+        return res
+    }
+
+    const monitor_up = await prisma.monitor.update({ 
+        where: { id: monitor.id }, 
+        data: { name: newName.trim() } 
+    })
+    
+    await Notify_Monitor_Update(context, alliance, user, monitor_up, `Название: "${monitor.name}" --> "${newName.trim()}"`)
+    return res
+}
+
 async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance, user: User) {
     const res = { cursor: data.cursor }
 
@@ -107,6 +146,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
 
         const coin = await prisma.allianceCoin.findFirst({ where: { id: monitor.id_coin ?? 0 } })
         const keyboard = new KeyboardBuilder()
+            .textButton({ label: '✏️ Название', payload: { command: 'monitor_edit_name', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
             .textButton({ label: '💱 Валюта', payload: { command: 'monitor_edit_coin', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
             .textButton({ label: `${ico_list['like'].ico} Лимит`, payload: { command: 'monitor_edit_lim_like', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' })
             .textButton({ label: `${ico_list['like'].ico} Цена`, payload: { command: 'monitor_edit_cost_like', cursor: data.cursor, id_monitor: monitor.id }, color: 'secondary' }).row()
@@ -131,6 +171,7 @@ async function Alliance_Monitor_Edit(context: any, data: any, alliance: Alliance
         if (answer.exit) { return res }
 
         const config: any = {
+            'monitor_edit_name': Alliance_Monitor_Edit_Name,        // ✅ ДОБАВЛЕНО
             'monitor_edit_coin': Alliance_Monitor_Edit_Coin,
             'monitor_edit_lim_like': Alliance_Monitor_Edit_Like_Limit,
             'monitor_edit_cost_like': Alliance_Monitor_Edit_Like_Cost,
