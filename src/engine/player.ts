@@ -45,6 +45,7 @@ import { SkillCategories_Manager } from "./events/module/skills/skill_categories
 import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin";
 import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
 import { Finance_Statistics_Command } from "./events/module/alliance/finance_statistics";
+import { Salary_Manager_Menu } from "./events/module/salary_manager";
 const fs = require('fs');
 
 async function Get_Admin_Alliance_User(context: any): Promise<User | null> {
@@ -1459,6 +1460,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Operation_SBP(context)
         await Keyboard_Index(context, `⌛ Как насчет пожертвовать свои накопления админу?`)
     })
+    hearManager.hear(/⚙ !зарплату настроить/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (context.peerType == 'chat') return;
+        
+        // Проверяем права
+        if (await Accessed(context) == 1) {
+            await context.send('❌ У вас нет прав администратора для этой команды.');
+            return;
+        }
+        
+        await Salary_Manager_Menu(context);
+    });
     hearManager.hear(/!обнулить scoopins/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;

@@ -21,6 +21,7 @@ import { Service_Enter, Service_Cancel, Service_Kvass_Open } from "./module/serv
 import { Shop_Category_Enter, Shop_Enter_Multi, Shop_Enter, Shop_Cancel, Shop_Bought, Shop_Buy } from "./module/shop/engine";
 import { Operation_Enter, Right_Enter } from "./module/tool";
 import { Topic_Rank_V2_Custom_Period, Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Weeks, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Hashtag } from "./module/topic_rank_v2";
+import { Salary_Manager_Menu } from './module/salary_manager';
 
 export async function Main_Menu_Init(context: any) {
     const user: User | null | undefined = await Person_Get(context)
@@ -207,9 +208,8 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
     "topic_rank_v2_select_hashtag": Topic_Rank_V2_Select_Hashtag,
     
     // Способности
-    //"abilities_upgrade_enter": Abilities_Upgrade_Menu,
     "abilities_upgrade_enter": async (ctx: any) => {
-    await Abilities_Upgrade_Menu(ctx);
+        await Abilities_Upgrade_Menu(ctx);
     },
     
     // Админ-панель
@@ -242,6 +242,12 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
     },
     "alliance_config_service_bg_remove": async (ctx: any) => {
         await ctx.send('!услуги удалить');
+        await ctx.answer();
+    },
+    
+    // НОВАЯ КНОПКА: Управление зарплатами
+    "alliance_config_salary": async (ctx: any) => {
+        await Salary_Manager_Menu(ctx);
         await ctx.answer();
     },
     

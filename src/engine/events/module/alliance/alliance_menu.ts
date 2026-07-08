@@ -195,6 +195,11 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     payload: { command: "alliance_config_coin_order" }, 
                     color: 'secondary' 
                 }).row()
+                keyboard.textButton({ 
+                label: `${ico_list['config'].ico} !зарплату настроить`, 
+                payload: { command: "alliance_config_salary" }, 
+                color: 'secondary' 
+                }).row();
                 
                 // Стрелочка назад
                 keyboard.callbackButton({ 

@@ -217,6 +217,8 @@ model User {
   UserCard              UserCard?
   userSkills            UserSkill[]
   userAbilities         UserAbility[]
+  salary_coin_id   Int?   @map("salary_coin_id")
+  salary_amount    Float? @map("salary_amount")
 }
 
 model BlackBox {
