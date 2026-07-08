@@ -386,8 +386,13 @@ async function paySalaryToUser(context: any, userId: number) {
   const admin = await Person_Get(context);
   if (!admin) return;
 
+  if (admin.id_alliance == null) {
+    await context.send(`❌ Вы не состоите в альянсе.`);
+    return;
+  }
+
   const alliance = await prisma.alliance.findFirst({
-    where: { id: admin.id_alliance }
+    where: { id: admin.id_alliance as number }
   });
 
   const user = await prisma.user.findFirst({
@@ -446,7 +451,7 @@ async function paySalaryToAll(context: any) {
   if (!admin) return;
 
   const alliance = await prisma.alliance.findFirst({
-    where: { id: admin.id_alliance }
+    where: { id: admin.id_alliance as number }
   });
 
   // ИСПРАВЛЕНО: убрал `not: null` для salary_amount
@@ -536,7 +541,7 @@ async function paySalaryToActiveOnly(context: any) {
   if (!admin) return;
 
   const alliance = await prisma.alliance.findFirst({
-    where: { id: admin.id_alliance }
+        where: { id: admin.id_alliance as number }
   });
 
   // ИСПРАВЛЕНО: убрал `not: null` для salary_amount
