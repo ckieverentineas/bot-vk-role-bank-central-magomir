@@ -321,10 +321,6 @@ async function setGlobalSalaryCoin(context: any, allianceId: number) {
   await context.send(`✅ Валюта установлена для ${updated.count} персонажей: ${coin.smile} ${coin.name}`);
 }
 
-// ============================================================
-// ДОБАВЛЕНИЕ ЗАРПЛАТЫ КОНКРЕТНОМУ ПОЛЬЗОВАТЕЛЮ
-// ============================================================
-
 async function addSalaryToUser(context: any, userId: number) {
   const user = await prisma.user.findFirst({
     where: { id: userId }
@@ -335,17 +331,28 @@ async function addSalaryToUser(context: any, userId: number) {
     return;
   }
 
+  // Проверяем, есть ли у пользователя валюта
   if (!user.salary_coin_id) {
-    const coinId = await Select_Alliance_Coin(context, user.id_alliance || 0);
-    if (!coinId) {
-      await context.send(`❌ Выбор валюты прерван.`);
+    // Ищем глобальную валюту
+    const globalCoin = await prisma.user.findFirst({
+      where: {
+        id_alliance: user.id_alliance,
+        salary_coin_id: { not: null }
+      },
+      select: { salary_coin_id: true }
+    });
+
+    if (!globalCoin?.salary_coin_id) {
+      await context.send(`❌ Сначала выберите глобальную валюту через кнопку "💱 Выбрать валюту" в главном меню.`);
       return;
     }
+
+    // Устанавливаем глобальную валюту пользователю
     await prisma.user.update({
       where: { id: userId },
-      data: { salary_coin_id: coinId }
+      data: { salary_coin_id: globalCoin.salary_coin_id }
     });
-    user.salary_coin_id = coinId;
+    user.salary_coin_id = globalCoin.salary_coin_id;
   }
 
   const amount = await Input_Number(
@@ -649,10 +656,6 @@ async function paySalaryToActiveOnly(context: any) {
   }
 }
 
-// ============================================================
-// РЕДАКТИРОВАНИЕ ЗАРПЛАТЫ
-// ============================================================
-
 async function editUserSalary(context: any, userId: number) {
   const user = await prisma.user.findFirst({
     where: { id: userId }
@@ -663,19 +666,35 @@ async function editUserSalary(context: any, userId: number) {
     return;
   }
 
-  const currentCoin = user.salary_coin_id 
-    ? await prisma.allianceCoin.findFirst({ where: { id: user.salary_coin_id } })
-    : null;
+  // Проверяем, есть ли у пользователя валюта
+  if (!user.salary_coin_id) {
+    // Ищем глобальную валюту
+    const globalCoin = await prisma.user.findFirst({
+      where: {
+        id_alliance: user.id_alliance,
+        salary_coin_id: { not: null }
+      },
+      select: { salary_coin_id: true }
+    });
+
+    if (!globalCoin?.salary_coin_id) {
+      await context.send(`❌ Сначала выберите глобальную валюту через кнопку "💱 Выбрать валюту" в главном меню.`);
+      return;
+    }
+
+    // Устанавливаем глобальную валюту пользователю
+    await prisma.user.update({
+      where: { id: userId },
+      data: { salary_coin_id: globalCoin.salary_coin_id }
+    });
+    user.salary_coin_id = globalCoin.salary_coin_id;
+  }
+
   const currentAmount = user.salary_amount || 0;
 
   let exit = false;
   while (!exit) {
     const keyboard = new KeyboardBuilder()
-      .textButton({
-        label: currentCoin ? `💱 ${currentCoin.smile} ${currentCoin.name}` : `💱 Выбрать валюту`,
-        payload: { command: 'edit_coin' },
-        color: 'secondary'
-      })
       .textButton({
         label: `💰 ${currentAmount}`,
         payload: { command: 'edit_amount' },
@@ -687,8 +706,9 @@ async function editUserSalary(context: any, userId: number) {
         color: 'secondary'
       }).oneTime().inline();
 
+    const coin = await prisma.allianceCoin.findFirst({ where: { id: user.salary_coin_id || 0 } });
     const text = `✏️ ${user.name} (UID: ${user.id})\n\n` +
-      `💱 Валюта: ${currentCoin ? `${currentCoin.smile} ${currentCoin.name}` : 'Не выбрана'}\n` +
+      `💱 Валюта: ${coin?.smile || '💰'} ${coin?.name || 'не выбрана'}\n` +
       `💰 Сумма: ${currentAmount}\n\n` +
       `Выберите действие:`;
 
@@ -705,17 +725,6 @@ async function editUserSalary(context: any, userId: number) {
     }
 
     switch (answer.payload.command) {
-      case 'edit_coin':
-        const newCoinId = await Select_Alliance_Coin(context, user.id_alliance || 0);
-        if (newCoinId) {
-          await prisma.user.update({
-            where: { id: userId },
-            data: { salary_coin_id: newCoinId }
-          });
-          await context.send(`✅ Валюта обновлена.`);
-        }
-        break;
-
       case 'edit_amount':
         const newAmount = await Input_Number(
           context,
@@ -763,6 +772,7 @@ async function editUserSalary(context: any, userId: number) {
     }
   }
 }
+
 
 // ============================================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -874,12 +884,10 @@ async function processSalaryPayment(user: User): Promise<boolean> {
 
 function getStartOfWeek(): Date {
   const now = new Date();
-  const day = now.getDay();
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(now);
-  monday.setDate(diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  return sevenDaysAgo;
 }
 
 function getWeekDateRange(): string {
