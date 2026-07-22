@@ -312,6 +312,8 @@ async function editCustomButtons(allianceId: number, context: any) {
     if (Object.keys(newOptions).length > 0) {
         await prisma.allianceClassSetting.update({ where: { allianceId }, data: newOptions });
         await context.send(`✅ Сохранено!`);
+    } else {
+        await context.send(`ℹ️ Изменений не было.`);
     }
 }
 
