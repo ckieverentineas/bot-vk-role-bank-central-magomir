@@ -197,7 +197,15 @@ function Format_Monitor_Status(value: boolean) {
 async function Notify_Monitor_Update(context: any, alliance: Alliance, user: User, monitor: Monitor, changes: string) {
     await Logger(`In database, updated monitor: ${monitor.id}-${monitor.name} by admin ${context.senderId}`)
     await context.send(`${ico_list['reconfig'].ico} Вы обновили конфигурацию монитора ${monitor.id}-${monitor.name}.\n${changes}\n\nЧтобы изменения вступили в силу, перезапустите мониторы через ${ico_list['stop'].ico} !моники_off --> ${ico_list['run'].ico} !моники_on.`)
-    await Send_Message(chat_id, `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor.id}-${monitor.name}\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
+    
+    // [!] Отправляем в финансовый чат альянса, если есть
+    const logMessage = `${ico_list['reconfig'].ico} Изменение конфигурации ролевого монитора\n${ico_list['message'].ico} Сообщение: ${monitor.id}-${monitor.name}\n${changes}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`
+    
+    if (alliance.id_chat && alliance.id_chat > 0) {
+        await Send_Message(alliance.id_chat, logMessage);
+    } else {
+        await Send_Message(chat_id, logMessage);
+    }
 }
 
 async function Update_Monitor_Number_Field(context: any, data: any, alliance: Alliance, user: User, field: string, label: string, icon: string, float = false) {

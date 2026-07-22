@@ -12,11 +12,11 @@ export async function Alliance_Year_End_Printer(context: any) {
     if (!alliance) { return }
     
     const plural_genitive = await getTerminology(alliance.id, 'plural_genitive');
-    const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `хотите закончить рейтинговый сезон в [${alliance.name}]?\n ⚠ Все рейтинговые валюты ${plural_genitive} и ролевиков будут обнулены!`)
+    const rank_check: { status: boolean, text: String } = await Confirm_User_Success(context, `хотите закончить учебный/рейтинговый год в [${alliance.name}]?\n ⚠ Все рейтинговые валюты ${plural_genitive} и ролевиков будут обнулены!`)
     await context.send(`${rank_check.text}`)
-    if (!rank_check.status) { return await context.send(`${ico_list['stop'].ico} Вы отменили конец сезона, Дамблдор в восторге, десять очков Гриффиндору!`) }
+    if (!rank_check.status) { return await context.send(`${ico_list['stop'].ico} Вы отменили конец учебного года, Дамблдор в восторге, десять очков Гриффиндору!`) }
     const ans: { count_person: number, count_facult: number, count_person_all: number, count_facult_all: number } = { count_person: 0, count_facult: 0, count_person_all: 0, count_facult_all: 0 }
-    await context.send(`${ico_list['run'].ico} Запускается процесс окончания сезона, ожидайте завершающего сообщения!`)
+    await context.send(`${ico_list['run'].ico} Запускается процесс окончания учебного семестра, ожидайте завершаюшего сообщения!`)
     for (const coin of await prisma.allianceCoin.findMany({ where: { id_alliance: alliance.id } })) {
         if (coin.point == false) { continue }
         for (const userok of await prisma.user.findMany({ where: { id_alliance: alliance.id } })) {
@@ -34,7 +34,15 @@ export async function Alliance_Year_End_Printer(context: any) {
             const bal_fac_ch = await prisma.balanceFacult.update({ where: { id: bal_fac.id }, data: { amount: 0 } })
             if ( bal_fac_ch) { ans.count_facult++ }
         }
-        await Send_Message(chat_id, `${ico_list['reconfig'].ico} Завершение рейтингового цикла\n${ico_list['message'].ico} Сообщение:\n${ico_list['persons'].ico} Обнулены рейтинговые счета игроков ${ans.count_person} из ${ans.count_person_all}\n${ico_list['facult'].ico} Обнулены рейтинговые счета ${plural_genitive} ${ans.count_facult} из ${ans.count_facult_all}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`)
+        
+        // [!] Отправляем в финансовый чат альянса, если есть
+        const logMessage = `${ico_list['reconfig'].ico} Завершение рейтингового цикла\n${ico_list['message'].ico} Сообщение:\n${ico_list['persons'].ico} Обнулены рейтинговые счета игроков ${ans.count_person} из ${ans.count_person_all}\n${ico_list['facult'].ico} Обнулены рейтинговые счета ${plural_genitive} ${ans.count_facult} из ${ans.count_facult_all}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} ${alliance.name}`
+        
+        if (alliance.id_chat && alliance.id_chat > 0) {
+            await Send_Message(alliance.id_chat, logMessage);
+        } else {
+            await Send_Message(chat_id, logMessage);
+        }
     }
     await context.send(`${ico_list['success'].ico} Успешно завершен процесс окончания учебного семестра!`)
 }

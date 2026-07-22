@@ -273,12 +273,23 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
                 label: '🔘 Конвертация жетонов',
                 payload: { command: 'select_converter_type', type: 'medal' },
                 color: 'secondary'
-            }).row()
-            .textButton({
+            }).row();
+
+        // [!] Конвертация S-coins - только если есть валюты с разрешенной конвертацией
+        const hasScoopinsConvertibleCoins = await prisma.allianceCoin.count({
+            where: { 
+                id_alliance: alliance.id,
+                scoopins_converted: true 
+            }
+        }) > 0;
+
+        if (hasScoopinsConvertibleCoins) {
+            keyboard.textButton({
                 label: '🌕 Конвертация S-coins',
                 payload: { command: 'select_converter_type', type: 'scoopins' },
                 color: 'secondary'
             }).row();
+        }
 
         for (const conversion of internalConversions) {
             keyboard.textButton({
@@ -326,7 +337,10 @@ export async function Alliance_Coin_Converter_Printer(context: any) {
 
         let eventLogger = `${ico_list['converter'].ico} Выберите тип конвертации:\n\n`;
         eventLogger += `🔘 Конвертация жетонов\n`;
-        eventLogger += `🌕 Конвертация S-coins\n`;
+        
+        if (hasScoopinsConvertibleCoins) {
+            eventLogger += `🌕 Конвертация S-coins\n`;
+        }
 
         if (internalConversions.length > 0) {
             const pageInfo = internalConversionCount > CONVERTER_MENU_INTERNAL_BATCH_SIZE

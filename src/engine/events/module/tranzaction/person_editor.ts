@@ -19,8 +19,24 @@ export async function Editor(id: number, context: any, user_adm: User) {
         keyboard.textButton({ label: '✏Положение', payload: { command: 'edit_class' }, color: 'secondary' }).row()
         .textButton({ label: '✏Специализация', payload: { command: 'edit_spec' }, color: 'secondary' }).row()
         .textButton({ label: '✏ФИО', payload: { command: 'edit_name' }, color: 'secondary' }).row()
-        .textButton({ label: `✏${singular.charAt(0).toUpperCase() + singular.slice(1)}`, payload: { command: 'edit_facult' }, color: 'secondary' }).row()
-        if (await Accessed(context) == 3 || user.id_alliance == 0 || user.id_alliance == -1 ) { keyboard.textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row() }
+        
+        // [!] Кнопка факультета - только если есть факультеты в альянсе
+        const hasFacults = await prisma.allianceFacult.count({ 
+            where: { id_alliance: user.id_alliance ?? 0 } 
+        }) > 0;
+        
+        if (hasFacults) {
+            const singular = await getTerminology(user.id_alliance || 0, 'singular');
+            keyboard.textButton({ 
+                label: `✏${singular.charAt(0).toUpperCase() + singular.slice(1)}`, 
+                payload: { command: 'edit_facult' }, 
+                color: 'secondary' 
+            }).row();
+        }
+        
+        if (await Accessed(context) == 3 || user.id_alliance == 0 || user.id_alliance == -1 ) { 
+            keyboard.textButton({ label: '✏Альянс', payload: { command: 'edit_alliance' }, color: 'secondary' }).row() 
+        }
         keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
         const answer1: any = await context.question(`⌛ Переходим в режим редактирования данных, выберите сие злодейство: `, { keyboard: keyboard, answerTimeLimit })
         if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания на корректировку данных юзера истекло!`) }
