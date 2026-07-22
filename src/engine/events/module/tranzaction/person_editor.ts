@@ -268,7 +268,7 @@ async function Edit_Spec(id: number, context: any, user_adm: User){
     const alli_sel = `${user.id_alliance == 0 ? `Соло` : user.id_alliance == -1 ? `Не союзник` : alli_get?.name}`
     const accusative = await getTerminology(user.id_alliance || 0, 'accusative');
     while (spec_check == false) {
-        const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. Если он/она профессор/житель, введите должность. Если студент(ка), укажите направление, специализацию, но не ${accusative}. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
+        const spec: any = await context.question(`🧷 Укажите специализацию в ${alli_sel}. Для ${user.name}. \nТекущая специализация: ${user.spec}\nВведите новую:`, timer_text)
         if (spec.isTimeout) { return await context.send(`⏰ Время ожидания на изменение специализации для ${user.name} истекло!`) }
         if (spec.text.length <= 150) {
             spec_check = true

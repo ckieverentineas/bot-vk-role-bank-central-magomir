@@ -65,27 +65,63 @@ export async function Card_Enter(context: any) {
     const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1)
     const withoutFaculty = `Без ${genitive}`
 
+    // Строка факультета только если есть факультеты
+    let facultLine = '';
+    const hasFacults = await prisma.allianceFacult.count({ where: { id_alliance: Number(get_user.id_alliance) } }) > 0;
+    if (hasFacults) {
+        if (facult_get) {
+            facultLine = `${facult_get.smile} ${facultTerminology}: ${facult_get.name}\n`;
+        } else {
+            facultLine = `🔮 ${facultTerminology}: ${withoutFaculty}\n`;
+        }
+    }
+
+    // Строка жетонов НЕ ПОКАЗЫВАЕТСЯ если <= 5
+    let medalsLine = '';
+    if (get_user.medal > 5) {
+        medalsLine = `🔘 Жетоны: ${get_user.medal} \n`;
+    }
+
+    // Строка S-coins только если > 0
+    let scoopinsLine = '';
+    if (get_user.scoopins > 0) {
+        scoopinsLine = `🌕 S-coins: ${get_user.scoopins} \n`;
+    }
+
+    // Строка мониторов показывается только если есть мониторы
+    let monitorsLine = '';
+    let hasMonitors = false;
+    if (get_user.id_alliance && get_user.id_alliance > 0) {
+        const monitorCount = await prisma.monitor.count({
+            where: { id_alliance: get_user.id_alliance }
+        });
+        if (monitorCount > 0) {
+            hasMonitors = true;
+            monitorsLine = `🔔 Мониторы: ${get_user.notification ? '✅' : '❌'} | 🔔 РП-посты: ${get_user.notification_topic ? '✅' : '❌'}\n`;
+            // Добавляем статус только если есть мониторы
+            monitorsLine += `${monitorStatus.description}`;
+        }
+    }
+
     // Базовый текст карточки
     let text = `✉ Вы достали свою карточку: \n\n` +
       `💳 UID: ${get_user.id} \n` +
       `🕯 GUID: ${get_user.id_account} \n` +
-      `🔘 Жетоны: ${get_user.medal} \n` +
-      `🌕 S-coins: ${get_user.scoopins} \n` +
+      medalsLine +
+      scoopinsLine +
       `👤 Имя: ${get_user.name} \n` +
-      `👑 Статус: ${get_user.class} \n` +
+      `👑 Статус: ${get_user.class}  \n` +
       `🔨 Профессия: ${get_user?.spec} \n` +
       `🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name} \n` +
-      `${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}\n` +
+      facultLine +
       `${coin}\n\n` +
-      `🔔 Мониторы: ${get_user.notification ? '✅' : '❌'} | 🔔 РП-посты: ${get_user.notification_topic ? '✅' : '❌'}\n` +
-      `${monitorStatus.description}`
+      monitorsLine
 
-    // ===================== НАВЫКИ (вычисляются на лету) =====================
+    // ===================== НАВЫКИ =====================
     let skillsText = ''
     if (get_user.id_alliance && get_user.id_alliance > 0) {
       let displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance)
       
-      // Сортируем навыки по категориям и алфавиту
       displaySkills.sort((a, b) => {
         if (a.categoryId !== b.categoryId) {
           return a.categoryId - b.categoryId;
@@ -107,7 +143,6 @@ export async function Card_Enter(context: any) {
           const levelDisplay = skill.levelName || '❌ нет уровня'
           skillsText += `  ⚔️ ${skill.skillName}: ${levelDisplay} ${progressBar}\n`
           
-          // Показываем требования для следующего уровня
           if (skill.missingRequirements && Object.keys(skill.missingRequirements).length > 0 && skill.nextLevelName) {
             const missingParts = []
             for (const [coinId, { current, required }] of Object.entries(skill.missingRequirements)) {
@@ -122,13 +157,11 @@ export async function Card_Enter(context: any) {
       }
     }
     
-    // Добавляем навыки в текст
     text += skillsText
 
     // ===================== СПОСОБНОСТИ =====================
     let abilitiesText = ''
     if (get_user.id_alliance && get_user.id_alliance > 0) {
-      // Получаем все уровни альянса для определения следующего уровня
       const levels = await prisma.skillLevel.findMany({
         where: { allianceId: get_user.id_alliance },
         orderBy: { order: 'asc' }
@@ -146,7 +179,6 @@ export async function Card_Enter(context: any) {
         }
       });
       
-      // Сортируем способности по категориям и алфавиту
       userAbilities.sort((a, b) => {
         if (a.ability.category.name !== b.ability.category.name) {
           return a.ability.category.name.localeCompare(b.ability.category.name);
@@ -176,7 +208,6 @@ export async function Card_Enter(context: any) {
       }
     }
     
-    // Добавляем способности в текст (после навыков)
     text += abilitiesText
     
     // ===================== КЛАВИАТУРА =====================
@@ -187,20 +218,30 @@ export async function Card_Enter(context: any) {
       keyboard.textButton({ label: '🔃👥 Сменить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
     }
     
-    if (get_user.id_alliance && get_user.id_alliance > 0) {
-      keyboard.callbackButton({ 
-        label: isMonitorSelected ? '✅👥 Выбран для мониторов' : '👥 Выбрать для мониторов', 
-        payload: { command: 'monitor_select_person', personId: get_user.id }, 
-        color: isMonitorSelected ? 'positive' : 'secondary' 
-      }).row()
+    // [!] Кнопка "Выбрать для мониторов" только если есть мониторы в альянсе
+    if (get_user.id_alliance && get_user.id_alliance > 0 && hasMonitors) {
+        keyboard.callbackButton({ 
+            label: isMonitorSelected ? '✅👥 Выбран для мониторов' : '👥 Выбрать для мониторов', 
+            payload: { command: 'monitor_select_person', personId: get_user.id }, 
+            color: isMonitorSelected ? 'positive' : 'secondary' 
+        }).row()
+    }
+
+    // Кнопка рейтинга только если жетонов > 5
+    if (get_user.medal > 5) {
+        keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' });
     }
     
-    keyboard
-      .callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' })
-      .callbackButton({ label: '💬', payload: { command: 'comment_person_enter' }, color: 'secondary' }).row()
-      .textButton({ label: '🔔 Мониторы', payload: { command: 'notification_controller' }, color: 'secondary' })
-      .textButton({ label: '📝 Обсуждения', payload: { command: 'topic_notification_controller' }, color: 'secondary' }).row()
-      .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+    // Кнопки мониторов/обсуждений только если есть мониторы
+    if (hasMonitors) {
+        keyboard
+            .textButton({ label: '🔔 Мониторы', payload: { command: 'notification_controller' }, color: 'secondary' })
+            .textButton({ label: '📝 Обсуждения', payload: { command: 'topic_notification_controller' }, color: 'secondary' }).row();
+        
+        keyboard.callbackButton({ label: '💬', payload: { command: 'comment_person_enter' }, color: 'secondary' }).row();
+    }
+
+    keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
     
     await Logger(`In a private chat, the card is viewed by user ${get_user.idvk}`)
     
@@ -212,9 +253,10 @@ export async function Card_Enter(context: any) {
       }
     })
     
-    let snackbarText = `В общем, вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
+    // let snackbarText = `В общем, вы ${get_user.medal > 100 ? "при жетонах" : "без жетонов"}.`
+    let snackbarText = `Открываем карту...`
     
-    if (otherPersonsInAlliance > 0 && get_user.id_alliance && get_user.id_alliance > 0) {
+    if (otherPersonsInAlliance > 0 && get_user.id_alliance && get_user.id_alliance > 0 && hasMonitors) {
       if (!isMonitorSelected) {
         snackbarText += ` У вас ${otherPersonsInAlliance} других персонажей в этом альянсе. Выберите этого для мониторов?`
       } else {
@@ -222,7 +264,6 @@ export async function Card_Enter(context: any) {
       }
     }
     
-    // Отправляем сообщение с карточкой
     await Send_Message(context.peerId, text, keyboard, attached)
     
     if (context?.eventPayload?.command == "card_enter") {
@@ -345,7 +386,7 @@ export async function Comment_Person_Enter(context: any) {
   if (!user) { return }
   let text = ''
   const keyboard = new KeyboardBuilder()
-  text = `⚙ Комментарий к вашему персонажу:\n\n ${user.comment ? user.comment : 'Пока что для вашего персонажа дополнительной информации нет...'}`
+  text = `⚙ Комментарий к вашему персонажу:\n\n${user.comment ? user.comment : 'Пока что для вашего персонажа дополнительной информации нет...'}`
   keyboard.callbackButton({ label: '🚫', payload: { command: 'card_enter' }, color: 'secondary' }).inline().oneTime()
   await Send_Message(context.peerId,`${text}`, keyboard) 
 }
@@ -353,6 +394,13 @@ export async function Comment_Person_Enter(context: any) {
 export async function Rank_Enter(context: any) {
   const user: User | null | undefined = await Person_Get(context)
   if (!user) { return }
+
+  // [!] Изменение: Пункт 3 - Если жетонов 5 или меньше, рейтинг не показывается
+  if (user.medal <= 5) {
+    await context.send('🔇 Рейтинг недоступен, так как у вас 5 или меньше жетонов.');
+    return;
+  }
+
   let text = '⚙ Рейтинг персонажей по жетонам Министерства Магии:\n\n'
   const keyboard = new KeyboardBuilder()
 

@@ -702,65 +702,6 @@ async function Inventory_Group_Present(context: any, data: any, user: User, user
     return res;
 }
 
-// Удаление группы предметов
-async function Inventory_Group_Delete(context: any, data: any, user: User, user_adm?: User) {
-    const res = { cursor: data.cursor, group_mode: data.group_mode };
-    
-    // Получаем информацию о группе
-    const groupedItems = await groupInventoryItems(user.id);
-    const group = groupedItems.find(g => g.type === data.type && g.id_item === data.id_item);
-    
-    if (!group) {
-        await context.send(`❌ Группа предметов не найдена.`);
-        return res;
-    }
-
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
-        context, 
-        `удалить ${group.count} предметов "${group.name}" из инвентаря?`
-    );
-    
-    if (!confirm.status) return res;
-
-    // Выполняем удаление всех предметов группы
-    let success_count = 0;
-    let failed_count = 0;
-
-    for (const inventory_id of group.inventory_ids) {
-        try {
-            const deleted = await prisma.inventory.delete({
-                where: { id: inventory_id }
-            });
-
-            if (deleted) {
-                success_count++;
-            } else {
-                failed_count++;
-            }
-        } catch (error) {
-            await context.send(`⚠ Ошибка при удалении предмета ID ${inventory_id}`);
-            failed_count++;
-        }
-    }
-
-    // Логируем и уведомляем
-    if (success_count > 0) {
-        await Logger(`Игрок @id${user_adm?.idvk || user.idvk} удалил "${group.name} × ${success_count}" из инвентаря`);
-        await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря.`);
-        
-        if(user_adm) {
-            await Send_Message(user.idvk, `🎒 Ваши покупки "${group.name} × ${success_count}" выкрали из инвентаря, надеемся, что их раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
-        } else { 
-            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из инвентаря`);
-        }
-    }
-
-    await context.send(`🗑 Удаление завершено:\n✅ Успешно удалено: ${success_count} предметов\n❌ Не удалось удалить: ${failed_count} предметов`);
-
-    return res;
-}
-
 // Обновленные функции навигации с учетом режима группировки
 async function Inventory_Next(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor + 5, group_mode: data.group_mode ?? false };
@@ -882,7 +823,7 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
         }
         itemName = item.name;
     }
-    else if (inv.type == InventoryType.ITEM_STORAGE) { // ← ДОБАВЛЕНО!
+    else if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } });
         if (!item) {
             await context.send(`❌ Предмет из хранилища не найден.`);
@@ -916,17 +857,99 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
                 user.idvk, 
                 `🎒 Вашу покупку "${deleted.id}-${itemName}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`
             );
-            await Send_Message(
-                chat_id, 
-                `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
-            );
+            
+            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
+            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
+            const logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`;
+            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
+                await Send_Message(alliance.id_chat_shop, logMessage);
+            } else {
+                await Send_Message(chat_id, logMessage);
+            }
         } else { 
-            await Send_Message(
-                chat_id, 
-                `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из инвентаря`
-            );
+            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
+            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
+            const logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из инвентаря`;
+            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
+                await Send_Message(alliance.id_chat_shop, logMessage);
+            } else {
+                await Send_Message(chat_id, logMessage);
+            }
         }
     }
+
+    return res;
+}
+
+async function Inventory_Group_Delete(context: any, data: any, user: User, user_adm?: User) {
+    const res = { cursor: data.cursor, group_mode: data.group_mode };
+    
+    // Получаем информацию о группе
+    const groupedItems = await groupInventoryItems(user.id);
+    const group = groupedItems.find(g => g.type === data.type && g.id_item === data.id_item);
+    
+    if (!group) {
+        await context.send(`❌ Группа предметов не найдена.`);
+        return res;
+    }
+
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context, 
+        `удалить ${group.count} предметов "${group.name}" из инвентаря?`
+    );
+    
+    if (!confirm.status) return res;
+
+    // Выполняем удаление всех предметов группы
+    let success_count = 0;
+    let failed_count = 0;
+
+    for (const inventory_id of group.inventory_ids) {
+        try {
+            const deleted = await prisma.inventory.delete({
+                where: { id: inventory_id }
+            });
+
+            if (deleted) {
+                success_count++;
+            } else {
+                failed_count++;
+            }
+        } catch (error) {
+            await context.send(`⚠ Ошибка при удалении предмета ID ${inventory_id}`);
+            failed_count++;
+        }
+    }
+
+    // Логируем и уведомляем
+    if (success_count > 0) {
+        await Logger(`Игрок @id${user_adm?.idvk || user.idvk} удалил "${group.name} × ${success_count}" из инвентаря`);
+        await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря.`);
+        
+        if(user_adm) {
+            await Send_Message(user.idvk, `🎒 Ваши покупки "${group.name} × ${success_count}" выкрали из инвентаря, надеемся, что их раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
+            
+            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
+            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
+            const logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`;
+            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
+                await Send_Message(alliance.id_chat_shop, logMessage);
+            } else {
+                await Send_Message(chat_id, logMessage);
+            }
+        } else { 
+            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
+            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
+            const logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из инвентаря`;
+            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
+                await Send_Message(alliance.id_chat_shop, logMessage);
+            } else {
+                await Send_Message(chat_id, logMessage);
+            }
+        }
+    }
+
+    await context.send(`🗑 Удаление завершено:\n✅ Успешно удалено: ${success_count} предметов\n❌ Не удалось удалить: ${failed_count} предметов`);
 
     return res;
 }

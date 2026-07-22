@@ -66,8 +66,9 @@ export async function Operation_SBP(context: Context) {
         return;
     }
     
-    // ===== ВЫБОР ВАЛЮТЫ =====
-    const selectedCoinId = await Select_Alliance_Coin(context, user_check.id_alliance ?? 0);
+    // ===== ВЫБОР ВАЛЮТЫ (ТОЛЬКО С РАЗРЕШЕННОЙ СБП) =====
+    // [!] ИЗМЕНЕНИЕ: Передаем true для фильтрации только валют с sbp_on: true
+    const selectedCoinId = await Select_Alliance_Coin(context, user_check.id_alliance ?? 0, true);
     if (!selectedCoinId) {
         await context.send(`${ico_list['warn'].ico} Выбор валюты прерван.`);
         return;
@@ -79,13 +80,11 @@ export async function Operation_SBP(context: Context) {
         return;
     }
     
-    if (coin.point) {
-        await context.send(`❌ Рейтинговую валюту перевести нельзя.`);
-        return;
-    }
-    
+    // Дополнительная проверка на всякий случай
     if (coin.sbp_on == false) {
-        await context.send(`❌ Для валюты не разрешена СБП администраторами вашей ролевой.`);
+        await context.send(`❌ Для валюты "${coin.name}" не разрешена СБП.\n\n` +
+            `💡 Обратитесь к администратору, чтобы включить СБП для этой валюты.\n` +
+            `💡 Администратор может включить СБП в меню: !валюты настроить → выбрать валюту → 💸 СБП`);
         return;
     }
     

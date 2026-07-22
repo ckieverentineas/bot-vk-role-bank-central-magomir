@@ -437,7 +437,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (await Accessed(context) == 1) { return }
         const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
         if (uid.isTimeout) { return await context.send(`⏰ Время ожидания ввода банковского счета истекло!`) }
-		if (uid.text) {
+        if (uid.text) {
             const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
             if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
                 const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
@@ -473,11 +473,15 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
-                            await vk?.api.messages.send({
-                                peer_id: chat_id,
-                                random_id: 0,
-                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
-                            })
+                            
+                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
+                            const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
+                            const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
+                            if (alliance?.id_chat && alliance.id_chat > 0) {
+                                await Send_Message(alliance.id_chat, logMessage);
+                            } else {
+                                await Send_Message(chat_id, logMessage);
+                            }
                             await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
                             await context.send(`💡 Ошибка`)
@@ -498,11 +502,15 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
-                            await vk?.api.messages.send({
-                                peer_id: chat_id,
-                                random_id: 0,
-                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает Супер администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
-                            })
+                            
+                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
+                            const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
+                            const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает Супер администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
+                            if (alliance?.id_chat && alliance.id_chat > 0) {
+                                await Send_Message(alliance.id_chat, logMessage);
+                            } else {
+                                await Send_Message(chat_id, logMessage);
+                            }
                             await Logger(`In private chat, get status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
                             await context.send(`💡 Ошибка`)
@@ -523,11 +531,15 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
-                            await vk?.api.messages.send({
-                                peer_id: chat_id,
-                                random_id: 0,
-                                message: `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает обычным пользователем @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`
-                            })
+                            
+                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
+                            const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
+                            const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает обычным пользователем @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
+                            if (alliance?.id_chat && alliance.id_chat > 0) {
+                                await Send_Message(alliance.id_chat, logMessage);
+                            } else {
+                                await Send_Message(chat_id, logMessage);
+                            }
                             await Logger(`In private chat, left status admin user ${get_user?.idvk}-${get_user?.id} by admin ${context.senderId}`)
                         } else {
                             await context.send(`💡 Ошибка`)
@@ -544,9 +556,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await context.send(`💡 Нет такого банковского счета!`) 
                 }
             }
-		} else {
-			await context.send(`💡 Нет такого банковского счета!`)
-		}
+        } else {
+            await context.send(`💡 Нет такого банковского счета!`)
+        }
         await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
     })
     hearManager.hear(/!енотик/, async (context: any) => {

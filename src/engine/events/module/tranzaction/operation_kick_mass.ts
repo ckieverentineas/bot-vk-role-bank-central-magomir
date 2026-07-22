@@ -236,9 +236,16 @@ export async function Operation_Kick_Mass(context: any) {
             const adminMessage = `⚙ Игрок ${user_get.name} (UID: ${user_get.id}) исключён.`
             await Send_Message(context.senderId, adminMessage)
             
-            // Лог в основной чат
-            const logMessage = `⚙ @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "👠👤" > исключён @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}).`
-            await Send_Message(chat_id, logMessage)
+            // [!] ИЗМЕНЕНИЕ: Пункт 8 - Уведомление отправляется в локальный чат альянса
+            const alliance = await prisma.alliance.findFirst({ 
+                where: { id: user_get.id_alliance ?? 0 } 
+            });
+            const logMessage = `⚙ @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "👠👤" > исключён @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}).`;
+            if (alliance?.id_chat && alliance.id_chat > 0) {
+                await Send_Message(alliance.id_chat, logMessage);
+            } else {
+                await Send_Message(chat_id, logMessage);
+            }
             
             await Logger(`User ${user_get.idvk} kicked by admin ${context.senderId}. Action: ${actionText}`)
 

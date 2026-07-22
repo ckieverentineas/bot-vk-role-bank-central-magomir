@@ -34,12 +34,12 @@ export async function Main_Menu_Init(context: any) {
     
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/RP_bank/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
         if (facult_rank) {
             text += ` \n${facult_rank}`
         }
     } else {
-        text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
+        text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/RP_bank/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }
     await Send_Message(context.peerId, text, await Keyboard_User_Main(context), attached)
 }
@@ -73,7 +73,12 @@ export async function Keyboard_User_Main(context: Context) {
 
         if (hasAnyCurrency) {
             keyboard_user.callbackButton({ label: `${ico_list['statistics'].ico} Рейтинги`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' })
-                .textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' }).row();
+            
+            const hasFacults = await prisma.allianceFacult.count({ where: { id_alliance: alliance.id } }) > 0;
+            if (hasFacults) {
+                keyboard_user.textButton({ label: `${ico_list['statistics'].ico} Отчатор`, payload: { command: 'alliance_rank_enter' }, color: 'secondary' })
+            }
+            keyboard_user.row();
         }
 
         const hasShop = await prisma.allianceShop.findFirst({
@@ -113,14 +118,31 @@ export async function Keyboard_User_Main(context: Context) {
         }
     }
 
-    keyboard_user
-        .callbackButton({ label: '🧚‍♀ Услуги', payload: { command: 'service_enter' }, color: 'secondary' });
+    // [!] ИСПРАВЛЕНИЕ: Пункт 3 - Кнопка услуг показывается только если есть обсуждения
+    let showService = false;
+    if (user && user.id_alliance && user.id_alliance > 0) {
+        const topicMonitorsCount = await prisma.topicMonitor.count({
+            where: {
+                monitor: {
+                    id_alliance: user.id_alliance
+                }
+            }
+        });
+        if (topicMonitorsCount > 0) {
+            showService = true;
+        }
+    }
+
+    if (showService) {
+        keyboard_user.callbackButton({ label: '🧚‍♀ Услуги', payload: { command: 'service_enter' }, color: 'secondary' });
+    }
     
     if (showUpgrade) {
         keyboard_user.callbackButton({ label: '⚡ Прокачка', payload: { command: 'abilities_upgrade_enter' }, color: 'secondary' });
     }
     keyboard_user.row();
 
+    // Кнопка магазина только если жетонов > 5
     if (user && user.medal > 5) {
         keyboard_user.callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row();
     }
@@ -159,12 +181,12 @@ export async function Main_Menu_Admin_Init(context: any) {
     
     let text = ''
     if (alli_get) {
-        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
+        text = `${ico_list['alliance'].ico} Доступ разрешен, зашифрованное соединение через VPN: https:/${alli_get.name}:${alli_get.idvk}/RP_bank/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}! 💳 UID-${user?.id}\n${coin}\n\n🔑 Добро пожаловать в [${alli_get?.name} | 📜 AUID: ${alli_get?.id}]`
         if (facult_rank) {
             text += ` \n${facult_rank}`
         }
     } else {
-        text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/Ministry_of_Magic/Central_Bank_MM/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
+        text = `🏦 Доступ разрешен, зашифрованное соединение по proxy: https:/RP_bank/${user?.id}:${user?.idvk}\n✅ Вы авторизованы, ${user?.name}!\n💳 UID-${user?.id} Баланс: ${user.medal}🔘`
     }
     await Send_Message(context.peerId, text, await Keyboard_Admin_Main(context), attached)
 }

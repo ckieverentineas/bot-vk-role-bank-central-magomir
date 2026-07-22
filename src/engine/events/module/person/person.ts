@@ -62,7 +62,6 @@ export async function Person_Register(context: any) {
 				keyboard: Keyboard.builder()
 				.textButton({ label: 'Союзник Кнопки', payload: { command: 'student' }, color: 'secondary' }).row()
                 .textButton({ label: 'Союзник Номер', payload: { command: 'student' }, color: 'secondary' }).row()
-				.textButton({ label: 'Не союзник', payload: { command: 'professor' }, color: 'secondary' })
 				.textButton({ label: 'Соло', payload: { command: 'citizen' }, color: 'secondary' })
 				.oneTime().inline(), 
                 answerTimeLimit
@@ -122,24 +121,23 @@ export async function Person_Register(context: any) {
         person.alliance = alliance.name
         person.id_alliance = alliance.id
     }
-    
-    // ВЫБОР ПОЛОЖЕНИЯ (ОБНОВЛЕННАЯ ЛОГИКА)
+        
+    // ВЫБОР ПОЛОЖЕНИЯ
     let answer_check1 = false
     while (answer_check1 == false) {
-        // Для персонажей не в альянсе используем стандартные опции
+        // Для персонажей не в альянсе
         if (!person.id_alliance || person.id_alliance <= 0) {
-            // Стандартные опции для "Соло" и "Не союзник"
             const options = ['Ученик', 'Житель', 'Профессор', 'Декан', 'Бизнесвумен(мэн)', 'Другое'];
             const keyboard = new KeyboardBuilder();
             
-            // Создаем клавиатуру из стандартных опций
             for (let i = 0; i < options.length; i += 2) {
-                keyboard.textButton({ 
-                    label: options[i], 
-                    payload: { command: 'select_class', class: options[i] }, 
-                    color: 'secondary' 
-                });
-                
+                if (options[i]) {
+                    keyboard.textButton({ 
+                        label: options[i], 
+                        payload: { command: 'select_class', class: options[i] }, 
+                        color: 'secondary' 
+                    });
+                }
                 if (options[i + 1]) {
                     keyboard.textButton({ 
                         label: options[i + 1], 
@@ -147,55 +145,46 @@ export async function Person_Register(context: any) {
                         color: 'secondary' 
                     });
                 }
-                
-                if (i + 2 < options.length) {
+                if (options[i] || options[i + 1]) {
                     keyboard.row();
                 }
             }
             
             const answer1 = await context.question(
-                `${ico_list['attach'].ico} Укажите ваше положение в ${person.alliance}.\n\n(Эти данные носят исключительно декоративный характер — выберите статус, который лучше всего резонирует с вашим внутренним сигналом).`,
+                `🧷 Укажите ваше положение в ${person.alliance}:`,
                 { keyboard: keyboard.inline(), answerTimeLimit }
             );
             
             if (answer1.isTimeout) { 
-                return await context.send(`${ico_list['time'].ico} Время ожидания выбора положения истекло!`) 
+                return await context.send(`${ico_list['time'].ico} Время ожидания истекло!`) 
             }
             
             if (!answer1.payload) {
-                await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`);
+                await context.send(`${ico_list['help'].ico} Жмите только по кнопкам!`);
             } else {
                 person.class = answer1.payload.class;
                 answer_check1 = true;
             }
         } else {
-            // Для персонажей в альянсе используем настройки альянса
             const settings = await getClassSettings(person.id_alliance);
             
             if (settings.mode === 'free') {
-                // Режим произвольного ввода
-                await context.send(
-                    `${ico_list['attach'].ico} Укажите ваше положение в ${person.alliance}.\n\n` +
-                    `(Эти данные носят исключительно декоративный характер — введите статус, который лучше всего резонирует с вашим внутренним сигналом).\n\n` +
-                    `${ico_list['help'].ico} Введите ваше положение:`
-                );
-                
                 const answer1: any = await context.question(
-                    `Введите ваше положение в ${person.alliance}:`,
+                    `🧷 Укажите ваше положение в ${person.alliance}:`,
                     { answerTimeLimit: timer_text }
                 );
                 
                 if (answer1.isTimeout) { 
-                    return await context.send(`${ico_list['time'].ico} Время ожидания ввода положения истекло!`) 
+                    return await context.send(`${ico_list['time'].ico} Время ожидания истекло!`) 
                 }
                 
                 if (!answer1.text || answer1.text.trim() === '') {
-                    await context.send(`${ico_list['warn'].ico} Положение не может быть пустым! Попробуйте снова.`);
+                    await context.send(`${ico_list['warn'].ico} Положение не может быть пустым!`);
                     continue;
                 }
                 
                 if (answer1.text.length > 32) {
-                    await context.send(`${ico_list['warn'].ico} Название положения слишком длинное (максимум 32 символа)! Попробуйте снова.`);
+                    await context.send(`${ico_list['warn'].ico} Максимум 32 символа!`);
                     continue;
                 }
                 
@@ -203,53 +192,68 @@ export async function Person_Register(context: any) {
                 answer_check1 = true;
                 
             } else {
-                // Режим с кнопками (default или custom)
                 const options = await getClassOptions(person.id_alliance);
+                const hasValidOptions = options.some(opt => opt && opt.trim() !== '');
                 
-                if (options.length === 0) {
-                    // Если опции не настроены, используем стандартные
-                    const fallbackOptions = ['Ученик', 'Житель', 'Профессор', 'Декан', 'Бизнесвумен(мэн)', 'Другое'];
-                    options.push(...fallbackOptions);
+                if (!hasValidOptions) {
+                    const answer1: any = await context.question(
+                        `🧷 Укажите ваше положение в ${person.alliance}:`,
+                        { answerTimeLimit: timer_text }
+                    );
+                    
+                    if (answer1.isTimeout) { 
+                        return await context.send(`${ico_list['time'].ico} Время ожидания истекло!`) 
+                    }
+                    
+                    if (!answer1.text || answer1.text.trim() === '') {
+                        await context.send(`${ico_list['warn'].ico} Положение не может быть пустым!`);
+                        continue;
+                    }
+                    
+                    if (answer1.text.length > 32) {
+                        await context.send(`${ico_list['warn'].ico} Максимум 32 символа!`);
+                        continue;
+                    }
+                    
+                    person.class = answer1.text;
+                    answer_check1 = true;
+                    continue;
                 }
                 
+                const filteredOptions = options.filter(opt => opt && opt.trim() !== '');
                 const keyboard = new KeyboardBuilder();
                 
-                // Создаем клавиатуру из настроек
-                for (let i = 0; i < options.length; i += 2) {
-                    if (options[i]) {
-                        const label1 = options[i].length > 40 ? options[i].substring(0, 37) + '...' : options[i];
+                for (let i = 0; i < filteredOptions.length; i += 2) {
+                    if (filteredOptions[i]) {
                         keyboard.textButton({ 
-                            label: label1, 
-                            payload: { command: 'select_class', class: options[i] }, 
+                            label: filteredOptions[i], 
+                            payload: { command: 'select_class', class: filteredOptions[i] }, 
                             color: 'secondary' 
                         });
                     }
-                    
-                    if (options[i + 1]) {
-                        const label2 = options[i + 1].length > 40 ? options[i + 1].substring(0, 37) + '...' : options[i + 1];
+                    if (filteredOptions[i + 1]) {
                         keyboard.textButton({ 
-                            label: label2, 
-                            payload: { command: 'select_class', class: options[i + 1] }, 
+                            label: filteredOptions[i + 1], 
+                            payload: { command: 'select_class', class: filteredOptions[i + 1] }, 
                             color: 'secondary' 
                         });
                     }
-                    
-                    if (i + 2 < options.length) {
+                    if (filteredOptions[i] || filteredOptions[i + 1]) {
                         keyboard.row();
                     }
                 }
                 
                 const answer1 = await context.question(
-                    `${ico_list['attach'].ico} Укажите ваше положение в ${person.alliance}.\n\n(Эти данные носят исключительно декоративный характер — выберите статус, который лучше всего резонирует с вашим внутренним сигналом).`,
+                    `🧷 Укажите ваше положение в ${person.alliance}.`,
                     { keyboard: keyboard.inline(), answerTimeLimit }
                 );
                 
                 if (answer1.isTimeout) { 
-                    return await context.send(`${ico_list['time'].ico} Время ожидания выбора положения истекло!`) 
+                    return await context.send(`${ico_list['time'].ico} Время ожидания истекло!`) 
                 }
                 
                 if (!answer1.payload) {
-                    await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`);
+                    await context.send(`${ico_list['help'].ico} Жмите только по кнопкам!`);
                 } else {
                     person.class = answer1.payload.class;
                     answer_check1 = true;
@@ -267,7 +271,7 @@ export async function Person_Register(context: any) {
         // ввод специализации
         const accusative = await getTerminology(person.id_alliance || 0, 'accusative');
         const spec_name = await Input_Text(context, 
-            `Укажите вашу специализацию в [${person.alliance}]. Если вы профессор/житель, введите должность (не ${accusative}) и т.п. ...\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 
+            `Укажите вашу специализацию в [${person.alliance}]. ...\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 
             150
         );
         
@@ -372,7 +376,13 @@ export async function Person_Register(context: any) {
 
     const ans_selector = `${ico_list['save'].ico} Сохранение аватара [${!check_bbox ? "легально" : "НЕЛЕГАЛЬНО"}] UID-${save.id}:\n👥 ${save.spec} ${save.class} @id${account?.idvk}(${save.name}) (UID: ${save.id})\n${ico_list['alliance'].ico} Ролевая: ${save.id_alliance == 0 ? `Соло` : save.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty}`
     
-    await Send_Message(chat_id, `${ans_selector}`)
+    // Уведомление в локальный чат альянса, если есть
+    if (alli_get?.id_chat && alli_get.id_chat > 0) {
+        await Send_Message(alli_get.id_chat, ans_selector);
+    } else {
+        await Send_Message(chat_id, ans_selector);
+    }
+    
 	await Keyboard_Index(context, `${ico_list['help'].ico} Подсказка: Когда все операции вы успешно завершили, напишите [!банк] без квадратных скобочек, а затем нажмите кнопку: ${ico_list['success'].ico}Подтвердить авторизацию!`)
 }
 

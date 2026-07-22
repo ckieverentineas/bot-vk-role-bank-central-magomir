@@ -152,7 +152,7 @@ export async function Alliance_Add(context: Context) {
 	    	const alli_cr = await prisma.alliance.create({ data: { name: group.name!, idvk: group.id!, hidden: false } })
 	    	await Logger(`In database created new alliance id ${alli_cr.id} name ${alli_cr.name} by user ${context.peerId}`)
 	    	await context.send(`${ico_list['save'].ico} Поздравляем с заключением нового союза!\n\n${ico_list['message'].ico} ${alli_cr.id} - ${alli_cr.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_cr.idvk}`)
-            await Send_Message(chat_id, `${ico_list['save'].ico} Заключен новый союз \n${ico_list['message'].ico} Сообщение: ${alli_cr.id} - ${alli_cr.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_cr.idvk}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} Министерство Магии`)
+            await Send_Message(chat_id, `${ico_list['save'].ico} Заключен новый союз \n${ico_list['message'].ico} Сообщение: ${alli_cr.id} - ${alli_cr.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_cr.idvk}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} РП-банк`)
 	    } else {
 	    	await Logger(`In database already created alliance name ${group.id}`)
             await context.send(`${ico_list['warn'].ico} Союз уже был заключен с:\n\n${ico_list['message'].ico} ${alli_check.id} - ${alli_check.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_check.idvk}`)
@@ -182,7 +182,7 @@ async function Alliance_Destroy(context: Context, target: number) {
             ]).then(([alli_del]) => {
                 event_logger = `${ico_list['delete'].ico} Поздравляем с разрушением союза для:\n\n${ico_list['message'].ico} ${alli_del.id} - ${alli_del.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_del.idvk}` 
                 Logger(`In database deleted alliance ${alli_del.name}-${alli_del.id} by user ${context.peerId}`);
-                Send_Message(chat_id, `${ico_list['delete'].ico} Разорван древний союз \n${ico_list['message'].ico} Сообщение: ${alli_del.id} - ${alli_del.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_del.idvk}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} Министерство Магии`)
+                Send_Message(chat_id, `${ico_list['delete'].ico} Разорван древний союз \n${ico_list['message'].ico} Сообщение: ${alli_del.id} - ${alli_del.name}\n${ico_list['attach'].ico} Ссылка: https://vk.com/club${alli_del.idvk}\n${ico_list['person'].ico} @id${user.idvk}(${user.name}) (UID: ${user.id})\n${ico_list['alliance'].ico} РП-банк`)
             })
             .catch((error) => {
                 event_logger = `${ico_list['warn'].ico} Произошла ошибка разрушения союза, попробуйте позже` 

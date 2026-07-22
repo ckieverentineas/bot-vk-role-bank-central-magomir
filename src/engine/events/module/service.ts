@@ -16,14 +16,7 @@ export async function Service_Enter(context: any) {
     if (!user) { return; }
     const attached = await CardSystem.getServiceMenuBackground(user);
 
-    const keyboard = new KeyboardBuilder();
-
-    if (user.medal > 5) {
-        keyboard.callbackButton({ label: '🍷 Французское вино — оно одно', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
-    }
-
-    keyboard.textButton({ label: '!пкметр', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
-
+    // [!] ИСПРАВЛЕНИЕ: Пункт 3 - Проверка наличия обсуждений
     let showTopicActivity = false;
     if (user.id_alliance && user.id_alliance > 0) {
         const topicMonitorsCount = await prisma.topicMonitor.count({
@@ -38,10 +31,31 @@ export async function Service_Enter(context: any) {
         }
     }
 
-    if (showTopicActivity) {
-        keyboard.callbackButton({ label: '📊 Активность в РП', payload: { command: 'topic_rank_v2' }, color: 'secondary' }).row();
+    // Если нет обсуждений - показываем сообщение и выходим
+    if (!showTopicActivity) {
+        // [!] ИСПРАВЛЕНИЕ: Используем KeyboardBuilder вместо Keyboard
+        const exitKeyboard = new KeyboardBuilder()
+            .callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' })
+            .inline().oneTime();
+            
+        await vk?.api.messages.edit({ 
+            peer_id: context.peerId, 
+            conversation_message_id: context.conversationMessageId, 
+            message: `📭 В ролевой нет подключенных обсуждений.\n\nОбратитесь к администратору для настройки.`,
+            keyboard: exitKeyboard
+        });
+        return;
     }
 
+    // Если есть обсуждения - показываем меню услуг
+    const keyboard = new KeyboardBuilder();
+
+    if (user.medal > 5) {
+        keyboard.callbackButton({ label: '🍷 Французское вино — оно одно', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
+    }
+
+    keyboard.textButton({ label: '!пкметр', payload: { command: 'service_kvass_open' }, color: 'secondary' }).row();
+    keyboard.callbackButton({ label: '📊 Активность в РП', payload: { command: 'topic_rank_v2' }, color: 'secondary' }).row();
     keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).row().inline().oneTime();
 
     const text = `✉ В данный момент доступны следующие операции:`;

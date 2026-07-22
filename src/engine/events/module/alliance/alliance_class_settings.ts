@@ -53,23 +53,23 @@ export async function getClassSettings(allianceId: number): Promise<ClassSetting
 
 // Получение списка опций для отображения
 export async function getClassOptions(allianceId: number): Promise<string[]> {
-  const settings = await getClassSettings(allianceId);
-  
-  if (settings.mode === "free") {
-    return []; // Пустой массив для свободного ввода
-  }
-  
-  // Для default и custom режимов возвращаем опции
-  const options = [];
-  
-  if (settings.option1 && settings.option1.trim()) options.push(settings.option1);
-  if (settings.option2 && settings.option2.trim()) options.push(settings.option2);
-  if (settings.option3 && settings.option3.trim()) options.push(settings.option3);
-  if (settings.option4 && settings.option4.trim()) options.push(settings.option4);
-  if (settings.option5 && settings.option5.trim()) options.push(settings.option5);
-  if (settings.option6 && settings.option6.trim()) options.push(settings.option6);
-  
-  return options;
+    const settings = await getClassSettings(allianceId);
+    
+    if (settings.mode === "free") {
+        return []; // Пустой массив для свободного ввода
+    }
+    
+    // Для default и custom режимов возвращаем ТОЛЬКО непустые опции
+    const options = [];
+    
+    if (settings.option1 && settings.option1.trim()) options.push(settings.option1);
+    if (settings.option2 && settings.option2.trim()) options.push(settings.option2);
+    if (settings.option3 && settings.option3.trim()) options.push(settings.option3);
+    if (settings.option4 && settings.option4.trim()) options.push(settings.option4);
+    if (settings.option5 && settings.option5.trim()) options.push(settings.option5);
+    if (settings.option6 && settings.option6.trim()) options.push(settings.option6);
+    
+    return options;
 }
 
 // Проверка режима
@@ -267,58 +267,50 @@ async function updateSettingsMode(
 }
 
 async function editCustomButtons(allianceId: number, context: any) {
-  const settings = await getClassSettings(allianceId);
-  const alliance = await prisma.alliance.findFirst({ where: { id: allianceId } });
-  
-  await context.send(`${ico_list['config'].ico} Редактирование кастомных кнопок для "${alliance?.name}":\n\n` +
-    `Текущие значения:\n1. ${settings.option1 || '(не задано)'}\n2. ${settings.option2 || '(не задано)'}\n3. ${settings.option3 || '(не задано)'}\n4. ${settings.option4 || '(не задано)'}\n5. ${settings.option5 || '(не задано)'}\n6. ${settings.option6 || '(не задано)'}\n\n` +
-    `Введите новые названия для кнопок (можно оставить пустым, чтобы удалить кнопку, или "пропустить" чтобы оставить текущее значение):`);
-  
-  const newOptions: any = {};
-  const optionKeys = ['option1', 'option2', 'option3', 'option4', 'option5', 'option6'] as const;
-  
-  for (let i = 0; i < optionKeys.length; i++) {
-    const key = optionKeys[i];
-    const currentValue = settings[key] || '';
+    const settings = await getClassSettings(allianceId);
+    const alliance = await prisma.alliance.findFirst({ where: { id: allianceId } });
     
-    const optionText = await context.question(
-      `Кнопка ${i + 1} (текущее: "${currentValue}"):\nВведите новое название или "пропустить" чтобы оставить как есть:`,
-      timer_text
-    );
+    await context.send(`${ico_list['config'].ico} Редактирование кастомных кнопок для "${alliance?.name}":\n\n` +
+        `Текущие значения:\n1. ${settings.option1 || '(не задано)'}\n2. ${settings.option2 || '(не задано)'}\n3. ${settings.option3 || '(не задано)'}\n4. ${settings.option4 || '(не задано)'}\n5. ${settings.option5 || '(не задано)'}\n6. ${settings.option6 || '(не задано)'}\n\n` +
+        `🔹 "Пропустить" — оставить\n🔹 "Удалить" — убрать кнопку\n🔹 "Готово" — завершить`);
     
-    if (optionText.isTimeout) {
-      await context.send(`${ico_list['time'].ico} Время ожидания истекло!`);
-      return;
-    }
+    const newOptions: any = {};
+    const optionKeys = ['option1', 'option2', 'option3', 'option4', 'option5', 'option6'];
     
-    if (optionText.text && optionText.text.toLowerCase() !== 'пропустить') {
-        if (optionText.text.length > 40) {
-            await context.send(`${ico_list['warn'].ico} Слишком длинное название! Макс: 40 символов. Попробуйте снова.`);
-            i--; // Повторить этот вопрос
+    for (let i = 0; i < optionKeys.length; i++) {
+        const key = optionKeys[i];
+        const currentValue = settings[key] || '';
+        
+        const optionText = await context.question(
+            `Кнопка ${i + 1} (текущее: "${currentValue}"):`,
+            timer_text
+        );
+        
+        if (optionText.isTimeout) return;
+        
+        const input = optionText.text.trim();
+        
+        if (input.toLowerCase() === 'готово') break;
+        if (input.toLowerCase() === 'пропустить') {
+            if (currentValue) newOptions[key] = currentValue;
             continue;
         }
-        newOptions[key] = optionText.text;
-    } else {
-      newOptions[key] = currentValue;
+        if (input.toLowerCase() === 'удалить') {
+            newOptions[key] = '';
+            continue;
+        }
+        if (input.length > 40) {
+            await context.send(`⚠ Макс 40 символов`);
+            i--;
+            continue;
+        }
+        newOptions[key] = input;
     }
-  }
-  
-  // Сохраняем изменения
-  await prisma.allianceClassSetting.update({
-    where: { allianceId },
-    data: newOptions
-  });
-  
-  await context.send(`${ico_list['success'].ico} Кастомные кнопки обновлены!`);
-  
-  // Логируем
-  const user = await Person_Get(context);
-  await Send_Message(chat_id, 
-    `${ico_list['reconfig'].ico} Изменение кастомных кнопок\n` +
-    `${ico_list['message'].ico} Новые кнопки: ${newOptions.option1}, ${newOptions.option2}, ${newOptions.option3}, ${newOptions.option4}, ${newOptions.option5}, ${newOptions.option6}\n` +
-    `${ico_list['person'].ico} @id${user?.idvk}(${user?.name}) (UID: ${user?.id})\n` +
-    `${ico_list['alliance'].ico} ${alliance?.name}`
-  );
+    
+    if (Object.keys(newOptions).length > 0) {
+        await prisma.allianceClassSetting.update({ where: { allianceId }, data: newOptions });
+        await context.send(`✅ Сохранено!`);
+    }
 }
 
 // Функция для получения клавиатуры с положениями

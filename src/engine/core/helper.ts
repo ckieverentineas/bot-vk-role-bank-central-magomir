@@ -30,17 +30,37 @@ export async function Keyboard_Index(context: any, messa: any) {
     const user_check: User | null | undefined = await Person_Get(context)
     if (!user_check) { return }
     const keyboard = new KeyboardBuilder()
+    
     if (user_check.idvk == root) {
         keyboard.textButton({ label: '!Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
     }
+    
     if (await Accessed(context) != 1) {
         keyboard.textButton({ label: '!права', payload: { command: 'sliz' }, color: 'negative' }).row()
         keyboard.textButton({ label: '!опсоло', payload: { command: 'sliz' }, color: 'positive' })
         keyboard.textButton({ label: '!опмасс', payload: { command: 'sliz' }, color: 'negative' }).row()
     } 
+    
     keyboard.textButton({ label: '!банк', payload: { command: 'sliz' }, color: 'positive' }).row().oneTime()
-    keyboard.textButton({ label: '!помощь', payload: { command: 'sliz' }, color: 'secondary' }).row()
-    .textButton({ label: '!СБП', payload: { command: 'sliz' }, color: 'secondary' })
+    
+    // [!] Кнопка !СБП для ВСЕХ (включая админов) - только если есть разрешенная валюта
+    let showSBP = false;
+    if (user_check.id_alliance && user_check.id_alliance > 0) {
+        const sbpCoin = await prisma.allianceCoin.findFirst({
+            where: { 
+                id_alliance: user_check.id_alliance,
+                sbp_on: true 
+            }
+        });
+        if (sbpCoin) {
+            showSBP = true;
+        }
+    }
+    
+    if (showSBP) {
+        keyboard.textButton({ label: '!СБП', payload: { command: 'sliz' }, color: 'secondary' });
+    }
+    
     // Отправляем клавиатуру без сообщения
     await vk?.api.messages.send({ peer_id: context.senderId, random_id: 0, message: `${messa}\u00A0`, keyboard: keyboard })
     .then(async (response) => { 
@@ -272,7 +292,7 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
                         continue
                     }
                     if (Number.isNaN(inputer)) {
-                        await context.send(`${ico_list['warn'].ico} Не ну реально, ты дурак/дура или как? Число напиши нафиг!`);
+                        await context.send(`${ico_list['warn'].ico} Ошибка! Требуется число. Попробуйте снова.`);
                         continue
                     }
                     input = inputer
@@ -415,19 +435,25 @@ export async function Send_Message_Smart(
  * @param id_alliance ID альянса, чьи валюты показываем
  * @returns ID выбранной валюты или null
  */
-export async function Select_Alliance_Coin(context: any, id_alliance: number): Promise<number | null> {
+export async function Select_Alliance_Coin(context: any, id_alliance: number, onlySBP: boolean = false): Promise<number | null> {
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({
-        where: { id_alliance: Number(id_alliance) },
+        where: { 
+            id_alliance: Number(id_alliance),
+            ...(onlySBP ? { sbp_on: true } : {})
+        },
         orderBy: { order: 'asc' }
     });
 
     if (!coin_pass || coin_pass.length === 0) {
-        await context.send(`${ico_list['warn'].ico} Админы ещё не создали ролевые валюты.`);
+        const message = onlySBP 
+            ? `${ico_list['warn'].ico} В ролевой нет валют с разрешенной СБП.\nОбратитесь к администратору для включения СБП.`
+            : `${ico_list['warn'].ico} Админы ещё не создали ролевые валюты.`;
+        await context.send(message);
         return null;
     }
 
     let coin_check = false;
-    let current_offset = 0; // Измениял название для ясности
+    let current_offset = 0;
 
     while (!coin_check) {
         const keyboard = new KeyboardBuilder();
@@ -501,13 +527,13 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number): P
         } else if (payload.command === 'coin_navigation') {
             // Навигация вперед/назад
             current_offset = payload.new_offset;
-            // Продолжаем цикл, чтобы показать новую страницу
             continue;
         }
     }
 
     return null;
 }
+
 
 const message_events: String[] = [];
 export async function Antivirus_VK(context: MessageContext) {

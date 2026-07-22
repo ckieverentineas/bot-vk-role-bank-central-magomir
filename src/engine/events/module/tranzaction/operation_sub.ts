@@ -141,9 +141,15 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             await context.send(`❗ Выпнут пользователь ${user_del.name}`)
             const notif_ans = await Send_Message(user_del.idvk, `❗ ${formatUserNameUid(user_del)}, ваш персонаж больше не состоит в ролевой.`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователя завершена успешно.`)
+            
+            // [!] Изменение: Пункт 8 - Уведомление в локальный чат альянса
             const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name}) (UID: ${user_del.id})`
-            if (alli_get) { await Send_Message(alli_get.id_chat, ans_log) }
-            await Send_Message(chat_id, ans_log)
+            if (alli_get?.id_chat && alli_get.id_chat > 0) {
+                await Send_Message(alli_get.id_chat, ans_log);
+            } else {
+                await Send_Message(chat_id, ans_log);
+            }
+            
             await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
             
             // Движок модуля принятия решений с баллами

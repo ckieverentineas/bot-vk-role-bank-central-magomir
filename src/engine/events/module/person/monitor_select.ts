@@ -151,7 +151,6 @@ export async function Monitor_Select_Person_Handler(context: any) {
     }
 }
 
-// Функция для получения статуса персонажа относительно мониторов
 export async function Get_Person_Monitor_Status(accountId: number, userId: number, allianceId?: number | null) {
     // Если accountId = 0, значит аккаунт не найден
     if (accountId === 0) {
@@ -192,6 +191,19 @@ export async function Get_Person_Monitor_Status(accountId: number, userId: numbe
         };
     }
     
+    // [!] ИСПРАВЛЕНИЕ: Проверяем есть ли мониторы в альянсе
+    const monitorsInAlliance = await prisma.monitor.count({
+        where: { id_alliance: actualAllianceId }
+    });
+    
+    if (monitorsInAlliance === 0) {
+        return { 
+            status: 'no_monitors', 
+            description: '', // [!] Пустая строка, чтобы ничего не показывать
+            emoji: '⏸'
+        };
+    }
+    
     // Получаем явный выбор для этого альянса
     const monitorSelection = await prisma.monitorSelection.findFirst({
         where: {
@@ -206,29 +218,12 @@ export async function Get_Person_Monitor_Status(accountId: number, userId: numbe
     // Если есть явный выбор для этого альянса
     if (monitorSelection) {
         if (monitorSelection.userId === userId) {
-            // Этот персонаж выбран для мониторов в этом альянсе
-            
-            // Проверяем, есть ли мониторы в альянсе персонажа
-            const monitorsInAlliance = await prisma.monitor.count({
-                where: { id_alliance: actualAllianceId }
-            });
-            
-            if (monitorsInAlliance === 0) {
-                return { 
-                    status: 'selected_but_no_monitors', 
-                    description: '✅ Выбран, но в альянсе нет мониторов',
-                    emoji: '✅⏸'
-                };
-            }
-            
-            // Персонаж выбран и находится в альянсе с мониторами
             return { 
                 status: 'selected', 
                 description: '✅ Выбран для начислений от мониторов',
                 emoji: '✅'
             };
         } else {
-            // Другой персонаж выбран для мониторов в этом альянсе
             return { 
                 status: 'other_selected', 
                 description: `⏸ ${monitorSelection.user.name} получает начисления с мониторов в этом альянсе`,
@@ -239,38 +234,10 @@ export async function Get_Person_Monitor_Status(accountId: number, userId: numbe
     
     // Проверяем старое поле для обратной совместимости
     if (account.monitor_select_user === userId) {
-        // Проверяем, находится ли персонаж в каком-либо альянсе
         if (!person.id_alliance || person.id_alliance <= 0) {
             return { 
                 status: 'selected_but_no_alliance', 
                 description: '✅ Выбран, но персонаж не в альянсе',
-                emoji: '✅⏸'
-            };
-        }
-        
-        // ВАЖНО: Проверяем, что выбранный персонаж находится в ТЕКУЩЕМ альянсе
-        if (person.id_alliance !== actualAllianceId) {
-            // Персонаж выбран, но в другом альянсе!
-            const personAlliance = await prisma.alliance.findFirst({
-                where: { id: person.id_alliance }
-            });
-            
-            return { 
-                status: 'selected_in_other_alliance', 
-                description: `✅ Выбран для начислений с мониторов в альянсе "${personAlliance?.name}"`,
-                emoji: '✅↔️'
-            };
-        }
-        
-        // Проверяем, есть ли мониторы в альянсе персонажа
-        const monitorsInAlliance = await prisma.monitor.count({
-            where: { id_alliance: actualAllianceId }
-        });
-        
-        if (monitorsInAlliance === 0) {
-            return { 
-                status: 'selected_but_no_monitors', 
-                description: '✅ Выбран, но в альянсе нет мониторов',
                 emoji: '✅⏸'
             };
         }
@@ -282,20 +249,7 @@ export async function Get_Person_Monitor_Status(accountId: number, userId: numbe
         };
     }
     
-    // Проверяем, есть ли мониторы в этом альянсе
-    const monitorsInAlliance = await prisma.monitor.count({
-        where: { id_alliance: actualAllianceId }
-    });
-    
-    if (monitorsInAlliance === 0) {
-        return { 
-            status: 'no_monitors', 
-            description: '⏸ В альянсе нет активных мониторов',
-            emoji: '⏸'
-        };
-    }
-    
-    // Получаем всех персонажей пользователя в этом альянсе
+    // Проверяем текущего открытого персонажа
     const allPersonsInAlliance = await prisma.user.findMany({
         where: { 
             id_account: account.id,
@@ -311,7 +265,6 @@ export async function Get_Person_Monitor_Status(accountId: number, userId: numbe
         };
     }
     
-    // Проверяем текущего открытого персонажа
     const currentPersonInAlliance = allPersonsInAlliance.find(p => p.id === account.select_user);
     
     if (currentPersonInAlliance) {
