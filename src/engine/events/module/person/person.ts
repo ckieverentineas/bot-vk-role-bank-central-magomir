@@ -244,7 +244,7 @@ export async function Person_Register(context: any) {
                 }
                 
                 const answer1 = await context.question(
-                    `🧷 Укажите ваше положение в ${person.alliance}.`,
+                    `🧷 Укажите ваше положение в ${person.alliance}:`,
                     { keyboard: keyboard.inline(), answerTimeLimit }
                 );
                 
@@ -271,7 +271,7 @@ export async function Person_Register(context: any) {
         // ввод специализации
         const accusative = await getTerminology(person.id_alliance || 0, 'accusative');
         const spec_name = await Input_Text(context, 
-            `Укажите вашу специализацию в [${person.alliance}]. ...\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 
+            `Укажите вашу специализацию в [${person.alliance}].\n${ico_list['help'].ico}Отправьте сообщение в чат для изменения:`, 
             150
         );
         

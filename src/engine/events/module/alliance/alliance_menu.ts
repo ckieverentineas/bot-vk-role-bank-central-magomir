@@ -111,7 +111,7 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
                     color: 'secondary' 
                 }).row()
                 keyboard.textButton({ 
-                    label: `${ico_list['config'].ico} !закончить учебный год`, 
+                    label: `${ico_list['config'].ico} !закончить сезон`, 
                     payload: { command: "alliance_config_end_year" },
                     color: 'primary' 
                 }).row()

@@ -298,12 +298,6 @@ async function showChildChestMenu(context: any, allianceId: number, parentChestI
         color: 'positive' 
     });
     
-    keyboard.textButton({ 
-        label: `← К сундукам`, 
-        payload: { command: 'child_back' }, 
-        color: 'secondary' 
-    })
-    
     // Отправляем сообщение
     try {
         const response = await Send_Message_Question(

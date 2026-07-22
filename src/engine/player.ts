@@ -1037,7 +1037,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await AllianceChest_Manager(context);
     });
-    hearManager.hear(/⚙ !закончить учебный год/, async (context) => {
+    hearManager.hear(/⚙ !закончить сезон/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (context.peerType == 'chat') { return }
@@ -1287,7 +1287,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     \n⭐ [🚀 !моники_on] — запуск мониторов ролевого проекта
                     \n⭐ [🚫 !моники_off] — остановка мониторов ролевого проекта
                     \n⭐ [!обновить ролки] — синхронизация названий ролевых проектов с базой данных
-                    \n⭐ [⚙ !закончить учебный год] — завершение учебного года/сезона ролевой
+                    \n⭐ [⚙ !закончить сезон] — завершение учебного года/сезона ролевой
                     \n⭐ [⚙ !основу настроить] — установка/изменение фона главного меню альянса
                     \n⭐ [⚙ !основу удалить] — удаление фона главного меню альянса
                     \n⭐ [⚙ !карту настроить] — установка/изменение фона карточек персонажей

@@ -266,16 +266,18 @@ async function updateSettingsMode(
   );
 }
 
+type ClassSettingsKeys = 'option1' | 'option2' | 'option3' | 'option4' | 'option5' | 'option6';
+
 async function editCustomButtons(allianceId: number, context: any) {
     const settings = await getClassSettings(allianceId);
     const alliance = await prisma.alliance.findFirst({ where: { id: allianceId } });
     
     await context.send(`${ico_list['config'].ico} Редактирование кастомных кнопок для "${alliance?.name}":\n\n` +
         `Текущие значения:\n1. ${settings.option1 || '(не задано)'}\n2. ${settings.option2 || '(не задано)'}\n3. ${settings.option3 || '(не задано)'}\n4. ${settings.option4 || '(не задано)'}\n5. ${settings.option5 || '(не задано)'}\n6. ${settings.option6 || '(не задано)'}\n\n` +
-        `🔹 "Пропустить" — оставить\n🔹 "Удалить" — убрать кнопку\n🔹 "Готово" — завершить`);
+        `🔹 "пропустить" — оставить\n🔹 "удалить" — удалить\n🔹 "готово" — завершить`);
     
     const newOptions: any = {};
-    const optionKeys = ['option1', 'option2', 'option3', 'option4', 'option5', 'option6'];
+    const optionKeys: ClassSettingsKeys[] = ['option1', 'option2', 'option3', 'option4', 'option5', 'option6'];
     
     for (let i = 0; i < optionKeys.length; i++) {
         const key = optionKeys[i];
