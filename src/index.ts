@@ -508,7 +508,7 @@ initializeGroupId().then(async () => {
         // Запуск регулярных задач
         setInterval(Worker_Online_Setter.bind(null, group_id!), 3600000); // онлайн каждые 60 минут
         setInterval(Worker_Checker, 86400000); // раз в день
-        setInterval(Auto_Backup_DB, 86400000); // бекап каждый день
+        //setInterval(Auto_Backup_DB, 86400000); // бекап каждый день
         
         // Очистка старых данных - каждый день через час после бекапа
         setInterval(CleanupOldPostStatistics, 86400000);

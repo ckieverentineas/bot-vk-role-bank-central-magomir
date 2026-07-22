@@ -97,6 +97,8 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     let image_url = '';
     let limit = 0;
     let limit_tr = false;
+    let isBundle = false;
+    let bundleItems: number[] = [];
 
     const name = await context.question(`🔖 Введите название товара:`, timer_text);
     if (name.isTimeout) return res;
@@ -114,12 +116,13 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     if (!alli_shop_cat) { return }
     const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
     if (!alli_shop) { return }
-    const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({ where: { id_alliance: Number(alli_shop.id_alliance) }, orderBy: { order: 'asc' } })
+    
     const selectedCoinId = await Select_Alliance_Coin(context, Number(alli_shop.id_alliance));
     const id_coin = selectedCoinId
     const newPrice = await Input_Number(context, `Введите цену для товара "${name_loc}"`, true)
     if (!newPrice) { return res }
 
+    // Вопрос 1: Лимитный?
     const confirm: { status: boolean, text: string } = await Confirm_User_Success(context, `сделать товар лимитным?`);
     await context.send(confirm.text);
     if (confirm.status) {
@@ -129,9 +132,103 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
         limit = parseInt(limitInput.text) || 0;
     }
 
-    const confirm1: { status: boolean, text: string } = await Confirm_User_Success(context, `добавлять товар в инвентарь пользователя при покупке покупателем?`);
+    // [!] Вопрос 2: Это набор?
+    const isBundleConfirm = await Confirm_User_Success(context, `сделать этот товар набором из других товаров?`);
+    await context.send(isBundleConfirm.text);
+        
+    if (isBundleConfirm.status) {
+        // [!] Ищем по ВСЕМУ АЛЬЯНСУ (все магазины, все категории)
+        const allItems = await prisma.allianceShopItem.findMany({
+            where: { 
+                hidden: false,
+                // Находим все товары, которые принадлежат магазинам этого альянса
+                id_shop: {
+                    in: await prisma.allianceShopCategory.findMany({
+                        where: {
+                            Alliance_Shop: {
+                                id_alliance: alli_shop.id_alliance
+                            }
+                        },
+                        select: { id: true }
+                    }).then(cats => cats.map(c => c.id))
+                }
+            },
+            select: { id: true, name: true, id_shop: true }
+        });
+        
+        if (allItems.length === 0) {
+            await context.send(`ℹ️ В альянсе пока нет товаров для создания набора.\nНабор не создан, товар сохранен как обычный.`);
+            isBundle = false;
+        } else {
+            isBundle = true;
+            
+            const bundleInput = await context.question(
+                `🧷 Введите ID товаров для набора через пробел:\n` +
+                `💡 Товары могут быть из разных магазинов и категорий\n` +
+                `Пример: 371 372 373`,
+                timer_text
+            );
+            
+            if (bundleInput.isTimeout) return res;
+            
+            bundleItems = bundleInput.text.trim().split(/\s+/)
+                .map((id: string) => parseInt(id))
+                .filter((id: number) => !isNaN(id) && id > 0);
+            
+            if (bundleItems.length === 0) {
+                await context.send(`❌ Не указаны ID товаров. Набор не создан.`);
+                isBundle = false;
+            } else {
+                // Проверяем существование товаров по ВСЕМУ АЛЬЯНСУ
+                const existingItems = await prisma.allianceShopItem.findMany({
+                    where: { 
+                        id: { in: bundleItems },
+                        hidden: false,
+                        id_shop: {
+                            in: await prisma.allianceShopCategory.findMany({
+                                where: {
+                                    Alliance_Shop: {
+                                        id_alliance: alli_shop.id_alliance
+                                    }
+                                },
+                                select: { id: true }
+                            }).then(cats => cats.map(c => c.id))
+                        }
+                    }
+                });
+                
+                if (existingItems.length !== bundleItems.length) {
+                    const foundIds = existingItems.map(i => i.id);
+                    const missingIds = bundleItems.filter(id => !foundIds.includes(id));
+                    await context.send(`❌ Товары с ID ${missingIds.join(', ')} не найдены в альянсе.`);
+                    isBundle = false;
+                } else {
+                    let bundlePreview = `📦 Состав набора:\n`;
+                    for (const item of existingItems) {
+                        const shop = await prisma.allianceShop.findFirst({
+                            where: {
+                                Shop_category: { some: { id: item.id_shop } }
+                            }
+                        });
+                        bundlePreview += `  ✅ ${item.id} - ${item.name} (${shop?.name || 'Без магазина'})\n`;
+                    }
+                    
+                    const confirmBundle = await Confirm_User_Success(context, `создать набор из этих товаров?\n\n${bundlePreview}`);
+                    if (!confirmBundle.status) {
+                        await context.send(`❌ Создание набора отменено.`);
+                        isBundle = false;
+                    }
+                }
+            }
+        }
+    }
+
+    // Вопрос 3: Добавлять в инвентарь?
+    const confirm1: { status: boolean, text: string } = await Confirm_User_Success(context, `добавлять товар в инвентарь пользователя при покупке?`);
     await context.send(confirm1.text);
     const inventory_tr = confirm1.status ? true : false
+    
+    // Создание товара
     if (name_loc) {
         const item_cr = await prisma.allianceShopItem.create({
             data: {
@@ -143,7 +240,9 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 id_coin: id_coin ?? 0,
                 limit: limit,
                 limit_tr: limit_tr,
-                inventory_tr: inventory_tr
+                inventory_tr: inventory_tr,
+                isBundle: isBundle,
+                bundleItems: isBundle ? JSON.stringify(bundleItems) : null
             }
         });
         await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  добавлен новый товар: ${item_cr.id}-${item_cr.name}`, 'admin_solo')
@@ -188,14 +287,40 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
 
     while (true) {
-        const item_check = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
-        if (!item_check) { await context.send(`❌ Товар не найден.`); return res; }
-        const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ where: { id: category.id } })
+        const item_check = await prisma.allianceShopItem.findFirst({ 
+            where: { id: data.id_item } 
+        });
+        if (!item_check) { 
+            await context.send(`❌ Товар не найден.`);
+            return res; 
+        }
+        
+        const alli_shop_cat = await prisma.allianceShopCategory.findFirst({ 
+            where: { id: category.id } 
+        })
         if (!alli_shop_cat) { return res }
-        const alli_shop = await prisma.allianceShop.findFirst({ where: { id: alli_shop_cat.id_alliance_shop } })
+        
+        const alli_shop = await prisma.allianceShop.findFirst({ 
+            where: { id: alli_shop_cat.id_alliance_shop } 
+        })
         if (!alli_shop) { return res }
-        const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } })
-        let text = `🛍 Просмотр товара: ${item_check.name}\n\n🧾 ID: ${item_check.id}\n${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n📜 Описание: ${item_check.description || 'Нет описания'}\n📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователями\n👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n\n⚙ Выберите действие:`;
+        
+        const coin_get: AllianceCoin | null = await prisma.allianceCoin.findFirst({ 
+            where: { id_alliance: Number(alli_shop.id_alliance), id: item_check.id_coin } 
+        })
+        
+        let text = `🛍 Просмотр товара: ${item_check.name}\n\n` +
+            `🧾 ID: ${item_check.id}\n` +
+            `${coin_get?.smile ?? '💰'} Стоимость [${coin_get?.name ?? ''}]: ${item_check.price}\n` +
+            `📜 Описание: ${item_check.description || 'Нет описания'}\n` +
+            `📍 Магазин: ${alli_shop?.name || 'Неизвестный магазин'}\n` +
+            `📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n` +
+            `${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n` +
+            `🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователям\n` +
+            `👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`
+        
+        text += `\n⚙ Выберите действие:`;
+        
         const keyboard = new KeyboardBuilder()
             .textButton({ label: '✏ Название', payload: { command: 'allianceshopitem_edit_name', id_item: item_check.id }, color: 'secondary' })
             .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopitem_edit_image', id_item: item_check.id }, color: 'secondary' }).row()
@@ -204,12 +329,37 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
             .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
             .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
             .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
-            .textButton({ label: '👜  Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
-            .textButton({ label: '⛔ Удалить', payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, color: 'negative' })
-            .textButton({ label: '🚫 Скрыть', payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, color: 'negative' })
+            .textButton({ label: '👜 Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
+        
+        // [!] Если товар является набором - показываем кнопки управления набором
+        if (item_check.isBundle) {
+            keyboard.textButton({ 
+                label: '👀 Набор', 
+                payload: { command: 'allianceshopitem_view_bundle', id_item: item_check.id }, 
+                color: 'secondary' 
+            })
+            .textButton({ 
+                label: '✏️ Товары набора', 
+                payload: { command: 'allianceshopitem_edit_bundle', id_item: item_check.id }, 
+                color: 'secondary' 
+            }).row()
+        }
+        
+        keyboard.textButton({ 
+            label: '⛔ Удалить', 
+            payload: { command: 'allianceshopitem_delete', id_item: item_check.id }, 
+            color: 'negative' 
+        })
+        .textButton({ 
+            label: '🚫 Скрыть', 
+            payload: { command: 'allianceshopitem_hide', id_item: item_check.id }, 
+            color: 'negative' 
+        })
+        
         const attached = item_check.image ? item_check.image : null;
         const item_bt = await Send_Message_Question(context, `${text}`, keyboard, attached ?? undefined);
         if (item_bt.exit) { return res; }
+        
         const config: any = {
             'allianceshopitem_delete': AllianceShopItem_Delete,
             'allianceshopitem_edit_name': AllianceShopItem_Edit_Name,
@@ -220,7 +370,9 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
             'allianceshopitem_edit_description': AllianceShopItem_Edit_Description,
             'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,
             'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin,
-            'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put
+            'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put,
+            'allianceshopitem_view_bundle': AllianceShopItem_View_Bundle,
+            'allianceshopitem_edit_bundle': AllianceShopItem_Edit_Bundle
         };
 
         if (item_bt.payload?.command in config) {
@@ -229,6 +381,150 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
     }
 
     return res;
+}
+
+async function AllianceShopItem_View_Bundle(context: any, data: any) {
+    const item = await prisma.allianceShopItem.findFirst({ 
+        where: { id: data.id_item } 
+    });
+    if (!item || !item.bundleItems) {
+        await context.send(`❌ Набор не найден.`);
+        return;
+    }
+    
+    const bundleItemIds = JSON.parse(item.bundleItems);
+    const bundleItems = await prisma.allianceShopItem.findMany({
+        where: { id: { in: bundleItemIds } }
+    });
+    
+    if (bundleItems.length === 0) {
+        await context.send(`❌ В наборе нет товаров.`);
+        return;
+    }
+    
+    let text = `📦 Состав набора "${item.name}":\n\n`;
+    for (const bundleItem of bundleItems) {
+        text += `  ✅ ${bundleItem.id} - ${bundleItem.name}\n`;
+    }
+    
+    await context.send(text);
+}
+
+async function AllianceShopItem_Edit_Bundle(context: any, data: any) {
+    const item = await prisma.allianceShopItem.findFirst({ 
+        where: { id: data.id_item } 
+    });
+    if (!item) {
+        await context.send(`❌ Товар не найден.`);
+        return;
+    }
+    
+    // Получаем все товары этой категории (не скрытые)
+    const itemsInCategory = await prisma.allianceShopItem.findMany({
+        where: { id_shop: item.id_shop, hidden: false },
+        select: { id: true, name: true }
+    });
+    
+    if (itemsInCategory.length === 0) {
+        await context.send(`❌ В категории нет товаров для набора.`);
+        return;
+    }
+    
+    // Показываем текущий состав
+    let currentText = `📦 Текущий состав набора "${item.name}":\n`;
+    if (item.bundleItems) {
+        const currentIds = JSON.parse(item.bundleItems);
+        const currentItems = await prisma.allianceShopItem.findMany({
+            where: { id: { in: currentIds } }
+        });
+        if (currentItems.length > 0) {
+            for (const ci of currentItems) {
+                currentText += `  ✅ ${ci.id} - ${ci.name}\n`;
+            }
+        } else {
+            currentText += `  ❌ Набор пуст\n`;
+        }
+    } else {
+        currentText += `  ❌ Набор пуст\n`;
+    }
+    await context.send(currentText);
+    
+    // Показываем доступные товары (кратко)
+    await context.send(`📋 В категории доступно ${itemsInCategory.length} товаров.`);
+    
+    const bundleInput = await context.question(
+        `🧷 Введите ID товаров для набора через пробел:\n` +
+        `💡 Чтобы посмотреть ID товаров, откройте категорию в магазине.\n` +
+        `💡 Чтобы очистить набор - введите 0\n` +
+        `Пример: 371 372 373`,
+        timer_text
+    );
+    
+    if (bundleInput.isTimeout) return;
+    
+    let newBundleItems: number[] = [];
+    
+    if (bundleInput.text.trim() !== '0') {
+        newBundleItems = bundleInput.text.trim().split(/\s+/)
+            .map((id: string) => parseInt(id))
+            .filter((id: number) => !isNaN(id) && id > 0);
+        
+        if (newBundleItems.length === 0) {
+            await context.send(`❌ Не указаны ID товаров.`);
+            return;
+        }
+        
+        // Проверяем существование товаров
+        const existingItems = await prisma.allianceShopItem.findMany({
+            where: { 
+                id: { in: newBundleItems },
+                id_shop: item.id_shop,
+                hidden: false 
+            }
+        });
+        
+        if (existingItems.length !== newBundleItems.length) {
+            const foundIds = existingItems.map((i: any) => i.id);
+            const missingIds = newBundleItems.filter((id: number) => !foundIds.includes(id));
+            await context.send(`❌ Товары с ID ${missingIds.join(', ')} не найдены в этой категории.`);
+            return;
+        }
+    }
+    
+    // Подтверждение
+    let preview = `📦 Новый состав набора:\n`;
+    if (newBundleItems.length > 0) {
+        const previewItems = await prisma.allianceShopItem.findMany({
+            where: { id: { in: newBundleItems } }
+        });
+        for (const pi of previewItems) {
+            preview += `  ✅ ${pi.id} - ${pi.name}\n`;
+        }
+    } else {
+        preview += `  ❌ Набор будет очищен\n`;
+    }
+    
+    const confirm = await Confirm_User_Success(context, `обновить состав набора?\n\n${preview}`);
+    if (!confirm.status) {
+        await context.send(`❌ Редактирование отменено.`);
+        return;
+    }
+    
+    // Обновляем набор
+    await prisma.allianceShopItem.update({
+        where: { id: item.id },
+        data: { 
+            bundleItems: newBundleItems.length > 0 ? JSON.stringify(newBundleItems) : null,
+            isBundle: newBundleItems.length > 0
+        }
+    });
+    
+    await Send_Message_Smart(
+        context, 
+        `"Конфигурация товаров магазина" --> обновлен состав набора: ${item.id}-${item.name}`, 
+        'admin_solo'
+    );
+    await context.send(`✅ Состав набора обновлен!`);
 }
 
 async function AllianceShopItem_Edit_Name(context: any, data: any) {

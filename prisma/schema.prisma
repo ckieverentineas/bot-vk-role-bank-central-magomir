@@ -437,6 +437,8 @@ model AllianceShopItem {
   inventory_tr          Boolean @default(true)
   hidden                Boolean @default(false)
   id_shop               Int
+  isBundle              Boolean @default(false)
+  bundleItems           String?
 }
 
 model AllianceTerminology {

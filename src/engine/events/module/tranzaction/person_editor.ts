@@ -299,7 +299,7 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
                 keyboard: Keyboard.builder()
                 .textButton({ label: 'Союзник Кнопки', payload: { command: 'student' }, color: 'secondary' }).row()
                 .textButton({ label: 'Союзник Номер', payload: { command: 'student' }, color: 'secondary' }).row()
-                .textButton({ label: 'Не союзник', payload: { command: 'professor' }, color: 'secondary' })
+                // [!] Кнопка "Не союзник" убрана
                 .textButton({ label: 'Соло', payload: { command: 'citizen' }, color: 'secondary' })
                 .oneTime().inline(), answerTimeLimit
             }
@@ -340,11 +340,9 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
                     counter++
                 }
                 event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent + limiter : limiter - (builder_list.length - id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
-                //предыдущий офис
                 if (builder_list.length > limiter && id_builder_sent > limiter - 1) {
                     keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent - limiter }, color: 'secondary' })
                 }
-                //следующий офис
                 if (builder_list.length > limiter && id_builder_sent < builder_list.length - limiter) {
                     keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent + limiter }, color: 'secondary' })
             }
@@ -366,7 +364,6 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
                 if (answer1.text == '→' || answer1.text =='←') {
                     id_builder_sent = answer1.payload.id_builder_sent
                 } else {
-                    // Получаем альянс по ID из payload.target
                     const selectedAlliance = await prisma.alliance.findFirst({ 
                         where: { id: answer1.payload.target } 
                     })
@@ -383,7 +380,6 @@ async function Edit_Alliance(id: number, context: any, user_adm: User){
         }
     }
     if (person.alliance == 'Союзник Номер') {
-        // ДОБАВЛЕНО: Показываем список союзных проектов перед запросом AUID
         let alli_list = ''
         const alliances = await prisma.alliance.findMany({
             where: { hidden: false }

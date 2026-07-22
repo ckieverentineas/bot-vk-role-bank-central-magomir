@@ -174,12 +174,196 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
     }
 }
 
+async function BuyBundle(context: any, bundle: any) {
+    const res = { cursor: 0 };
+    
+    // Получаем ID товаров в наборе
+    const bundleItemIds = JSON.parse(bundle.bundleItems);
+    
+    // Получаем информацию о товарах в наборе
+    const bundleItems = await prisma.allianceShopItem.findMany({
+        where: { id: { in: bundleItemIds } }
+    });
+    
+    if (bundleItems.length === 0) {
+        await context.send(`❌ Товары в наборе не найдены.`);
+        return res;
+    }
+    
+    // Проверяем баланс пользователя
+    const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
+    if (!account) { 
+        await context.send(`❌ Аккаунт не найден.`);
+        return res;
+    }
+    
+    const user = await prisma.user.findFirst({ where: { id: account.select_user } })
+    if (!user) {
+        await context.send(`❌ Игрок не найден.`);
+        return res;
+    }
+    
+    const coin_get = await prisma.allianceCoin.findFirst({ where: { id: bundle.id_coin } })
+    if (!coin_get) {
+        await context.send(`❌ Валюта не найдена.`);
+        return res;
+    }
+    
+    const balance = await prisma.balanceCoin.findFirst({ where: { id_coin: bundle.id_coin ?? 0, id_user: user.id } })
+    if (!balance) { 
+        await context.send(`❌ Валютный счет ${coin_get.name}${coin_get.smile} не открыт.`);
+        return res;
+    }
+    
+    // Показываем информацию о наборе
+    let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n`;
+    text_item += `📦 Набор: ${bundle.name}\n`;
+    text_item += `📜 Описание: ${bundle.description || 'Нет описания'}\n`;
+    text_item += `${coin_get?.smile ?? '💰'} Цена: ${bundle.price}\n\n`;
+    text_item += `📋 В состав входит:\n`;
+    for (const item of bundleItems) {
+        text_item += `  ✅ ${item.name}\n`;
+    }
+    
+    const attached = bundle?.image?.includes('photo') ? bundle.image : null;
+    await Send_Message(context.senderId, `${text_item}`, undefined, attached);
+    
+    // Подтверждение покупки
+    const confirm_ask: { status: boolean, text: string } = await Confirm_User_Success(context, `купить данный набор?`);
+    if (!confirm_ask.status) { 
+        await context.send(`❌ Покупка отменена.`);
+        return res; 
+    }
+    
+    // Проверяем наличие денег
+    if (balance.amount < bundle.price) {
+        await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки набора.`);
+        return res;
+    }
+    
+    // Списание средств
+    const buying_act = await prisma.balanceCoin.update({ 
+        where: { id: balance.id }, 
+        data: { amount: { decrement: bundle.price } } 
+    });
+    
+    // Выдача каждого товара из набора
+    const giftedItems: { name: string, chest: string }[] = [];
+    for (const item of bundleItems) {
+        // Проверяем лимит
+        if (item.limit_tr && item.limit <= 0) {
+            await context.send(`⚠ Товар "${item.name}" закончился. Пропускаем.`);
+            continue;
+        }
+        
+        // Создаем запись в инвентаре
+        const save_item = await prisma.inventory.create({ 
+            data: { 
+                id_user: user.id, 
+                id_item: item.id, 
+                type: InventoryType.ITEM_SHOP_ALLIANCE, 
+                comment: `Получен из набора "${bundle.name}"`,
+                purchaseDate: new Date()
+            } 
+        });
+        
+        // Определяем сундук для товара по его категории
+        let targetChestId = 0;
+        let chestName = "Основное";
+        
+        const categoryChest = await prisma.categoryChest.findFirst({
+            where: { id_category: item.id_shop },
+            include: { chest: true }
+        });
+        
+        if (categoryChest?.chest) {
+            targetChestId = categoryChest.id_chest;
+            chestName = categoryChest.chest.name;
+        } else {
+            const mainChest = await prisma.allianceChest.findFirst({
+                where: { 
+                    name: "Основное",
+                    id_alliance: user.id_alliance || 0
+                }
+            });
+            if (mainChest) {
+                targetChestId = mainChest.id;
+                chestName = "Основное";
+            }
+        }
+        
+        if (targetChestId > 0) {
+            await prisma.chestItemLink.create({
+                data: {
+                    id_chest: targetChestId,
+                    id_inventory: save_item.id
+                }
+            });
+        }
+        
+        // Уменьшаем лимит
+        if (item.limit_tr) {
+            await prisma.allianceShopItem.update({
+                where: { id: item.id },
+                data: { limit: { decrement: 1 } }
+            });
+        }
+        
+        giftedItems.push({ name: item.name, chest: chestName });
+        await Send_Message(context.senderId, `🎁 Вам добавлен предмет: ${item.name} → сундук "${chestName}"`);
+    }
+    
+    // Итоговое сообщение
+    let resultText = `✅ Набор "${bundle.name}" успешно куплен!\n` +
+        `${coin_get.smile} Баланс: ${balance.amount} - ${bundle.price} = ${buying_act.amount}\n` +
+        `📦 Получено предметов: ${giftedItems.length}\n\n` +
+        `📋 Распределение по сундукам:\n`;
+    
+    const chestGroups: { [key: string]: string[] } = {};
+    for (const item of giftedItems) {
+        if (!chestGroups[item.chest]) {
+            chestGroups[item.chest] = [];
+        }
+        chestGroups[item.chest].push(item.name);
+    }
+    
+    for (const [chest, items] of Object.entries(chestGroups)) {
+        resultText += `  🎒 ${chest}: ${items.join(', ')}\n`;
+    }
+    
+    await context.send(resultText);
+    
+    // Логирование
+    const alliance = await prisma.alliance.findFirst({ 
+        where: { id: user.id_alliance ?? 0 } 
+    });
+    
+    const logMessage = 
+        `📦 Куплен набор\n` +
+        `👤 @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
+        `📦 Набор: "${bundle.name}"\n` +
+        `💰 Цена: ${bundle.price}${coin_get.smile}\n` +
+        `📋 В составе:\n` +
+        giftedItems.map(item => `  - ${item.name} → ${item.chest}`).join('\n');
+    
+    if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
+        await Send_Message(alliance.id_chat_shop, logMessage);
+    }
+    
+    return res;
+}
+
 async function Buyer_Item_Select(context: any, data: any, category: any) {
     const res = { cursor: data.cursor };
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
     if (!item) { 
         await context.send(`❌ Не удалось получить данные о товаре`);
         return res;
+    }
+    
+    // [!] Если это набор - обрабатываем отдельно
+    if (item.isBundle && item.bundleItems) {
+        return await BuyBundle(context, item);
     }
     
     const item_category_check = await prisma.allianceShopCategory.findFirst({ where: { id: item.id_shop } })
@@ -230,8 +414,6 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     text_item += `🛍 Товар: ${item.name}\n`;
     text_item += `📜 Описание: ${item.description || 'Нет описания'}\n`;
     text_item += `${coin_get?.smile ?? '💰'} Цена: ${item.price}\n`;
-    
-    // ✅ ИСПРАВЛЕНИЕ: Информация о сундуке сразу после информации о покупке
     text_item += `👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`;
     
     // Показываем в какой сундук попадет предмет
@@ -290,7 +472,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         return res;
     }
     
-    // ===== ИСПРАВЛЕННЫЙ БЛОК: Добавление комментария к покупке с кнопкой "Без комментария" =====
+    // Добавление комментария к покупке
     let item_comment = "";
     
     const comment_keyboard = new KeyboardBuilder()
@@ -314,11 +496,9 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         return res;
     }
     
-    // Проверяем, нажата ли кнопка "Без комментария"
     if (comment_response.payload?.command === 'skip_comment') {
         item_comment = "Без комментария";
     } else {
-        // Если введен текст вручную
         if (comment_response.text && comment_response.text.trim()) {
             if (comment_response.text.length <= 200) {
                 item_comment = comment_response.text;
@@ -327,11 +507,9 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
                 item_comment = "Без комментария";
             }
         } else {
-            // Если пустой ввод
             item_comment = "Без комментария";
         }
     }
-    // ===== КОНЕЦ ИСПРАВЛЕННОГО БЛОКА =====
     
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ 

@@ -13,6 +13,7 @@ import { InventoryType } from "../data_center/standart"
 import { getTerminology } from "../alliance/terminology_helper"
 import { getUserSkillsForDisplay } from "../skills/user_skill_display"
 import { getLevelName } from "../abilities/abilities_helper"
+import { Abilities_Upgrade_Menu } from "../abilities/abilities_upgrade"
 
 interface LightAllianceCoin {
     id: number;
@@ -33,6 +34,8 @@ export async function Operation_Solo(context: any) {
     let name_check = false
 	let datas: any = []
     let info_coin: { text: string, smile: string } | undefined = { text: ``, smile: `` }
+    let target_user: User | null = null;
+    
 	while (name_check == false) {
 		const uid: any = await context.question( `🧷 Введите 💳UID банковского счета получателя:`,
             {   
@@ -46,6 +49,7 @@ export async function Operation_Solo(context: any) {
 		if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
             const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
             if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
+                target_user = get_user;
                 info_coin = await Person_Coin_Printer_Self(context, get_user.id)
                 const info_facult_rank = await Facult_Coin_Printer_Self(context, get_user.id)
                 await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
@@ -58,7 +62,31 @@ export async function Operation_Solo(context: any) {
                 const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
                 const withoutFaculty = `Без ${genitive}`;
                 
-                // Получаем навыки для отображения (как в Card_Enter)
+                // Проверка для жетонов - показываем только если > 5
+                let medalsLine = '';
+                if (get_user.medal > 5) {
+                    medalsLine = `🔘 Жетоны: ${get_user.medal} \n`;
+                }
+
+                // Проверка для S-coins - показываем только если > 0
+                let scoopinsLine = '';
+                if (get_user.scoopins > 0) {
+                    scoopinsLine = `🌕 S-coins: ${get_user.scoopins}\n`;
+                }
+
+                // Проверка для факультета - показываем только если есть факультеты
+                let facultLine = '';
+                const hasFacults = await prisma.allianceFacult.count({ 
+                    where: { id_alliance: get_user.id_alliance ?? 0 } 
+                }) > 0;
+
+                if (hasFacults && facult_get) {
+                    facultLine = `${facult_get.smile} ${facultTerminology}: ${facult_get.name}\n`;
+                } else if (hasFacults) {
+                    facultLine = `🔮 ${facultTerminology}: ${withoutFaculty}\n`;
+                }
+                
+                // Получаем навыки для отображения
                 let skillsTextAdmin = '';
                 if (get_user.id_alliance && get_user.id_alliance > 0) {
                     const displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance);
@@ -89,7 +117,7 @@ export async function Operation_Solo(context: any) {
                     }
                 }
                 
-                // ===================== СПОСОБНОСТИ =====================
+                // Способности
                 let abilitiesTextAdmin = '';
                 if (get_user.id_alliance && get_user.id_alliance > 0) {
                     const levels = await prisma.skillLevel.findMany({
@@ -135,7 +163,20 @@ export async function Operation_Solo(context: any) {
                     }
                 }
                 
-                await context.send(`🏦 Открыта следующая карточка: \n\n💳 UID: ${get_user.id} \n🕯 GUID: ${get_user.id_account} \n🔘 Жетоны: ${get_user.medal} \n🌕 S-coins: ${get_user.scoopins}\n👤 Имя: ${get_user.name} \n👑 Статус: ${get_user.class}  \n🔨 Профессия: ${get_user?.spec} \n🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n${facult_get ? facult_get.smile : `🔮`} ${facultTerminology}: ${facult_get ? facult_get.name : withoutFaculty} \n🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}${skillsTextAdmin}${abilitiesTextAdmin}` )
+                await context.send(`🏦 Открыта следующая карточка: \n\n` +
+                    `💳 UID: ${get_user.id} \n` +
+                    `🕯 GUID: ${get_user.id_account} \n` +
+                    medalsLine +
+                    scoopinsLine +
+                    `👤 Имя: ${get_user.name} \n` +
+                    `👑 Статус: ${get_user.class}  \n` +
+                    `🔨 Профессия: ${get_user?.spec} \n` +
+                    `🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n` +
+                    facultLine +
+                    `🧷 Страница: https://vk.com/id${get_user.idvk}\n` +
+                    `${info_coin?.text}` +
+                    skillsTextAdmin +
+                    abilitiesTextAdmin )
             } else { 
                 if (user_adm?.id_alliance != get_user?.id_alliance) {
                     await context.send(`💡 Игрок ${get_user?.name} ${get_user?.id} в ролевой AUID: ${get_user?.id_alliance}, в то время, как вы состоите в AUID: ${user_adm?.id_alliance}`)
@@ -151,20 +192,56 @@ export async function Operation_Solo(context: any) {
 			await context.send(`💡 Необходимо ввести корректный UID!`)
 		}
 	}
+    
     const keyboard = new KeyboardBuilder()
+    
     if (await Accessed(context) == 3) {
         keyboard.textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
         .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
     }
+    
     keyboard.textButton({ label: `➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
     .textButton({ label: `♾️${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' })
-    //.textButton({ label: `👥➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_multi' }, color: 'secondary' }).row()
-    .textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
-    .textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
-    .textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' })
-    .textButton({ label: '💬', payload: { command: 'comment_person' }, color: 'secondary' })
-    .textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
+    
+    keyboard.textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
+    
+    // Прокачка - только если в ролевой есть уровни
+    let showUpgrade = false;
+    const allianceId = user_adm?.id_alliance || target_user?.id_alliance;
+    if (allianceId && allianceId > 0) {
+        const hasLevels = await prisma.skillLevel.count({
+            where: { allianceId: allianceId }
+        });
+        if (hasLevels > 0) {
+            showUpgrade = true;
+        }
+    }
+    
+    if (showUpgrade) {
+        keyboard.textButton({ label: '⚡ Прокачка', payload: { command: 'abilities_upgrade_enter' }, color: 'secondary' });
+    }
+    
+    keyboard.textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
+    
+    // Назначить магазин - только если есть магазины
+    let hasShops = false;
+    if (user_adm?.id_alliance && user_adm.id_alliance > 0) {
+        const shopCount = await prisma.allianceShop.count({
+            where: { id_alliance: user_adm.id_alliance }
+        });
+        if (shopCount > 0) {
+            hasShops = true;
+        }
+    }
+    
+    if (hasShops) {
+        keyboard.textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' });
+    }
+    
+    keyboard.textButton({ label: '💬', payload: { command: 'comment_person' }, color: 'secondary' })
+    keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .oneTime().inline()
+    
     const ans: any = await context.question(`✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard, answerTimeLimit })
     if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
     const config: any = {
@@ -177,7 +254,8 @@ export async function Operation_Solo(context: any) {
         'coin_engine_multi': Coin_Engine_Multi,
         'comment_person': Comment_Person,
         'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector,
-        'storage_engine': Storage_Engine
+        'storage_engine': Storage_Engine,
+        'abilities_upgrade_enter': Abilities_Upgrade_Menu
     }
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
