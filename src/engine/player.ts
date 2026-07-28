@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, vk } from '../index';
-import { Accessed, Antivirus_VK, Confirm_User_Success, Keyboard_Index, Logger, Send_Message } from "./core/helper";
+import { Accessed, Antivirus_VK, Confirm_User_Success, Is_Chat_Checker, Keyboard_Index, Logger, Send_Message } from "./core/helper";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, User } from "@prisma/client";
@@ -173,7 +173,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!Лютный переулок/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (context.senderId == root) {
             const rootUser = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
             const rootLogName = rootUser
@@ -293,7 +293,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/✏Тип/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction item type user is viewed by admin ${context.senderId}`)
             return
@@ -329,7 +329,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/✏Имя/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (context.messagePayload == null && context.senderId != root) {
             await Logger(`In a private chat, stop correction name item is viewed by admin ${context.senderId}`)
             return
@@ -377,7 +377,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!админка/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (context.senderId == root) {
             const user: User | null = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
             if (!user) { return }
@@ -400,7 +400,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!новая роль/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (context.senderId == root) {
             const user:any = await prisma.user.findFirst({ where: { idvk: Number(context.senderId) } })
             if (!user) { return }
@@ -432,7 +432,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!права/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const user_adm: User | null | undefined = await Person_Get(context)
         if (await Accessed(context) == 1) { return }
         const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
@@ -564,7 +564,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!енотик/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         
         try {
@@ -605,7 +605,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Person_Detector(context)
         const user_check: User | null | undefined = await Person_Get(context)
         if (!user_check) { return }
@@ -615,25 +615,25 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/➕👤/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Person_Register(context)
     })
     hearManager.hear(/➕🌐/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Alliance_Add(context)
     })
     hearManager.hear(/🔃👥/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Person_Selector(context)
     })
     hearManager.hear(/!отчет по ролкам/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         const res: Array<{ name: String, count: number }> = []
         for (const alli of await prisma.alliance.findMany({})) {
@@ -659,35 +659,35 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!обновить ролки/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Updater(context)
     })
     hearManager.hear(/⚙ !валюты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Printer(context)
     })
     hearManager.hear(/⚙ !конвертацию настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
     hearManager.hear(/⚙ !S-coins настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Scoopins_Converter_Editor_Printer(context)
     })
     hearManager.hear(/(?:⚙ )?!внутрконвертацию настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Internal_Converter_Editor_Printer(context)
     })
@@ -964,7 +964,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !легаси настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -977,7 +977,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !отслеживание обсуждений/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType == 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
         
         const account = await prisma.account.findFirst({ where: { idvk: context.senderId } });
         if (!account) return;
@@ -995,7 +995,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         
         // Получаем терминологию для отображения
@@ -1011,14 +1011,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !положения настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Class_Settings_Printer(context)
     })
     hearManager.hear(/⚙ !сундуки настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType == 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
         
         const account = await prisma.account.findFirst({ 
             where: { idvk: context.senderId } 
@@ -1040,21 +1040,21 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !закончить сезон/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Year_End_Printer(context)
     })
     hearManager.hear(/⚙ !подключить группу/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         await Alliance_Monitor_Printer(context)
     })
     hearManager.hear(/🚫 !моники_off/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -1068,7 +1068,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/🚀 !моники_on/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) { return }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -1082,19 +1082,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Alliance_Coin_Converter_Printer(context)
     })
     hearManager.hear(/📊 Отчатор/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
     hearManager.hear(/🔔 Мониторы|!уведомления/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1109,7 +1109,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/📝 Обсуждения|!уведы обсуждений/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -1136,7 +1136,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType != 'chat') { return }
+        if (await Is_Chat_Checker(context) != true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1152,7 +1152,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!привязать мониторы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType != 'chat') { return }
+        if (await Is_Chat_Checker(context) != true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1168,7 +1168,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!привязать покупки/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType != 'chat') { return }
+        if (await Is_Chat_Checker(context) != true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1190,7 +1190,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!привязать обсуждения/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType != 'chat') { return }
+        if (await Is_Chat_Checker(context) != true ) { return; }
         
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -1218,7 +1218,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!привязать прокачку/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType != 'chat') { return }
+        if (await Is_Chat_Checker(context) != true ) { return; }
         
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
@@ -1246,7 +1246,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !мониторы настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1310,7 +1310,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !магазины настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1324,7 +1324,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!товармасс/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1336,7 +1336,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !уровни настроить/, async (context) => {
     const anti_vk_defender = await Antivirus_VK(context)
     if (anti_vk_defender) return;
-    if (context.peerType == 'chat') return;
+    if (await Is_Chat_Checker(context) == true ) { return; }
     if (await Accessed(context) == 1) return;
     
     await SkillLevels_Manager(context);
@@ -1345,7 +1345,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !навыки настроить/, async (context) => {
     const anti_vk_defender = await Antivirus_VK(context)
     if (anti_vk_defender) return;
-    if (context.peerType == 'chat') return;
+    if (await Is_Chat_Checker(context) == true ) { return; }
     if (await Accessed(context) == 1) return;
     
     await SkillCategories_Manager(context);
@@ -1353,7 +1353,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !способности настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType == 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) {
             await context.send('❌ У вас нет прав администратора для этой команды.');
             return;
@@ -1364,7 +1364,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !порядок валют настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType == 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
         if (await Accessed(context) == 1) {
             await context.send('❌ У вас нет прав администратора для этой команды.');
             return;
@@ -1374,7 +1374,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/🛍 Магазины/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
 		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1387,7 +1387,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/👜 Инвентарь/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
-        if (context.peerType == 'chat') { return }
+        if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
@@ -1475,7 +1475,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/⚙ !зарплату настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType == 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
         
         // Проверяем права
         if (await Accessed(context) == 1) {
@@ -1488,7 +1488,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!обнулить scoopins/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType === 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
     
         const ROOT_ID = 200840769;
         if (context.senderId !== ROOT_ID) {
@@ -1582,7 +1582,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     /*hearManager.hear(/!начислить scoopins рандом/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
-        if (context.peerType === 'chat') return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
     
         const ROOT_ID = 200840769;
         if (context.senderId !== ROOT_ID) {

@@ -1,6 +1,6 @@
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, ItemStorage, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart, Send_Coin_Operation_Notification, Input_Number } from "../../../core/helper"
+import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart, Send_Coin_Operation_Notification, Input_Number, Is_Chat_Checker } from "../../../core/helper"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -28,7 +28,7 @@ interface LightAllianceCoin {
 }
 
 export async function Operation_Solo(context: any) {
-    if (context.peerType == 'chat') { return }
+    if (await Is_Chat_Checker(context) == true ) { return; }
     const user_adm: User | null | undefined = await Person_Get(context)
     if (await Accessed(context) == 1) { return }
     let name_check = false

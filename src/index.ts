@@ -3,7 +3,7 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Accessed, Antivirus_VK, Group_Id_Get, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
+import { Accessed, Antivirus_VK, Group_Id_Get, Is_Chat_Checker, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv'
 import { Admin_Enter, Card_Enter, Comment_Person_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
@@ -100,9 +100,7 @@ initializeGroupId().then(async () => {
         const pk_counter_st = await Counter_PK_Module(context)
         if (pk_counter_st) { return await next(); }
         
-        if (context.peerType == 'chat') { 
-            return await next();
-        }
+        if (await Is_Chat_Checker(context) == true ) { return await next(); }
         
         await Account_Register(context)
         

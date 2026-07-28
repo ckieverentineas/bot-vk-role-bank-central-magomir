@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid, Is_Chat_Checker } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -22,7 +22,7 @@ interface LightAllianceCoin {
 }
 
 export async function Operation_Group(context: any) {
-    if (context.peerType == 'chat') { return }
+    if (await Is_Chat_Checker(context) == true ) { return; }
     if (await Accessed(context) == 1) { return }
     let name_check = false
     let uids_prefab = null

@@ -626,3 +626,10 @@ export async function Send_Coin_Operation_Notification(
     
     return await Send_Message(user_target.idvk, notification);
 }
+
+export async function Is_Chat_Checker(context: any) {
+    if (context.peerType === 'chat' && context.peerId !== context.senderId) { 
+            return true
+    }
+    return false
+}
