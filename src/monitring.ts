@@ -292,7 +292,7 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
                     monitor
                 );
                 
-                console.log(`📊 Результат Calc_Bonus_Activity:`, result);
+                //console.log(`📊 Результат Calc_Bonus_Activity:`, result);
                 await Logger(`[RESTORE] Результат начисления: status=${result?.status}`);
                 
                 // ✅ ВАЖНО: удаляем ключ удаления из кэша, чтобы повторное удаление сработало
@@ -380,7 +380,7 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
                 monitor
             );
             
-            console.log(`📊 Результат Calc_Bonus_Activity:`, result);
+            //console.log(`📊 Результат Calc_Bonus_Activity:`, result);
             await Logger(`[DELETE] Результат списания: status=${result?.status}, message=${result?.message}`);
             
             return next();
@@ -453,8 +453,8 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
                 }
                 
                 // Проверяем, что это наша группа
-                const expectedGroupId = Math.abs(monitor.idvk);
-                const actualGroupId = Math.abs(groupId);
+                const expectedGroupId = Math.abs(Number(monitor.idvk));
+                const actualGroupId = Math.abs(Number(groupId));
                 
                 if (actualGroupId !== expectedGroupId) {
                     return next();

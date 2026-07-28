@@ -490,7 +490,8 @@ export async function User_Bonus_Check(idvk: number, monitor: Monitor) {
     return user;
 }
 
-export async function Calc_Bonus_Activity(idvk: number, operation: '+' | '-', reward: number, target: string, link: string, monitor: Monitor) {
+export async function Calc_Bonus_Activity(idvk: number | bigint, operation: '+' | '-', reward: number, target: string, link: string, monitor: Monitor) {
+    idvk = Number(idvk)
     const answer = { status: false, message: '', console: '', logging: '' } // ответ
     const user = await User_Bonus_Check(idvk, monitor);
     if (!user) { 

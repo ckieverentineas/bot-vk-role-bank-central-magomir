@@ -31,7 +31,7 @@ export async function Keyboard_Index(context: any, messa: any) {
     if (!user_check) { return }
     const keyboard = new KeyboardBuilder()
     
-    if (user_check.idvk == root) {
+    if (Number(user_check.idvk) == root) {
         keyboard.textButton({ label: '!Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row()
     }
     
@@ -121,7 +121,8 @@ export async function Logger(text: String) {
     console.log(`[${project_name}] --> ${text} <-- (${new Date().toLocaleString("ru"/*, options*/)})`)
 }
 
-export async function Send_Message(idvk: number, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
+export async function Send_Message(idvk: number | bigint, message: string, keyboard?: Keyboard, attachment?: string | PhotoAttachment | null) {
+    idvk = Number(idvk)
     message = message ? message.slice(0, 3900) : 'invalid message'
     try {
         if (!attachment && !keyboard) { await vk?.api.messages.send({ peer_id: idvk, random_id: 0, message: `${message}` } ) }

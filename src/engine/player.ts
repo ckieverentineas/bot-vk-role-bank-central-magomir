@@ -464,11 +464,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         if (lvlup) {
                             await context.send(`⚙ Администратором становится ${get_user.name}`)
                             try {
-                                await vk?.api.messages.send({
-                                    user_id: get_user.idvk,
-                                    random_id: 0,
-                                    message: `⚙ Вас назначили администратором`
-                                })
+                                await Send_Message(get_user.idvk, `⚙ Вас назначили администратором`)
                                 await context.send(`⚙ Операция назначения администратора завершена успешно.`)
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
@@ -493,11 +489,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         if (lvlup) {
                             await context.send(`⚙ Супер Администратором становится ${get_user.name}`)
                             try {
-                                await vk?.api.messages.send({
-                                    user_id: get_user.idvk,
-                                    random_id: 0,
-                                    message: `⚙ Вас назначили Супер администратором`
-                                })
+                                await Send_Message(get_user.idvk, `⚙ Вас назначили Супер администратором`)
                                 await context.send(`⚙ Операция назначения Супер администратора завершена успешно.`)
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
@@ -522,11 +514,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         if (lvlup) {
                             await context.send(`⚙ Обычным пользователем становится ${get_user.name}`)
                             try {
-                                await vk?.api.messages.send({
-                                    user_id: get_user.idvk,
-                                    random_id: 0,
-                                    message: `⚙ Вас понизили до обычного пользователя`
-                                })
+                                await Send_Message(get_user.idvk, `⚙ Вас понизили до обычного пользователя`)
                                 await context.send(`⚙ Операция назначения пользователем завершена успешно.`)
                             } catch (error) {
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
@@ -1257,7 +1245,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         keyboard.textButton({ label: '⚙ !подключить группу', payload: { command: 'Согласиться' }, color: 'negative' }).row()
         keyboard.textButton({ label: '🚀 !моники_on', payload: { command: 'Согласиться' }, color: 'negative' })
         keyboard.textButton({ label: '🚫 !моники_off', payload: { command: 'Согласиться' }, color: 'negative' }).row().inline().oneTime()
-        await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+        await Send_Message(user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
     hearManager.hear(/!помощь/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)

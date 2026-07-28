@@ -92,7 +92,7 @@ function formatMonitorLine(item: MonitorStartupReportItem): string {
         ? `обсуждений: ${item.topicCount}`
         : "обсуждений нет";
 
-    return `• №${item.monitorId} ${item.monitorName} — ${statusText}; https://vk.com/club${Math.abs(item.groupId)}; ${topicText}`;
+    return `• №${item.monitorId} ${item.monitorName} — ${statusText}; https://vk.com/club${Math.abs(Number(item.groupId))}; ${topicText}`;
 }
 
 function getStatusText(item: MonitorStartupReportItem): string {

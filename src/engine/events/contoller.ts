@@ -307,7 +307,7 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
             const keyboard = new KeyboardBuilder();
             
             // Добавляем кнопки как в Keyboard_Index
-            if (user.idvk == root) {
+            if (Number(user.idvk) == root) {
                 keyboard.textButton({ label: '!Лютный переулок', payload: { command: 'sliz' }, color: 'positive' }).row();
             }
             

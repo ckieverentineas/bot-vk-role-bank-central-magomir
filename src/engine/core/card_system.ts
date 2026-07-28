@@ -124,7 +124,7 @@ export class CardSystem {
           const font = await Jimp.loadFont('./src/art/font/impact_medium/impact.fnt');
           const fontBig = await Jimp.loadFont('./src/art/font/impact_big/impact.fnt');
 
-          const cardNumber = (`${user.idvk * Math.pow(10, 16 - String(user.idvk).length) + user.id}`)
+          const cardNumber = (`${Number(user.idvk) * Math.pow(10, 16 - String(user.idvk).length) + user.id}`)
               .slice(-16)
               .replace(/\d{4}(?=.)/g, '$& ')
               .replace(/ /g, `${' '.repeat(7)}`);

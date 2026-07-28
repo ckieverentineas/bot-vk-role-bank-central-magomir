@@ -9,7 +9,7 @@ datasource db {
 
 model Account {
   id                 Int                @id @default(autoincrement())
-  idvk               Int
+  idvk               BigInt
   crdate             DateTime           @default(now())
   select_user        Int                @default(0)
   monitor_select_user Int?
@@ -71,7 +71,7 @@ model MonitorSelection {
 model Monitor {
   id           Int       @id @default(autoincrement())
   name         String
-  idvk         Int
+  idvk         BigInt
   token        String
   alliance     Alliance  @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
   id_alliance  Int
@@ -190,7 +190,7 @@ model User {
   id                    Int                     @id @default(autoincrement())
   name                  String
   class                 String
-  idvk                  Int
+  idvk                  BigInt
   spec                  String
   id_alliance           Int?
   medal                 Int                     @default(5)
@@ -223,7 +223,7 @@ model User {
 
 model BlackBox {
   id   Int @id @default(autoincrement())
-  idvk Int @unique
+  idvk BigInt @unique
 }
 
 model Role {
@@ -318,7 +318,7 @@ model Analyzer {
 model Alliance {
   id              Int                     @id @default(autoincrement())
   name            String
-  idvk            Int
+  idvk            BigInt
   hidden          Boolean                 @default(false)
   id_chat         Int                     @default(0)
   id_chat_monitor Int                     @default(0)
