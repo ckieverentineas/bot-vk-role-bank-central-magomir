@@ -1,6 +1,23 @@
+// engine/events/module/tranzaction/operation_solo.ts
+
 import { Alliance, AllianceCoin, AllianceFacult, BalanceCoin, BalanceFacult, ItemStorage, User } from "@prisma/client"
 import { Person_Get } from "../person/person"
-import { Accessed, Confirm_User_Success, Fixed_Number_To_Five, Get_Url_Picture, Input_Text, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart, Send_Coin_Operation_Notification, Input_Number, Is_Chat_Checker } from "../../../core/helper"
+import { 
+    Accessed, 
+    Confirm_User_Success, 
+    Fixed_Number_To_Five, 
+    Get_Url_Picture, 
+    Input_Text, 
+    Keyboard_Index, 
+    Logger, 
+    Send_Message, 
+    Send_Message_Question, 
+    Send_Message_Smart, 
+    Send_Coin_Operation_Notification, 
+    Input_Number, 
+    Is_Chat_Checker 
+} from "../../../core/helper"
+import { hasPermission, hasAnyPermission, isAdmin, isRoot } from "../../../core/permissions"
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -28,16 +45,30 @@ interface LightAllianceCoin {
 }
 
 export async function Operation_Solo(context: any) {
-    if (await Is_Chat_Checker(context) == true ) { return; }
+    if (await Is_Chat_Checker(context) == true) { return; }
     const user_adm: User | null | undefined = await Person_Get(context)
-    if (await Accessed(context) == 1) { return }
+    if (!user_adm) { return }
+    
+    // ===== ПРОВЕРЯЕМ ЕСТЬ ЛИ ХОТЯ БЫ ОДНО ПРАВО =====
+    const hasAnyEditRight = await hasAnyPermission(user_adm, [
+        'canViewAllUsers', 'canViewInventoryAll',
+        'canEditAllUsers', 'canEditInventoryAll', 'canGiveItemsAll', 'canEditCoins',
+        'canUpgradeOthers', 'canAssignAbility', 'canAssignSkill',
+        'canAssignShopOwner'
+    ]);
+    
+    if (!hasAnyEditRight && !(await isAdmin(user_adm))) {
+        await context.send('❌ У вас нет прав на использование !опсоло.');
+        return;
+    }
+    
     let name_check = false
-	let datas: any = []
+    let datas: any = []
     let info_coin: { text: string, smile: string } | undefined = { text: ``, smile: `` }
     let target_user: User | null = null;
     
-	while (name_check == false) {
-		const uid: any = await context.question( `🧷 Введите 💳UID банковского счета получателя:`,
+    while (name_check == false) {
+        const uid: any = await context.question( `🧷 Введите 💳UID банковского счета получателя:`,
             {   
                 keyboard: Keyboard.builder()
                 .textButton({ label: `${ico_list['stop'].ico} ${ico_list['stop'].name}`, payload: { command: 'limited' }, color: 'secondary' })
@@ -46,15 +77,15 @@ export async function Operation_Solo(context: any) {
             }
         )
         if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
-		if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
+        if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
             const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
-            if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
+            if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await isRoot(user_adm))) {
                 target_user = get_user;
                 info_coin = await Person_Coin_Printer_Self(context, get_user.id)
                 const info_facult_rank = await Facult_Coin_Printer_Self(context, get_user.id)
                 await Logger(`In a private chat, opened ${get_user.idvk} card UID ${get_user.id} is viewed by admin ${context.senderId}`)
                 name_check = true
-			    datas.push({id: `${uid.text}`})
+                datas.push({id: `${uid.text}`})
                 const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
                 const facult_get: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: Number(get_user.id_facult) } })
                 const singular = await getTerminology(alli_get?.id || 0, 'singular');
@@ -62,19 +93,16 @@ export async function Operation_Solo(context: any) {
                 const facultTerminology = singular.charAt(0).toUpperCase() + singular.slice(1);
                 const withoutFaculty = `Без ${genitive}`;
                 
-                // Проверка для жетонов - показываем только если > 5
                 let medalsLine = '';
                 if (get_user.medal > 5) {
                     medalsLine = `🔘 Жетоны: ${get_user.medal} \n`;
                 }
 
-                // Проверка для S-coins - показываем только если > 0
                 let scoopinsLine = '';
                 if (get_user.scoopins > 0) {
                     scoopinsLine = `🌕 S-coins: ${get_user.scoopins}\n`;
                 }
 
-                // Проверка для факультета - показываем только если есть факультеты
                 let facultLine = '';
                 const hasFacults = await prisma.allianceFacult.count({ 
                     where: { id_alliance: get_user.id_alliance ?? 0 } 
@@ -86,7 +114,6 @@ export async function Operation_Solo(context: any) {
                     facultLine = `🔮 ${facultTerminology}: ${withoutFaculty}\n`;
                 }
                 
-                // Получаем навыки для отображения
                 let skillsTextAdmin = '';
                 if (get_user.id_alliance && get_user.id_alliance > 0) {
                     const displaySkills = await getUserSkillsForDisplay(get_user.id, get_user.id_alliance);
@@ -117,7 +144,6 @@ export async function Operation_Solo(context: any) {
                     }
                 }
                 
-                // Способности
                 let abilitiesTextAdmin = '';
                 if (get_user.id_alliance && get_user.id_alliance > 0) {
                     const levels = await prisma.skillLevel.findMany({
@@ -184,66 +210,82 @@ export async function Operation_Solo(context: any) {
                     await context.send(`💡 Нет такого банковского счета!`) 
                 }
             }
-		} else {
+        } else {
             if (uid.text == `${ico_list['stop'].ico} ${ico_list['stop'].name}`) { 
                 await context.send(`💡 Операции прерваны пользователем!`) 
                 return await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
             }
-			await context.send(`💡 Необходимо ввести корректный UID!`)
-		}
-	}
+            await context.send(`💡 Необходимо ввести корректный UID!`)
+        }
+    }
     
+    // ===== ФОРМИРУЕМ КЛАВИАТУРУ =====
     const keyboard = new KeyboardBuilder()
     
-    if (await Accessed(context) == 3) {
+    // Жетоны - только root
+    if (await isRoot(user_adm)) {
         keyboard.textButton({ label: '➕🔘', payload: { command: 'medal_up' }, color: 'secondary' })
         .textButton({ label: '➖🔘', payload: { command: 'medal_down' }, color: 'secondary' }).row()
     }
     
-    keyboard.textButton({ label: `➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
-    .textButton({ label: `♾️${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' })
-    
-    keyboard.textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
-    
-    // Прокачка - только если в ролевой есть уровни
-    let showUpgrade = false;
-    const allianceId = user_adm?.id_alliance || target_user?.id_alliance;
-    if (allianceId && allianceId > 0) {
-        const hasLevels = await prisma.skillLevel.count({
-            where: { allianceId: allianceId }
-        });
-        if (hasLevels > 0) {
-            showUpgrade = true;
-        }
+    // Валюты (местные) - если есть право canEditCoins
+    if (await hasPermission(user_adm, 'canEditCoins') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: `➕➖${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine' }, color: 'secondary' }).row()
+        .textButton({ label: `♾️${info_coin?.smile.slice(0,30)}`, payload: { command: 'coin_engine_infinity' }, color: 'secondary' })
     }
     
-    if (showUpgrade) {
-        keyboard.textButton({ label: '⚡ Прокачка', payload: { command: 'abilities_upgrade_enter' }, color: 'secondary' });
+    // Хранилище - если есть право canGiveItemsAll
+    if (await hasPermission(user_adm, 'canGiveItemsAll') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '📦 Хранилище', payload: { command: 'storage_engine' }, color: 'secondary' })
     }
     
-    keyboard.textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
+    // ⚙ - показываем если есть ХОТЯ БЫ одно право на редактирование
+    const hasSubMenuRights = await hasAnyPermission(user_adm, [
+        'canEditAllUsers',
+        'canViewInventoryAll',
+        'canEditInventoryAll',
+        'canGiveItemsAll',
+        'canEditCoins',
+        'canUpgradeOthers',
+        'canAssignAbility',
+        'canAssignSkill',
+        'canAssignShopOwner'
+    ]);
     
-    // Назначить магазин - только если есть магазины
-    let hasShops = false;
-    if (user_adm?.id_alliance && user_adm.id_alliance > 0) {
-        const shopCount = await prisma.allianceShop.count({
-            where: { id_alliance: user_adm.id_alliance }
-        });
-        if (shopCount > 0) {
-            hasShops = true;
-        }
+    if (hasSubMenuRights || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '⚙', payload: { command: 'sub_menu' }, color: 'secondary' }).row()
     }
     
-    if (hasShops) {
+    // Назначить магазин - если есть право canAssignShopOwner
+    if (await hasPermission(user_adm, 'canAssignShopOwner') || await isAdmin(user_adm)) {
         keyboard.textButton({ label: `🛍 Назначить магазин`, payload: { command: 'alliance_shop_owner_sel' }, color: 'secondary' });
     }
     
-    keyboard.textButton({ label: '💬', payload: { command: 'comment_person' }, color: 'secondary' })
+    // Комментарий - если есть право canEditAllUsers
+    if (await hasPermission(user_adm, 'canEditAllUsers') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '💬', payload: { command: 'comment_person' }, color: 'secondary' })
+    }
+    
+    // ===== НОВАЯ КНОПКА ДЛЯ НОВОГО ПОИСКА UID =====
+    keyboard.textButton({ 
+        label: '🔦', 
+        payload: { command: 'new_uid_search' }, 
+        color: 'secondary' 
+    })
+    
+    // Назад - всегда
     keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
     .oneTime().inline()
     
     const ans: any = await context.question(`✉ Доступны следующие операции с 💳UID: ${datas[0].id}`, { keyboard: keyboard, answerTimeLimit })
     if (ans.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${datas[0].id} истекло!`) }
+    
+    // ===== ОБРАБОТЧИК НОВОГО ПОИСКА =====
+    if (ans?.payload?.command === 'new_uid_search') {
+        await Operation_Solo(context);
+        return;
+    }
+    
     const config: any = {
         'back': Back,
         'sub_menu': Sub_Menu,
@@ -255,8 +297,14 @@ export async function Operation_Solo(context: any) {
         'comment_person': Comment_Person,
         'alliance_shop_owner_sel': Alliance_Shop_Owner_Selector,
         'storage_engine': Storage_Engine,
-        'abilities_upgrade_enter': Abilities_Upgrade_Menu
+        'abilities_upgrade_enter': Abilities_Upgrade_Menu,
+        'edit_abilities': Edit_Abilities,
+        'edit_skills': Edit_Skills,
+        'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
+        'edit_coins': Coin_Engine,
+        'edit_coins_infinity': Coin_Engine_Infinity
     }
+    
     if (ans?.payload?.command in config) {
         const commandHandler = config[ans.payload.command];
         const answergot = await commandHandler(Number(datas[0].id), context, user_adm)
@@ -265,6 +313,8 @@ export async function Operation_Solo(context: any) {
     }
     await Keyboard_Index(context, `💡 Как насчет еще одной операции? Может позвать доктора?`)
 }
+
+// ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
 
 async function Comment_Person(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
@@ -285,6 +335,56 @@ async function Comment_Person(id: number, context: any, user_adm: User) {
     await Send_Message_Smart(context, `"🔊" --> изменение комментария к персонажу ${user_get.name}\n🧷 Комментарий: ${update_com.comment}`, 'admin_and_client', user_get)
 }
 
+async function Edit_Abilities(id: number, context: any, user_adm: User) {
+    // Импортируем функцию из abilities_editor.ts
+    const { UserAbilities_Editor } = await import('../abilities/abilities_editor');
+    await UserAbilities_Editor(context, id, user_adm);
+}
+
+async function Edit_Skills(id: number, context: any, user_adm: User) {
+    // Импортируем функцию из user_skill_editor.ts
+    const { UserSkill_Editor } = await import('../skills/user_skill_editor');
+    const user = await prisma.user.findFirst({ where: { id } });
+    if (!user) return;
+    await UserSkill_Editor(context, id, user.id_alliance || 0);
+}
+
+async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: User) {
+    const user_get: any = await prisma.user.findFirst({ where: { id: id } })
+    if (!user_get) {
+        await context.send("❌ Пользователь не найден.");
+        return;
+    }
+    
+    if (!user_get.id_alliance || user_get.id_alliance <= 0) {
+        const oldInventory = await prisma.inventory.findMany({
+            where: { id_user: user_get.id },
+            take: 10
+        });
+        
+        if (oldInventory.length === 0) {
+            await context.send("📭 Инвентарь пуст.");
+        } else {
+            let itemsText = "🎒 Инвентарь:\n\n";
+            for (const item of oldInventory) {
+                let itemInfo = null;
+                if (item.type === "ITEM_SHOP_ALLIANCE") {
+                    itemInfo = await prisma.allianceShopItem.findFirst({ where: { id: item.id_item } });
+                } else if (item.type === "ITEM_SHOP") {
+                    itemInfo = await prisma.item.findFirst({ where: { id: item.id_item } });
+                } else if (item.type === "ITEM_STORAGE") {
+                    itemInfo = await prisma.itemStorage.findFirst({ where: { id: item.id_item } });
+                }
+                itemsText += `🧳 ${itemInfo?.name || "Неизвестный предмет"} (ID: ${item.id})\n`;
+            }
+            await context.send(itemsText);
+        }
+    } else {
+        const { Inventory_With_Chests } = await import('../shop/alliance_inventory_with_chests');
+        await Inventory_With_Chests(context, user_get, user_adm);
+    }
+}
+
 async function Storage_Engine(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } });
     if (!user_get) {
@@ -299,20 +399,16 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         return await context.send("❌ Союз не найден.");
     }
 
-    // Вспомогательная функция для выбора сундука
     async function selectChestForStorage(allianceId: number): Promise<{chestId: number, chestName: string}> {
-        // Получаем все сундуки альянса
         const allChests = await prisma.allianceChest.findMany({
             where: { id_alliance: allianceId },
             include: { Children: true },
             orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
         });
         
-        // Ищем "Основное" сундук
         const mainChest = allChests.find(c => c.name === "Основное");
         const mainChests = allChests.filter(c => c.id_parent === null);
         
-        // Формируем текст для выбора сундука
         let text = `🎒 Выберите сундук для выдачи предмета\n\n`;
         text += `Получатель: ${user_get!.name}\n\n`;
         text += `Доступные сундуки:\n`;
@@ -385,12 +481,10 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             selectedChestName = selectedChest.name;
         }
         
-        // Проверяем, есть ли сундучки в выбранном сундуке
         const childChests = allChests.filter(c => c.id_parent === selectedChestId);
         
         if (childChests.length > 0) {
             let childText = `🎒 Выбран сундук: ${selectedChestName}\n\n`;
-            
             childText += `\nВыберите сундучок:\n`;
             childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
             
@@ -404,10 +498,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             if (childIdInput === false) return {chestId: selectedChestId, chestName: selectedChestName};
             
             if (childIdInput === selectedChestId) {
-                // Оставляем выбранный сундук
                 return {chestId: selectedChestId, chestName: selectedChestName};
             } else {
-                // Проверяем, существует ли сундучок
                 const selectedChild = childChests.find(c => c.id === childIdInput);
                 if (!selectedChild) {
                     await context.send(`❌ Сундучок с ID ${childIdInput} не найден. Используется основной сундук.`);
@@ -424,7 +516,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
     const itemsPerPage = 4;
 
     while (true) {
-        // Получаем все предметы
         const allItems = await prisma.itemStorage.findMany({
             where: {
                 id_alliance: user_get.id_alliance ?? 0,
@@ -433,7 +524,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             orderBy: { id: "desc" }
         });
 
-        // Рассчитываем пагинацию
         const totalItems = allItems.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         const startIndex = page * itemsPerPage;
@@ -445,17 +535,14 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             continue;
         }
 
-        // Формируем текст сообщения
         let messageText = `📦 Выберите предмет для выдачи`;
         if (totalPages > 1) {
             messageText += ` (Страница ${page + 1}/${totalPages})`;
         }
         messageText += `\n\n`;
 
-        // Создаем клавиатуру
         const keyboard = new KeyboardBuilder();
 
-        // Кнопки для предметов (максимум 5)
         for (let i = 0; i < itemsOnPage.length; i++) {
             const item = itemsOnPage[i];
             const buttonLabel = `${item.name} (${item.id})`;
@@ -466,7 +553,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }).row();
         }
 
-        // Навигация (если нужно)
         if (totalPages > 1) {
             if (page > 0) {
                 keyboard.textButton({
@@ -489,7 +575,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }
         }
 
-        // Основные кнопки
         keyboard
             .textButton({
                 label: '🆕 Создать',
@@ -529,7 +614,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 continue;
             }
 
-            // ВЫБОР СУНДУКА ПЕРЕД ВЫДАЧЕЙ
             const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
             
             const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать предмет "${item?.name}" игроку ${user_get.name} в сундук "${chestName}"?`,
@@ -549,7 +633,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }
             
             if (confirmq?.payload?.command === 'confirm') {
-                // Создаем инвентарную запись
                 const inventory = await prisma.inventory.create({
                     data: {
                         id_user: user_get.id,
@@ -560,7 +643,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     }
                 });
                 
-                // Создаем связь предмета с сундуком
                 await prisma.chestItemLink.create({
                     data: {
                         id_chest: targetChestId,
@@ -645,10 +727,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }
 
             if (confirm_answer.payload?.command === 'give_created') {
-                // ВЫБОР СУНДУКА ПЕРЕД ВЫДАЧЕЙ НОВОГО ПРЕДМЕТА
                 const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
                 
-                // Создаем инвентарную запись
                 const inventory = await prisma.inventory.create({
                     data: {
                         id_user: user_get.id,
@@ -659,7 +739,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     }
                 });
                 
-                // Создаем связь предмета с сундуком
                 await prisma.chestItemLink.create({
                     data: {
                         id_chest: targetChestId,
@@ -692,16 +771,6 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
     await Keyboard_Index(context, "💡 Как насчет еще одной операции?");
 }
 
-async function getChestName(chestId: number): Promise<string> {
-    if (chestId === 0) return "Основное";
-    
-    const chest = await prisma.allianceChest.findFirst({
-        where: { id: chestId }
-    });
-    
-    return chest?.name || "Основное";
-}
-
 async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: User) {
     const user_get: User | null = await prisma.user.findFirst({ where: { id } })
     if (!user_get) { return }
@@ -730,12 +799,12 @@ async function Alliance_Shop_Owner_Selector(id: number, context: any, user_adm: 
     } else {
         if (uid.text == "🚫Отмена") { 
             return await context.send(`💡 Операции прерваны пользователем!`) 
-            
         }
         await context.send(`💡 Необходимо ввести корректный UID!`)
     }
 }
-// модуль Министреских начислений
+
+// ===== МЕДАЛИ (ТОЛЬКО ДЛЯ ROOT) =====
 async function Medal_Up(id: number, context: any, user_adm: User) {
     const count: number = await Ipnut_Gold(context, 'начисления министерских жетонов') 
     const messa: string = await Ipnut_Message(context, 'начисления министерских жетонов')
@@ -748,6 +817,7 @@ async function Medal_Up(id: number, context: any, user_adm: User) {
     await Send_Message(chat_id, ans_log)
     await Logger(`In private chat, user ${user_get.idvk} got ${count} medal. Him/Her bank now ${money_put.medal} by admin ${context.senderId}`)
 }
+
 async function Medal_Down(id: number, context: any, user_adm: User) {
     const count: number = await Ipnut_Gold(context, 'снятия министерских жетонов') 
     const messa: string = await Ipnut_Message(context, 'снятия министерских жетонов')
@@ -782,7 +852,8 @@ async function Medal_Down(id: number, context: any, user_adm: User) {
         }
     }
 }
-//Модуль мульти начислений
+
+// ===== ВАЛЮТЫ (МЕСТНЫЕ) =====
 async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
@@ -800,7 +871,6 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
             sbp_on: true,
             course_medal: true,
             course_coin: true
-            // НЕ включаем новые поля: scoopins_converted, course_scoopins_medal, course_scoopins_coin
         }
     })
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
@@ -836,7 +906,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                     payload: { 
                         command: 'builder_control', 
                         id_builder_sent: i, 
-                        target: builder  // Теперь builder содержит только выбранные поля
+                        target: builder
                     }, 
                     color: 'secondary' 
                 }).row()
@@ -844,11 +914,9 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
                 counter++
             }
             event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
-            //предыдущий офис
             if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
                 keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
             }
-            //следующий офис
             if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                 keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
             }
@@ -857,7 +925,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
             return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
         }
         const answer1: any = await context.question(`${event_logger}`,
-            {	
+            {   
                 keyboard: keyboard.inline(), answerTimeLimit
             }
         )
@@ -876,7 +944,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
     let answer_check = false
     while (answer_check == false) {
         const answer_selector = await context.question(`🧷 Укажите вариант операции:`,
-            {	
+            {   
                 keyboard: Keyboard.builder()
                 .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
                 .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
@@ -1012,7 +1080,7 @@ async function Coin_Engine_Multi(id: number, context: any, user_adm: User) {
     }
     if (!passer) { return context.send(`⚠ Производится отмена команды, недопустимая операция!`) }
 }
-//Модуль начислений
+
 async function Coin_Engine(id: number, context: any, user_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
@@ -1030,7 +1098,6 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
             sbp_on: true,
             course_medal: true,
             course_coin: true
-            // НЕ включаем новые поля: scoopins_converted, course_scoopins_medal, course_scoopins_coin
         }
     })
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
@@ -1066,7 +1133,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
                     payload: { 
                         command: 'builder_control', 
                         id_builder_sent: i, 
-                        target: builder  // Теперь builder содержит только выбранные поля
+                        target: builder
                     }, 
                     color: 'secondary' 
                 }).row()        
@@ -1074,11 +1141,9 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
                 counter++
             }
             event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
-            //предыдущий офис
             if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
                 keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
             }
-            //следующий офис
             if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                 keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
             }
@@ -1087,7 +1152,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
             return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
         }
         const answer1: any = await context.question(`${event_logger}`,
-            {	
+            {   
                 keyboard: keyboard.inline(), answerTimeLimit
             }
         )
@@ -1106,7 +1171,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
     let answer_check = false
     while (answer_check == false) {
         const answer_selector = await context.question(`🧷 Укажите вариант операции:`,
-            {	
+            {   
                 keyboard: Keyboard.builder()
                 .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
                 .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
@@ -1160,7 +1225,7 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
                 }
             }
             break;
-    
+        
         default:
             passer = false
             break;
@@ -1170,7 +1235,6 @@ async function Coin_Engine(id: number, context: any, user_adm: User) {
     await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
 }
 
-//Модуль начислений бесконечнный
 async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
     const user: User | null | undefined = await prisma.user.findFirst({ where: { id: id } })
     const person: { coin: AllianceCoin | null, operation: string | null, amount: number } = { coin: null, operation: null, amount: 0 }
@@ -1188,7 +1252,6 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
             sbp_on: true,
             course_medal: true,
             course_coin: true
-            // НЕ включаем новые поля: scoopins_converted, course_scoopins_medal, course_scoopins_coin
         }
     })
     if (!coin_pass) { return context.send(`Валют ролевых пока еще нет, чтобы начать=)`) }
@@ -1226,7 +1289,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
                         payload: { 
                             command: 'builder_control', 
                             id_builder_sent: i, 
-                            target: builder  // Теперь builder содержит только выбранные поля
+                            target: builder
                         }, 
                         color: 'secondary' 
                     }).row()
@@ -1234,11 +1297,9 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
                     counter++
                 }
                 event_logger += `\n\n${builder_list.length > 1 ? `~~~~ ${builder_list.length > limiter ? id_builder_sent+limiter : limiter-(builder_list.length-id_builder_sent)} из ${builder_list.length} ~~~~` : ''}`
-                //предыдущий офис
                 if (builder_list.length > limiter && id_builder_sent > limiter-1 ) {
                     keyboard.textButton({ label: '←', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent-limiter}, color: 'secondary' })
                 }
-                //следующий офис
                 if (builder_list.length > limiter && id_builder_sent < builder_list.length-limiter) {
                     keyboard.textButton({ label: '→', payload: { command: 'builder_control_multi', id_builder_sent: id_builder_sent+limiter }, color: 'secondary' })
                 }
@@ -1247,7 +1308,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
                 return context.send(`💬 Админы ролевой еще не создали ролевые валюты`)
             }
             const answer1: any = await context.question(`${event_logger}`,
-                {	
+                {   
                     keyboard: keyboard.inline(), answerTimeLimit
                 }
             )
@@ -1266,7 +1327,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
         let answer_check = false
         while (answer_check == false) {
             const answer_selector = await context.question(`🧷 Укажите вариант операции:`,
-                {	
+                {   
                     keyboard: Keyboard.builder()
                     .textButton({ label: '+', payload: { command: 'student' }, color: 'secondary' })
                     .textButton({ label: '-', payload: { command: 'professor' }, color: 'secondary' })
@@ -1349,7 +1410,7 @@ async function Coin_Engine_Infinity(id: number, context: any, user_adm: User) {
         if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) } 
         await Logger(`User ${user.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
         const answer = await context.question(`${ico_list['load'].ico} Вы уверены, что хотите приступить к процедуре повторного отчисления?`,
-            {	
+            {   
                 keyboard: Keyboard.builder()
                 .textButton({ label: 'Полностью', payload: { command: 'Согласиться' }, color: 'positive' }).row()
                 .textButton({ label: 'Передумал(а)', payload: { command: 'Отказаться' }, color: 'negative' }).oneTime(),

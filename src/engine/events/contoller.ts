@@ -22,6 +22,7 @@ import { Shop_Category_Enter, Shop_Enter_Multi, Shop_Enter, Shop_Cancel, Shop_Bo
 import { Operation_Enter, Right_Enter } from "./module/tool";
 import { Topic_Rank_V2_Custom_Period, Topic_Rank_V2_Enter, Topic_Rank_V2_Search_Topic, Topic_Rank_V2_Weeks, Topic_Rank_V2_Select_Monitor, Topic_Rank_V2_Select_Facult, Topic_Rank_V2_Select_Hashtag } from "./module/topic_rank_v2";
 import { Salary_Manager_Menu } from './module/salary_manager';
+import { hasAnyPermission, hasPermission, isAdmin, isRoot } from "../core/permissions";
 
 export async function Main_Menu_Init(context: any) {
     const user: User | null | undefined = await Person_Get(context)
@@ -118,7 +119,6 @@ export async function Keyboard_User_Main(context: Context) {
         }
     }
 
-    // [!] ИСПРАВЛЕНИЕ: Пункт 3 - Кнопка услуг показывается только если есть обсуждения
     let showService = false;
     if (user && user.id_alliance && user.id_alliance > 0) {
         const topicMonitorsCount = await prisma.topicMonitor.count({
@@ -142,13 +142,30 @@ export async function Keyboard_User_Main(context: Context) {
     }
     keyboard_user.row();
 
-    // Кнопка магазина только если жетонов > 5
     if (user && user.medal > 5) {
         keyboard_user.callbackButton({ label: '✨ Маголавка "Чудо в перьях"', payload: { command: 'shop_category_enter' }, color: 'positive' }).row();
     }
 
-    if (await Accessed(context) != 1) {
-        keyboard_user.callbackButton({ label: '🔧 Еще', payload: { command: 'system_call_admin' }, color: 'positive' });
+    // ===== АДМИН-КНОПКИ (только если есть права) =====
+    const hasAdminRights = await hasAnyPermission(user, [
+        'canManageShops', 'canManageAbilities', 'canManageSkills',
+        'canManageChests', 'canManageLegacy', 'canManageBackgrounds',
+        'canManageFacults', 'canManageClassSettings', 'canManageYearEnd',
+        'canManageSalary', 'canManageFinance', 'canManageConverter',
+        'canManageScoopins', 'canManageMonitors', 'canManageTopics',
+        'canManageRoles', 'canManageRolesAssign',
+        'canViewAllUsers', 'canViewInventoryAll',
+        'canEditAllUsers', 'canEditInventoryAll', 'canGiveItemsAll', 'canEditCoins',
+        'canUpgradeOthers', 'canAssignAbility', 'canAssignSkill',
+        'canAssignShopOwner'
+    ]);
+
+    if (await isAdmin(user) || hasAdminRights) {
+        keyboard_user.callbackButton({ 
+            label: '🔧 Еще', 
+            payload: { command: 'system_call_admin' }, 
+            color: 'positive' 
+        });
     }
 
     keyboard_user.oneTime().inline();
@@ -158,16 +175,61 @@ export async function Keyboard_User_Main(context: Context) {
 export async function Keyboard_Admin_Main(context: Context) {
     await Person_Detector(context)
     const admin = await Person_Get(context)
+    if (!admin) { return new KeyboardBuilder().oneTime().inline(); }
+    
     const alliance = await prisma.alliance.findFirst({ where: { id: admin?.id_alliance ?? 0 } })
     const keyboard_admin = new KeyboardBuilder()
-    if (await Accessed(context) != 1) {
-        keyboard_admin.callbackButton({ label: '⚙ Админы', payload: { command: 'admin_enter' }, color: 'secondary' })
-        .callbackButton({ label: `${ico_list['config'].ico} Админам`, payload: { command: 'alliance_enter_admin' }, color: 'secondary' }).row()
+    
+    const isAdminUser = await isAdmin(admin);
+    const isRootUser = await isRoot(admin);
+    const hasViewRights = await hasPermission(admin, 'canViewAllUsers');
+    
+    // ===== КНОПКА "Админы" — ТОЛЬКО если есть право canViewAllUsers ИЛИ root/админ =====
+    if (isRootUser || isAdminUser || hasViewRights) {
+        keyboard_admin.callbackButton({ 
+            label: '⚙ Админы', 
+            payload: { command: 'admin_enter' }, 
+            color: 'secondary' 
+        });
     }
-    if (await Accessed(context) == 3) {
-        keyboard_admin.callbackButton({ label: '⚙ Союзники', payload: { command: 'alliance_control_multi' }, color: 'negative' }).row()
+    
+    // ===== КНОПКА "Админам" — если есть права на управление =====
+    const hasManageRights = await hasAnyPermission(admin, [
+        'canManageShops', 'canManageAbilities', 'canManageSkills',
+        'canManageChests', 'canManageLegacy', 'canManageBackgrounds',
+        'canManageFacults', 'canManageClassSettings', 'canManageYearEnd',
+        'canManageSalary', 'canManageFinance', 'canManageConverter',
+        'canManageScoopins', 'canManageMonitors', 'canManageTopics',
+        'canManageRoles', 'canManageRolesAssign'
+    ]);
+    
+    if (isRootUser || isAdminUser || hasManageRights) {
+        keyboard_admin.callbackButton({ 
+            label: `${ico_list['config'].ico} Админам`, 
+            payload: { command: 'alliance_enter_admin' }, 
+            color: 'secondary' 
+        });
     }
-    keyboard_admin.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).oneTime().inline()
+    
+    if ((isRootUser || isAdminUser || hasViewRights) || (isRootUser || isAdminUser || hasManageRights)) {
+        keyboard_admin.row();
+    }
+    
+    // ===== СОЮЗНИКИ — ТОЛЬКО ROOT =====
+    if (isRootUser) {
+        keyboard_admin.callbackButton({ 
+            label: '⚙ Союзники', 
+            payload: { command: 'alliance_control_multi' }, 
+            color: 'negative' 
+        }).row();
+    }
+    
+    keyboard_admin.callbackButton({ 
+        label: `${ico_list['stop'].ico}`, 
+        payload: { command: 'system_call' }, 
+        color: 'secondary' 
+    }).oneTime().inline()
+    
     return keyboard_admin
 }
 

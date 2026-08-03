@@ -5,6 +5,7 @@ import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Input_Number, Keyboard_Index, Logger, Send_Message, Send_Message_Question, Send_Message_Smart } from "../../../core/helper";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 import { Keyboard, KeyboardBuilder } from "vk-io";
+import { hasPermission, isAdmin, isRoot } from "../../../core/permissions";
 
 // Тип для отображаемых данных инвентаря
 interface InventoryDisplayItem {
@@ -70,10 +71,26 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
     let group_mode = false;
     let childChestCursor = 0;
 
+    // ===== ПРОВЕРЯЕМ КТО СМОТРИТ ИНВЕНТАРЬ =====
+    // Если user_adm есть — значит это просмотр чужого инвентаря через !опсоло
+    // Если user_adm нет — пользователь смотрит свой инвентарь
+    const isOwnInventory = !user_adm;
+    
+    // Для чужого инвентаря проверяем права
+    let hasEditRights = false;
+    if (!isOwnInventory) {
+        hasEditRights = await hasPermission(user_adm, 'canEditInventoryAll') || 
+                        await hasPermission(user_adm, 'canGiveItemsAll') || 
+                        await isAdmin(user_adm) || 
+                        await isRoot(user_adm);
+    } else {
+        // Свой инвентарь — все права есть
+        hasEditRights = true;
+    }
+
     while (true) {
-        // Если не выбран сундук - показываем список сундуков
         if (currentChestId === null) {
-            const result: number | 'exit' | {cursor: number} = await showChestSelection(context, user, cursor, user_adm);
+            const result: number | 'exit' | {cursor: number} = await showChestSelection(context, user, cursor, user_adm, hasEditRights, isOwnInventory);
             
             if (result === 'exit') {
                 await context.send(`✅ Вы вышли из инвентаря.`, { keyboard: button_alliance_return });
@@ -92,10 +109,9 @@ export async function Inventory_With_Chests(context: any, user: User, user_adm?:
                 cursor = result.cursor;
                 continue;
             }
-        } 
-        // Если выбран сундук - показываем его содержимое
-        else {
-            const result: {cursor?: number, group_mode?: boolean, back?: boolean, stop?: boolean, childChestCursor?: number, currentChestId?: number} = await showChestContents(context, user, currentChestId, cursor, group_mode, user_adm, childChestCursor);
+        } else {
+            const result: {cursor?: number, group_mode?: boolean, back?: boolean, stop?: boolean, childChestCursor?: number, currentChestId?: number} = 
+                await showChestContents(context, user, currentChestId, cursor, group_mode, user_adm, childChestCursor, hasEditRights, isOwnInventory);
             
             if (result?.back) {
                 currentChestId = null;
@@ -132,28 +148,23 @@ async function showChestSelection(
     context: any, 
     user: User, 
     cursor: number, 
-    user_adm?: User
+    user_adm?: User,
+    hasEditRights: boolean = false,
+    isOwnInventory: boolean = true
 ): Promise<number | 'exit' | {cursor: number}> {
     const LIMIT = 4;
     
-    // Получаем сундуки альянса пользователя
     const allianceChests = await prisma.allianceChest.findMany({
         where: { 
             id_alliance: user.id_alliance || 0,
-            id_parent: null // Только основные сундуки
+            id_parent: null
         },
         orderBy: [
-            // Сначала сундук "Основное"
-            {
-                name: 'asc',
-            },
-            {
-                order: 'asc'
-            }
+            { name: 'asc' },
+            { order: 'asc' }
         ]
     });
     
-    // Убеждаемся, что есть "Основное"
     let mainChest = allianceChests.find(c => c.name === "Основное");
     if (!mainChest) {
         mainChest = await prisma.allianceChest.create({
@@ -167,7 +178,6 @@ async function showChestSelection(
         allianceChests.push(mainChest);
     }
     
-    // ПЕРЕСОРТИРОВКА: Сначала "Основное", потом остальные по алфавиту
     const sortedChests = allianceChests.sort((a, b) => {
         if (a.name === "Основное") return -1;
         if (b.name === "Основное") return 1;
@@ -177,8 +187,7 @@ async function showChestSelection(
     const totalChests = sortedChests.length;
     const pageChests = sortedChests.slice(cursor, cursor + LIMIT);
     
-    // Формируем текст с информацией о владельце
-    let text = `🎒 ${getOwnerInfo(user, user_adm)}\n\n`;
+    let text = `🎒 ${isOwnInventory ? 'Ваш инвентарь' : `Инвентарь ${user.name} (UID: ${user.id})`}\n\n`;
     
     if (sortedChests.length === 0) {
         text += "🎒 Сундуки не настроены администратором.\nПоказываются все предметы в основной куче.\n\n";
@@ -187,17 +196,13 @@ async function showChestSelection(
         
         for (let i = 0; i < pageChests.length; i++) {
             const chest = pageChests[i];
-            
-            // Считаем количество дочерних сундучков
             const childCount = await prisma.allianceChest.count({
                 where: { id_parent: chest.id }
             });
             
-            // Иконка сундука
             const icon = chest.name === "Основное" ? '🔘' : '🎒';
             
             if (childCount > 0) {
-                // Получаем все ID дочерних сундучков
                 const childChests = await prisma.allianceChest.findMany({
                     where: { id_parent: chest.id },
                     select: { id: true }
@@ -205,7 +210,6 @@ async function showChestSelection(
                 
                 const chestIds = [chest.id, ...childChests.map(c => c.id)];
                 
-                // Считаем ВСЕ предметы во всех сундуках (включая дочерние)
                 const totalItemsInAllChests = await prisma.chestItemLink.count({
                     where: { 
                         id_chest: { in: chestIds },
@@ -215,7 +219,6 @@ async function showChestSelection(
                     }
                 });
                 
-                // Считаем предметы только в дочерних сундуках
                 const itemsInChildren = await prisma.chestItemLink.count({
                     where: { 
                         id_chest: { in: childChests.map(c => c.id) },
@@ -225,7 +228,6 @@ async function showChestSelection(
                     }
                 });
                 
-                // Считаем предметы только в основном сундуке
                 const itemsInMain = await prisma.chestItemLink.count({
                     where: { 
                         id_chest: chest.id,
@@ -235,10 +237,8 @@ async function showChestSelection(
                     }
                 });
                 
-                // Формат: · 2🧳(30) · 0📦
                 text += `${icon} [${chest.id}] ${chest.name} · ${childCount}🧳(${itemsInChildren}) · ${itemsInMain}📦\n`;
             } else {
-                // Нет дочерних сундуков - просто предметы в основном
                 const itemsInMain = await prisma.chestItemLink.count({
                     where: { 
                         id_chest: chest.id,
@@ -257,19 +257,14 @@ async function showChestSelection(
     
     text += `Выберите сундук для просмотра:`;
     
-    // Формируем клавиатуру (упрощенную - МАКСИМУМ 10 КНОПОК)
     const keyboard = new KeyboardBuilder();
     
-    // Кнопки сундуков (по одной на строку)
     for (const chest of pageChests) {
         const icon = chest.name === "Основное" ? '🔘' : '🎒';
-        
-        // Ограничиваем длину названия для кнопки
         let displayName = chest.name;
         if (displayName.length > 25) {
             displayName = displayName.slice(0, 12) + '...';
         }
-        
         const label = `${icon} ${displayName}`;
         
         keyboard.textButton({
@@ -280,7 +275,6 @@ async function showChestSelection(
         keyboard.row();
     }
     
-    // Навигация - ВСЕГДА ПОКАЗЫВАЕМ, даже если мало места
     if (totalChests > LIMIT) {
         if (cursor > 0) {
             keyboard.textButton({
@@ -301,7 +295,6 @@ async function showChestSelection(
         keyboard.row();
     }
     
-    // Используем Send_Message_Question вместо Send_Message
     try {
         const bt = await Send_Message_Question(context, text, keyboard.oneTime().inline());
         
@@ -314,7 +307,6 @@ async function showChestSelection(
             return { cursor };
         }
         
-        // Обработка команд
         if (bt.payload.command === 'select_chest') {
             return bt.payload.id;
         }
@@ -335,24 +327,19 @@ async function showChestSelection(
         return { cursor };
     } catch (error: any) {
         console.error("Ошибка в showChestSelection:", error);
-        
-        // В случае ошибки отправляем простое сообщение
         await context.send(`❌ Ошибка отображения. Попробуйте снова.`);
         return 'exit';
     }
 }
 
 async function getTotalItemsInChest(userId: number, chestId: number): Promise<number> {
-    // Получаем все дочерние сундуки
     const childChests = await prisma.allianceChest.findMany({
         where: { id_parent: chestId },
         select: { id: true }
     });
     
-    // Собираем все ID сундуков
     const chestIds = [chestId, ...childChests.map(c => c.id)];
     
-    // Считаем общее количество предметов
     const totalCount = await prisma.chestItemLink.count({
         where: {
             id_chest: { in: chestIds },
@@ -374,7 +361,9 @@ async function showChestContents(
     cursor: number, 
     group_mode: boolean,
     user_adm?: User,
-    childChestCursor: number = 0
+    childChestCursor: number = 0,
+    hasEditRights: boolean = false,
+    isOwnInventory: boolean = true
 ): Promise<{cursor?: number, group_mode?: boolean, back?: boolean, stop?: boolean, childChestCursor?: number, currentChestId?: number}> {
     const STANDARD_LIMIT = 4;
     const STANDARD_CHILD_LIMIT = 3;
@@ -415,12 +404,11 @@ async function showChestContents(
     const totalChildChests = childChests.length;
     const pageChildChests = childChests.slice(childChestCursor, childChestCursor + childChestLimit);
     
-    // Улучшенный текст с информацией о владельце
     let text = '';
     if (chest.Parent) {
-        text += `🧳 Сундучок "${chest.name}" (внутри "${chest.Parent.name}")${getOwnerSuffix(user, user_adm)}\n\n`;
+        text += `🧳 Сундучок "${chest.name}" (внутри "${chest.Parent.name}")${isOwnInventory ? '' : ` (инвентарь ${user.name}) (UID: ${user.id})`}\n\n`;
     } else {
-        text += `🎒 Сундук "${chest.name}"${getOwnerSuffix(user, user_adm)}\n\n`;
+        text += `🎒 Сундук "${chest.name}"${isOwnInventory ? '' : ` (инвентарь ${user.name}) (UID: ${user.id})`}\n\n`;
     }
     
     if (hasChildChests) {
@@ -441,7 +429,6 @@ async function showChestContents(
             text += `🧳 [${child.id}] ${child.name} · ${itemDisplay}\n`;
         }
         
-        // Навигация по сундучкам
         if (totalChildChests > childChestLimit) {
             const currentChildPage = Math.floor(childChestCursor / childChestLimit) + 1;
             const totalChildPages = Math.ceil(totalChildChests / childChestLimit);
@@ -451,7 +438,6 @@ async function showChestContents(
         text += `\n`;
     }
     
-    // Показываем товары
     text += `Товары в сундуке:\n`;
     
     if (chestItems.length === 0) {
@@ -469,7 +455,6 @@ async function showChestContents(
             }
         }
         
-        // Навигация по товарам
         if (totalItems > 0) {
             const currentPage = Math.floor(cursor / itemLimit) + 1;
             const totalPages = Math.ceil(totalItems / itemLimit);
@@ -477,11 +462,9 @@ async function showChestContents(
         }
     }
     
-    // Показываем информацию о режиме только если есть предметы
     if (totalItems > 0) {
         text += `\nРежим: ${group_mode ? 'Группы' : 'Поштучно'}`;
         
-        // Если в режиме "2+2", добавляем пояснение
         if (isDualMode) {
             text += ` | 👁 Показано по 3 (сундучка и товара)`;
         }
@@ -510,7 +493,6 @@ async function showChestContents(
             }).row();
         }
         
-        // Навигация по сундучкам (только если их больше лимита)
         if (totalChildChests > childChestLimit) {
             if (childChestCursor > 0) {
                 const prevChildCursor = Math.max(0, childChestCursor - childChestLimit);
@@ -574,24 +556,14 @@ async function showChestContents(
                     color: 'secondary'
                 });
                 
-                keyboard.textButton({
-                    label: `🎁`,
-                    payload: { 
-                        command: 'group_item_present',
-                        id: item.id,
-                        type: item.type,
-                        cursor: cursor,
-                        group_mode: group_mode,
-                        childChestCursor: childChestCursor,
-                        currentChestId: chest.id
-                    },
-                    color: 'negative'
-                });
-                if (user_adm && isArtifactItem(item.type)) {
+                // ===== КНОПКИ УПРАВЛЕНИЯ ТОЛЬКО ЕСЛИ ЕСТЬ ПРАВА =====
+                // Для своего инвентаря — всегда есть права
+                // Для чужого — только если есть canEditInventoryAll или canGiveItemsAll
+                if (hasEditRights) {
                     keyboard.textButton({
-                        label: `🎒`,
+                        label: `🎁`,
                         payload: { 
-                            command: 'group_item_move_chest',
+                            command: 'group_item_present',
                             id: item.id,
                             type: item.type,
                             cursor: cursor,
@@ -599,22 +571,38 @@ async function showChestContents(
                             childChestCursor: childChestCursor,
                             currentChestId: chest.id
                         },
-                        color: 'secondary'
+                        color: 'negative'
+                    });
+                    if (user_adm && isArtifactItem(item.type)) {
+                        keyboard.textButton({
+                            label: `🎒`,
+                            payload: { 
+                                command: 'group_item_move_chest',
+                                id: item.id,
+                                type: item.type,
+                                cursor: cursor,
+                                group_mode: group_mode,
+                                childChestCursor: childChestCursor,
+                                currentChestId: chest.id
+                            },
+                            color: 'secondary'
+                        });
+                    }
+                    keyboard.textButton({
+                        label: `⛔`,
+                        payload: { 
+                            command: 'group_item_delete',
+                            id: item.id,
+                            type: item.type,
+                            cursor: cursor,
+                            group_mode: group_mode,
+                            childChestCursor: childChestCursor,
+                            currentChestId: chest.id
+                        },
+                        color: 'negative'
                     });
                 }
-                keyboard.textButton({
-                    label: `⛔`,
-                    payload: { 
-                        command: 'group_item_delete',
-                        id: item.id,
-                        type: item.type,
-                        cursor: cursor,
-                        group_mode: group_mode,
-                        childChestCursor: childChestCursor,
-                        currentChestId: chest.id
-                    },
-                    color: 'negative'
-                }).row();
+                keyboard.row();
             } else {
                 const truncatedName = item.name.length > 25 ? 
                     item.name.slice(0, 17) + '...' : item.name;
@@ -637,48 +625,50 @@ async function showChestContents(
                     color: 'secondary'
                 });
                 
-                keyboard.textButton({
-                    label: `🎁`,
-                    payload: { 
-                        command: 'item_present',
-                        id: item.id,
-                        cursor: cursor,
-                        group_mode: group_mode,
-                        childChestCursor: childChestCursor,
-                        currentChestId: chest.id
-                    },
-                    color: 'negative'
-                });
-                if (user_adm && isArtifactItem(item.type)) {
+                if (hasEditRights) {
                     keyboard.textButton({
-                        label: `🎒`,
+                        label: `🎁`,
                         payload: { 
-                            command: 'item_move_chest',
+                            command: 'item_present',
                             id: item.id,
                             cursor: cursor,
                             group_mode: group_mode,
                             childChestCursor: childChestCursor,
                             currentChestId: chest.id
                         },
-                        color: 'secondary'
+                        color: 'negative'
+                    });
+                    if (user_adm && isArtifactItem(item.type)) {
+                        keyboard.textButton({
+                            label: `🎒`,
+                            payload: { 
+                                command: 'item_move_chest',
+                                id: item.id,
+                                cursor: cursor,
+                                group_mode: group_mode,
+                                childChestCursor: childChestCursor,
+                                currentChestId: chest.id
+                            },
+                            color: 'secondary'
+                        });
+                    }
+                    keyboard.textButton({
+                        label: `⛔`,
+                        payload: { 
+                            command: 'item_delete',
+                            id: item.id,
+                            cursor: cursor,
+                            group_mode: group_mode,
+                            childChestCursor: childChestCursor,
+                            currentChestId: chest.id
+                        },
+                        color: 'negative'
                     });
                 }
-                keyboard.textButton({
-                    label: `⛔`,
-                    payload: { 
-                        command: 'item_delete',
-                        id: item.id,
-                        cursor: cursor,
-                        group_mode: group_mode,
-                        childChestCursor: childChestCursor,
-                        currentChestId: chest.id
-                    },
-                    color: 'negative'
-                }).row();
+                keyboard.row();
             }
         }
         
-        // Навигация по товарам (только если их больше лимита)
         if (totalItems > itemLimit) {
             if (cursor > 0) {
                 keyboard.textButton({
@@ -731,6 +721,7 @@ async function showChestContents(
     
     // Кнопки действий
     if (hasItems) {
+        // Переключение режима — всегда доступно
         keyboard.textButton({
             label: group_mode ? `📋 Поштучно` : `📦 Группами`,
             payload: { 
@@ -743,17 +734,20 @@ async function showChestContents(
             color: 'primary'
         });
         
-        keyboard.textButton({
-            label: `🎁 ∞`,
-            payload: { 
-                command: 'chest_mass_present',
-                cursor: cursor,
-                group_mode: group_mode,
-                childChestCursor: childChestCursor,
-                chestId: chest.id
-            },
-            color: 'positive'
-        });
+        // Массовое дарение — только если есть права
+        if (hasEditRights) {
+            keyboard.textButton({
+                label: `🎁 ∞`,
+                payload: { 
+                    command: 'chest_mass_present',
+                    cursor: cursor,
+                    group_mode: group_mode,
+                    childChestCursor: childChestCursor,
+                    chestId: chest.id
+                },
+                color: 'positive'
+            });
+        }
     }
     
     keyboard.textButton({
@@ -779,7 +773,6 @@ async function showChestContents(
         
         let payloadData: any;
         
-        // Если bt.payload это строка (JSON), парсим ее
         if (typeof bt.payload === 'string') {
             try {
                 payloadData = JSON.parse(bt.payload);
@@ -787,15 +780,12 @@ async function showChestContents(
                 console.error(`DEBUG: Error parsing payload as JSON:`, e);
                 payloadData = {};
             }
-        } 
-        // Если bt.payload это объект, проверяем есть ли в нем payload
-        else if (typeof bt.payload === 'object' && bt.payload !== null) {
+        } else if (typeof bt.payload === 'object' && bt.payload !== null) {
             if (bt.payload.payload) {
                 payloadData = bt.payload.payload;
             } else if (bt.payload.command) {
                 payloadData = bt.payload;
             } else {
-                // Пробуем получить payload из текста сообщения
                 if (bt.payload.text && bt.payload.text.includes('{')) {
                     try {
                         const match = bt.payload.text.match(/\{.*\}/);
@@ -818,7 +808,6 @@ async function showChestContents(
             return { cursor, group_mode, childChestCursor };
         }
         
-        // ОБНОВЛЯЕМ ОБРАБОТЧИКИ КОМАНД ДЛЯ УЧЕТА ИЗМЕНЕННЫХ ЛИМИТОВ
         const commandHandlers: any = {
             'back_to_chests': () => ({ back: true }),
             'exit': () => ({ stop: true }),
@@ -828,7 +817,6 @@ async function showChestContents(
                 childChestCursor: 0
             }),
             'items_prev': () => { 
-                // Используем itemLimit вместо фиксированного LIMIT
                 const newCursor = Math.max(0, cursor - itemLimit);
                 return { 
                     cursor: newCursor, 
@@ -846,7 +834,6 @@ async function showChestContents(
             },
             'select_page': () => handleSelectPage(context, payloadData, user, user_adm, chest),
             'child_chests_prev': () => { 
-                // Используем childChestLimit вместо фиксированного MAX_CHILD_CHESTS
                 const newChildCursor = Math.max(0, childChestCursor - childChestLimit);
                 return { 
                     cursor: cursor, 
@@ -944,7 +931,6 @@ function isShopItem(itemType: string): boolean {
 }
 
 function isArtifactItem(itemType: string): boolean {
-    // Проверяем оба варианта регистра
     return itemType === InventoryType.ITEM_STORAGE || 
            itemType.includes('ITEM_STORAGE') || 
            itemType.includes('item_storage');
@@ -958,7 +944,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         childChestCursor: data.childChestCursor 
     };
     
-    // Находим предмет
     const inventoryItem = await prisma.inventory.findFirst({
         where: { id: data.id }
     });
@@ -968,7 +953,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         return res;
     }
     
-    // Получаем информацию о предмете
     let itemInfo: any = null;
     let itemName = 'Неизвестный предмет';
     
@@ -983,7 +967,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         itemName = itemInfo?.name || 'Предмет магазина';
     }
     
-    // Получаем альянс игрока
     const player = await prisma.user.findFirst({
         where: { id: inventoryItem.id_user }
     });
@@ -995,7 +978,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
     
     await context.send(`🎒 Перемещение предмета "${itemName}" (ID: ${inventoryItem.id})\nВладелец: ${player.name} (UID: ${player.id})`);
     
-    // Используем функцию выбора сундука
     const alliance = await prisma.alliance.findFirst({
         where: { id: player.id_alliance ?? 0 }
     });
@@ -1005,20 +987,16 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         return res;
     }
     
-    // Вспомогательная функция для выбора сундука (аналогичная той, что в Storage_Engine)
     async function selectChestForMove(allianceId: number, currentChestId: number): Promise<{chestId: number, chestName: string}> {
-        // Получаем все сундуки альянса
         const allChests = await prisma.allianceChest.findMany({
             where: { id_alliance: allianceId },
             include: { Children: true },
             orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
         });
         
-        // Ищем "Основное" сундук
         const mainChest = allChests.find(c => c.name === "Основное");
         const mainChests = allChests.filter(c => c.id_parent === null);
         
-        // Формируем текст для выбора сундука
         let text = `🎒 Выберите целевой сундук для перемещения\n\n`;
         text += `Текущий сундук: "${chest?.name || 'Неизвестно'}" (ID: ${currentChestId})\n`;
         text += `Предмет: "${itemName}"\n`;
@@ -1093,12 +1071,10 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
             selectedChestName = selectedChest.name;
         }
         
-        // Проверяем, есть ли сундучки в выбранном сундуке
         const childChests = allChests.filter(c => c.id_parent === selectedChestId);
         
         if (childChests.length > 0) {
             let childText = `🎒 Выбран сундук: ${selectedChestName}\n\n`;
-            
             childText += `\nВыберите сундучок:\n`;
             childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
             
@@ -1112,10 +1088,8 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
             if (childIdInput === false) return {chestId: selectedChestId, chestName: selectedChestName};
             
             if (childIdInput === selectedChestId) {
-                // Оставляем выбранный сундук
                 return {chestId: selectedChestId, chestName: selectedChestName};
             } else {
-                // Проверяем, существует ли сундучок
                 const selectedChild = childChests.find(c => c.id === childIdInput);
                 if (!selectedChild) {
                     await context.send(`❌ Сундучок с ID ${childIdInput} не найден. Используется основной сундук.`);
@@ -1128,10 +1102,8 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         return {chestId: selectedChestId, chestName: selectedChestName};
     }
     
-    // Вызываем функцию выбора сундука
     const { chestId: targetChestId, chestName: targetChestName } = await selectChestForMove(alliance.id, chest?.id || 0);
     
-    // Находим текущую связь с сундуком
     const chestLink = await prisma.chestItemLink.findFirst({
         where: { id_inventory: inventoryItem.id }
     });
@@ -1139,7 +1111,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
     const oldChestName = chest?.name || 'Основное';
     const oldChestId = chestLink?.id_chest || 0;
     
-    // Обновляем связь
     if (chestLink) {
         await prisma.chestItemLink.update({
             where: { id: chestLink.id },
@@ -1154,7 +1125,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         });
     }
     
-    // Логируем действие
     const logMessage = `🎒 Перемещение предмета администратором\n\n` +
         `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'}) (UID: ${user_adm?.id ?? 'N/A'})\n` +
         `🎯 Владелец предмета: @id${player.idvk}(${player.name}) (UID: ${player.id})\n` +
@@ -1162,10 +1132,8 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
         `📁 Из сундука: ${oldChestName} (ID: ${oldChestId})\n` +
         `📁 В сундук: ${targetChestName} (ID: ${targetChestId})`;
     
-    // Отправляем уведомление админу
     await context.send(`✅ Предмет "${itemName}" перемещен из "${oldChestName}" (ID: ${oldChestId}) в "${targetChestName}" (ID: ${targetChestId})`);
     
-    // Отправляем уведомление владельцу
     const ownerMessage = `🎒 Администратор ${user_adm?.name} переместил ваш предмет:\n\n` +
         `📦 Предмет: ${itemName}\n` +
         `📁 Из сундука: ${oldChestName} (ID: ${oldChestId})\n` +
@@ -1173,7 +1141,6 @@ async function handleItemMoveChest(context: any, data: any, user: User, user_adm
     
     await Send_Message(player.idvk, ownerMessage);
     
-    // Отправляем в лог-чат если настроен
     const allianceForLog = await prisma.alliance.findFirst({
         where: { id: alliance.id }
     });
@@ -1193,7 +1160,6 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         childChestCursor: data.childChestCursor 
     };
     
-    // Получаем информацию о группе предметов
     const chestItems = await getChestInventoryItems(user.id, chest.id, true);
     const group = chestItems.find(item => 
         item.id === data.id && item.type.includes(data.type)
@@ -1204,7 +1170,6 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         return res;
     }
     
-    // Проверяем, что group не undefined
     if (!group || !group.name || !group.count || !group.inventory_ids) {
         await context.send(`❌ Ошибка: данные группы предметов неполные.`);
         return res;
@@ -1212,7 +1177,6 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
     
     await context.send(`🎒 Перемещение группы предметов "${group.name}" × ${group.count}\nВладелец: ${user.name} (UID: ${user.id})`);
     
-    // Используем функцию выбора сундука
     const alliance = await prisma.alliance.findFirst({
         where: { id: user.id_alliance ?? 0 }
     });
@@ -1222,20 +1186,16 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         return res;
     }
     
-    // Вспомогательная функция для выбора сундука
     async function selectChestForGroupMove(allianceId: number, currentChestId: number): Promise<{chestId: number, chestName: string}> {
-        // Получаем все сундуки альянса
         const allChests = await prisma.allianceChest.findMany({
             where: { id_alliance: allianceId },
             include: { Children: true },
             orderBy: [{ id_parent: 'asc' }, { order: 'asc' }]
         });
         
-        // Ищем "Основное" сундук
         const mainChest = allChests.find(c => c.name === "Основное");
         const mainChests = allChests.filter(c => c.id_parent === null);
         
-        // Формируем текст для выбора сундука
         let text = `🎒 Выберите целевой сундук для перемещения группы\n\n`;
         text += `Текущий сундук: "${chest?.name || 'Неизвестно'}" (ID: ${currentChestId})\n`;
         text += `Предмет: "${group?.name || 'Неизвестный предмет'}" × ${group?.count || 0}\n`;
@@ -1310,12 +1270,10 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
             selectedChestName = selectedChest.name;
         }
         
-        // Проверяем, есть ли сундучки в выбранном сундуке
         const childChests = allChests.filter(c => c.id_parent === selectedChestId);
         
         if (childChests.length > 0) {
             let childText = `🎒 Выбран сундук: ${selectedChestName}\n\n`;
-            
             childText += `\nВыберите сундучок:\n`;
             childText += `🎒 [${selectedChestId}] Оставить в выбранном сундуке\n`;
             
@@ -1329,10 +1287,8 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
             if (childIdInput === false) return {chestId: selectedChestId, chestName: selectedChestName};
             
             if (childIdInput === selectedChestId) {
-                // Оставляем выбранный сундук
                 return {chestId: selectedChestId, chestName: selectedChestName};
             } else {
-                // Проверяем, существует ли сундучок
                 const selectedChild = childChests.find(c => c.id === childIdInput);
                 if (!selectedChild) {
                     await context.send(`❌ Сундучок с ID ${childIdInput} не найден. Используется основной сундук.`);
@@ -1345,21 +1301,17 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         return {chestId: selectedChestId, chestName: selectedChestName};
     }
     
-    // Вызываем функцию выбора сундука
     const { chestId: targetChestId, chestName: targetChestName } = await selectChestForGroupMove(alliance.id, chest?.id || 0);
     
     const oldChestName = chest?.name || 'Основное';
     
-    // Перемещаем все предметы группы
     let movedCount = 0;
     if (group.inventory_ids && Array.isArray(group.inventory_ids)) {
         for (const inventoryId of group.inventory_ids) {
-            // Находим текущую связь с сундуком
             const chestLink = await prisma.chestItemLink.findFirst({
                 where: { id_inventory: inventoryId }
             });
             
-            // Обновляем связь
             if (chestLink) {
                 await prisma.chestItemLink.update({
                     where: { id: chestLink.id },
@@ -1377,7 +1329,6 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         }
     }
     
-    // Логируем действие
     const logMessage = `🎒 Перемещение группы предметов администратором\n\n` +
         `👤 Админ: @id${context.senderId}(${user_adm?.name || 'Неизвестно'}) (UID: ${user_adm?.id ?? 'N/A'})\n` +
         `🎯 Владелец предметов: @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
@@ -1385,10 +1336,8 @@ async function handleGroupItemMoveChest(context: any, data: any, user: User, use
         `📁 Из сундука: ${oldChestName}\n` +
         `📁 В сундук: ${targetChestName} (ID: ${targetChestId})`;
     
-    // Отправляем уведомление админу
     await context.send(`✅ ${movedCount} предметов "${group.name}" перемещены из "${oldChestName}" в "${targetChestName}" (ID: ${targetChestId})`);
     
-    // Отправляем в лог-чат если настроен
     const allianceForLog = await prisma.alliance.findFirst({
         where: { id: alliance.id }
     });

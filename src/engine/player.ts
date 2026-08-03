@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, vk } from '../index';
-import { Accessed, Antivirus_VK, Confirm_User_Success, Is_Chat_Checker, Keyboard_Index, Logger, Send_Message } from "./core/helper";
+import { Accessed, Antivirus_VK, Confirm_User_Success, Is_Chat_Checker, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "./core/helper";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, User } from "@prisma/client";
@@ -46,6 +46,8 @@ import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin"
 import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
 import { Finance_Statistics_Command } from "./events/module/alliance/finance_statistics";
 import { Salary_Manager_Menu } from "./events/module/salary_manager";
+import { RoleManager_Menu } from "./events/module/role_management/role_manager";
+import { hasPermission, isAdmin, isRoot } from "./core/permissions";
 const fs = require('fs');
 
 async function Get_Admin_Alliance_User(context: any): Promise<User | null> {
@@ -429,30 +431,77 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `💡 Захват мира снова в теме!`)
     })
+
+    hearManager.hear(/⚙ !права настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (await Is_Chat_Checker(context) == true) return;
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageRoles')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав для управления ролями.');
+            return;
+        }
+        
+        await RoleManager_Menu(context);
+    });
+
     hearManager.hear(/!права/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
+        
         const user_adm: User | null | undefined = await Person_Get(context)
-        if (await Accessed(context) == 1) { return }
+        if (!user_adm) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        // Проверяем права на выдачу ролей
+        if (!(await hasPermission(user_adm, 'canManageRolesAssign')) && !(await isAdmin(user_adm))) {
+            await context.send('❌ У вас нет прав на выдачу ролей.');
+            return;
+        }
+        
         const uid = await context.question(`🧷 Введите 💳UID банковского счета получателя:`, timer_text)
         if (uid.isTimeout) { return await context.send(`⏰ Время ожидания ввода банковского счета истекло!`) }
         if (uid.text) {
             const get_user = await prisma.user.findFirst({ where: { id: Number(uid.text) } })
-            if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await Accessed(context) == 3)) {
+            if (get_user && (user_adm?.id_alliance == get_user.id_alliance || get_user.id_alliance == 0 || get_user.id_alliance == -1 || await isRoot(user_adm))) {
                 const role: any = await prisma.role.findFirst({ where: { id: get_user.id_role } })
                 const info_coin: { text: string, smile: string } | undefined = await Person_Coin_Printer_Self(context, get_user.id)
                 const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(get_user.id_alliance) } })
                 await context.send(`✉ Открыта следующая карточка: ${get_user.class} ${get_user.name}, ${get_user.spec}: \n\n 💳 UID: ${get_user.id} \n 🕯 GUID: ${get_user.id_account} \n 🔘 Жетоны: ${get_user.medal} \n 👤 Имя: ${get_user.name} \n 👑 Статус: ${get_user.class}  \n 🔨 Профессия: ${get_user?.spec} \n 🏠 Ролевая: ${get_user.id_alliance == 0 ? `Соло` : get_user.id_alliance == -1 ? `Не союзник` : alli_get?.name}\n 🧷 Страница: https://vk.com/id${get_user.idvk}\n${info_coin?.text}\n \n Права пользователя: ${role.name} `)
+                
                 const keyboard = new KeyboardBuilder()
                 keyboard.textButton({ label: 'Дать админку', payload: { command: 'access' }, color: 'secondary' }).row()
                 .textButton({ label: 'Снять админку (в том числе супер)', payload: { command: 'denied' }, color: 'secondary' }).row()
                 
-                if (await Accessed(context) == 3) {
+                if (await isRoot(user_adm)) {
                     keyboard.textButton({ label: 'Дать Супер админку', payload: { command: 'access_pro' }, color: 'secondary' }).row()
                 }
+                
+                // ===== КНОПКА ДЛЯ КАСТОМНЫХ РОЛЕЙ =====
+                const customRoles = await prisma.customRole.findMany({
+                    where: { allianceId: user_adm.id_alliance ?? 0 }
+                });
+                
+                if (customRoles.length > 0) {
+                    keyboard.textButton({ 
+                        label: '👑 Выдать кастомную роль', 
+                        payload: { command: 'assign_custom_role' }, 
+                        color: 'primary' 
+                    }).row();
+                }
+                
                 keyboard.textButton({ label: 'Ничего не делать', payload: { command: 'cancel' }, color: 'secondary' }).row()
                 keyboard.oneTime().inline()
+                
                 const answer1 = await context.question(`⌛ Что будем делать?`, { keyboard: keyboard, answerTimeLimit })
                 if (answer1.isTimeout) { return await context.send(`⏰ Время ожидания изменения прав истекло!`) }
                 if (!answer1.payload) {
@@ -470,7 +519,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
                             
-                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
                             const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
                             const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
                             if (alliance?.id_chat && alliance.id_chat > 0) {
@@ -495,7 +543,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
                             
-                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
                             const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
                             const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает Супер администратором @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
                             if (alliance?.id_chat && alliance.id_chat > 0) {
@@ -520,7 +567,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                                 console.log(`User ${get_user.idvk} blocked chating with bank`)
                             }
                             
-                            // [!] Изменение: Пункт 7 - Уведомление в локальный чат альянса
                             const alliance = await prisma.alliance.findFirst({ where: { id: user_adm?.id_alliance ?? 0 } });
                             const logMessage = `⚙ @id${context.senderId}(${user_adm?.name ?? 'Root'}) (UID: ${user_adm?.id ?? 'N/A'}) > делает обычным пользователем @id${get_user.idvk}(${get_user.name}) (UID: ${get_user.id})`;
                             if (alliance?.id_chat && alliance.id_chat > 0) {
@@ -532,6 +578,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                         } else {
                             await context.send(`💡 Ошибка`)
                         }
+                    }
+                    if (answer1.payload.command === 'assign_custom_role') {
+                        await AssignCustomRole(context, get_user, user_adm);
                     }
                     if (answer1.payload.command === 'cancel') {
                         await context.send(`💡 Тоже вариант`)
@@ -549,11 +598,22 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `💡 Повышение в должности, не всегда понижение!`)
     })
+
     hearManager.hear(/!енотик/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await isRoot(user))) {
+            await context.send('❌ Только root может делать бекап.');
+            return;
+        }
         
         try {
             const filePath = path.join(process.cwd(), 'prisma/dev.db');
@@ -590,6 +650,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             await context.send('❌ Ошибка при создании бекапа');
         }
     });
+
     hearManager.hear(/!банк|!Банк/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -597,32 +658,56 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Person_Detector(context)
         const user_check: User | null | undefined = await Person_Get(context)
         if (!user_check) { return }
-		await Main_Menu_Init(context)
+        await Main_Menu_Init(context)
         await Logger(`In private chat, invite enter in system is viewed by user ${context.senderId}`)
     })
+
     hearManager.hear(/➕👤/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         await Person_Register(context)
     })
+
     hearManager.hear(/➕🌐/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        if (!(await isRoot(user))) {
+            await context.send('❌ Только root может добавлять альянсы.');
+            return;
+        }
         await Alliance_Add(context)
     })
+
     hearManager.hear(/🔃👥/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         await Person_Selector(context)
     })
+
     hearManager.hear(/!отчет по ролкам/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await isAdmin(user)) && !(await isRoot(user))) {
+            await context.send('❌ У вас нет прав на просмотр отчета.');
+            return;
+        }
+        
         const res: Array<{ name: String, count: number }> = []
         for (const alli of await prisma.alliance.findMany({})) {
             res.push({ name: alli.name, count: 0 })
@@ -644,59 +729,118 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const res_ans = res.map(re => `🌐 ${re.name} - ${re.count}\n`).join('')
         await context.send(`📜 Отчет по количеству персонажей в ролевых под грифом секретно:\n\n${res_ans}`)
     })
+
     hearManager.hear(/!обновить ролки/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await isAdmin(user)) && !(await isRoot(user))) {
+            await context.send('❌ У вас нет прав на обновление ролек.');
+            return;
+        }
+        
         await Alliance_Updater(context)
     })
+
     hearManager.hear(/⚙ !валюты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageFinance')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление валютами.');
+            return;
+        }
+        
         await Alliance_Coin_Printer(context)
     })
+
     hearManager.hear(/⚙ !конвертацию настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageConverter')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление конвертацией.');
+            return;
+        }
+        
         await Alliance_Coin_Converter_Editor_Printer(context)
     })
+
     hearManager.hear(/⚙ !S-coins настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageScoopins')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление S-coins.');
+            return;
+        }
+        
         await Alliance_Scoopins_Converter_Editor_Printer(context)
     })
+
     hearManager.hear(/(?:⚙ )?!внутрконвертацию настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageConverter')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление внутренней конвертацией.');
+            return;
+        }
+        
         await Alliance_Internal_Converter_Editor_Printer(context)
     })
+
     hearManager.hear(/⚙ !основу настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         
-        if (await Accessed(context) === 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
         
-        const account = await prisma.account.findFirst({ 
-            where: { idvk: context.senderId } 
-        });
-        if (!account) return;
+        if (!(await hasPermission(user, 'canManageBackgrounds')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав для настройки фона.');
+            return;
+        }
         
-        const user = await prisma.user.findFirst({ 
-            where: { id: account.select_user } 
-        });
-        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+        if (!user.id_alliance || user.id_alliance <= 0) {
             await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
             return;
         }
@@ -770,20 +914,18 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         
-        if (await Accessed(context) === 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
         
-        const account = await prisma.account.findFirst({ 
-            where: { idvk: context.senderId } 
-        });
-        if (!account) return;
+        if (!(await hasPermission(user, 'canManageBackgrounds')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав для удаления фона.');
+            return;
+        }
         
-        const user = await prisma.user.findFirst({ 
-            where: { id: account.select_user } 
-        });
-        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+        if (!user.id_alliance || user.id_alliance <= 0) {
             await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
             return;
         }
@@ -811,24 +953,23 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Keyboard_Index(context, '💡 Управление фоном меню');
     });
+
     hearManager.hear(/⚙ !карту настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         
-        if (await Accessed(context) === 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
         
-        const account = await prisma.account.findFirst({ 
-            where: { idvk: context.senderId } 
-        });
-        if (!account) return;
+        if (!(await hasPermission(user, 'canManageBackgrounds')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав для настройки фона карточек.');
+            return;
+        }
         
-        const user = await prisma.user.findFirst({ 
-            where: { id: account.select_user } 
-        });
-        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+        if (!user.id_alliance || user.id_alliance <= 0) {
             await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
             return;
         }
@@ -898,25 +1039,22 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, '💡 Новый фон — новые впечатления!');
     });
 
-    // Добавьте также команду для удаления фона:
     hearManager.hear(/⚙ !карту удалить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         
-        if (await Accessed(context) === 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
         
-        const account = await prisma.account.findFirst({ 
-            where: { idvk: context.senderId } 
-        });
-        if (!account) return;
+        if (!(await hasPermission(user, 'canManageBackgrounds')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав для удаления фона карточек.');
+            return;
+        }
         
-        const user = await prisma.user.findFirst({ 
-            where: { id: account.select_user } 
-        });
-        if (!user || !user.id_alliance || user.id_alliance <= 0) {
+        if (!user.id_alliance || user.id_alliance <= 0) {
             await context.send('❌ Эта команда доступна только администраторам ролевых проектов.');
             return;
         }
@@ -945,49 +1083,70 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Keyboard_Index(context, '💡 Управление фоном карточек');
     });
-    hearManager.hear(/(?:⚙\s*)?!услуги настроить/, Service_Menu_Background_Setup);
 
+    hearManager.hear(/(?:⚙\s*)?!услуги настроить/, Service_Menu_Background_Setup);
     hearManager.hear(/(?:⚙\s*)?!услуги удалить/, Service_Menu_Background_Delete);
 
     hearManager.hear(/⚙ !легаси настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-        if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
-        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         
-        await Legacy_Category_Printer(context, user_check.id_alliance!);
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageLegacy')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление легаси.');
+            return;
+        }
+        
+        if (user.id_alliance == 0 || user.id_alliance == -1) {
+            await context.send('❌ Вы не состоите в ролевой.');
+            return;
+        }
+        
+        await Legacy_Category_Printer(context, user.id_alliance!);
     })
+
     hearManager.hear(/⚙ !отслеживание обсуждений/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         if (await Is_Chat_Checker(context) == true ) { return; }
         
-        const account = await prisma.account.findFirst({ where: { idvk: context.senderId } });
-        if (!account) return;
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
         
-        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } });
-        if (!user_check) return;
-        
-        if (await Accessed(context) == 1) {
-            await context.send(`❌ У вас нет прав администратора для этой команды.`);
+        if (!(await hasPermission(user, 'canManageTopics')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление обсуждениями.');
             return;
         }
         
         await Alliance_Topic_Monitor_Printer(context);
     })
+
     hearManager.hear(/⚙ !факультеты настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageFacults')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление факультетами.');
+            return;
+        }
         
         // Получаем терминологию для отображения
-        const user = await Person_Get(context);
         const alliance = await prisma.alliance.findFirst({ where: { id: Number(user?.id_alliance) } });
         if (alliance) {
             const terminology = await getFacultyTerminology(alliance.id);
@@ -996,104 +1155,157 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Alliance_Facult_Printer(context)
     })
+
     hearManager.hear(/⚙ !положения настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageClassSettings')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление положениями.');
+            return;
+        }
+        
         await Alliance_Class_Settings_Printer(context)
     })
+
     hearManager.hear(/⚙ !сундуки настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         if (await Is_Chat_Checker(context) == true ) { return; }
         
-        const account = await prisma.account.findFirst({ 
-            where: { idvk: context.senderId } 
-        });
-        if (!account) return;
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
         
-        const user_check = await prisma.user.findFirst({ 
-            where: { id: account.select_user } 
-        });
-        if (!user_check) return;
-        
-        if (await Accessed(context) == 1) {
-            await context.send(`❌ У вас нет прав администратора для этой команды.`);
+        if (!(await hasPermission(user, 'canManageChests')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление сундуками.');
             return;
         }
         
         await AllianceChest_Manager(context);
-    });
+    })
+
     hearManager.hear(/⚙ !закончить сезон/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageYearEnd')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на завершение сезона.');
+            return;
+        }
+        
         await Alliance_Year_End_Printer(context)
     })
+
     hearManager.hear(/⚙ !подключить группу/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageMonitors')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление мониторами.');
+            return;
+        }
+        
         await Alliance_Monitor_Printer(context)
     })
+
     hearManager.hear(/🚫 !моники_off/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user_check.id_alliance) } })) {
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageMonitors')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление мониторами.');
+            return;
+        }
+        
+        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user.id_alliance) } })) {
             await stopMonitor(monitor.id)
         }
-        await Send_Message( user_check.idvk, `🔧 Запрос на выключение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
+        await Send_Message(user.idvk, `🔧 Запрос на выключение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
+
     hearManager.hear(/🚀 !моники_on/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) { return }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user_check.id_alliance) } })) {
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageMonitors')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление мониторами.');
+            return;
+        }
+        
+        for (const monitor of await prisma.monitor.findMany({ where: { id_alliance: Number(user.id_alliance) } })) {
             await restartMonitor(monitor.id)
         }
-        await Send_Message( user_check.idvk, `🔧 Запрос на включение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
+        await Send_Message(user.idvk, `🔧 Запрос на включение мониторов альянса направлен, ознакомьтесь с результатом выполнения в лог-main чате`)
     })
+
     hearManager.hear(/⚖ Конвертер/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         await Alliance_Coin_Converter_Printer(context)
     })
+
     hearManager.hear(/📊 Отчатор/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         await Alliance_Coin_Rank_Admin_Printer(context)
     })
+
     hearManager.hear(/🔔 Мониторы|!уведомления/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
         const censored_change = await prisma.user.update({ where: { id: user_check.id }, data: { notification: user_check.notification ? false : true } })
         if (censored_change) { 
-			await Send_Message(user_check.idvk, `🔔 Уведомления монитора ${censored_change.notification ? 'активированы. Теперь вы будете получать уведомления о ваших лайках/комментариях.' : 'отключены. Теперь вы НЕ будете получать уведомления о ваших лайках/комментариях.'}`)
-			await Logger(`(private chat) ~ changed status activity notification self by <user> №${context.senderId}`)
-		}
-		await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
+            await Send_Message(user_check.idvk, `🔔 Уведомления монитора ${censored_change.notification ? 'активированы. Теперь вы будете получать уведомления о ваших лайках/комментариях.' : 'отключены. Теперь вы НЕ будете получать уведомления о ваших лайках/комментариях.'}`)
+            await Logger(`(private chat) ~ changed status activity notification self by <user> №${context.senderId}`)
+        }
+        await Keyboard_Index(context, `⌛ Спокойствие, только спокойствие! Еноты уже несут узбагоительное...`)
     })
+
     hearManager.hear(/📝 Обсуждения|!уведы обсуждений/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1120,16 +1332,23 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         
         await Keyboard_Index(context, `⌛ Настройки уведомлений обновлены!`)
     })
+
     hearManager.hear(/^!стата\s+\d+\s+\d+$/i, Finance_Statistics_Command)
+
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) != true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        if (!(await isAdmin(user_check)) && !(await isRoot(user_check))) {
+            await context.send('❌ У вас нет прав для привязки чата.');
+            return;
+        }
+        
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
         if (!alli_get) { return }
@@ -1137,15 +1356,21 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_log_up) { return }
         await Send_Message( alli_log_up.id_chat, `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по финансовым транзакциям\n💬 id_chat: ${alli_get.id_chat} --> ${alli_log_up.id_chat}`)
     })
+
     hearManager.hear(/!привязать мониторы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) != true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
+        
+        if (!(await isAdmin(user_check)) && !(await isRoot(user_check))) {
+            await context.send('❌ У вас нет прав для привязки мониторов.');
+            return;
+        }
+        
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
         if (!alli_get) { return }
@@ -1153,6 +1378,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!alli_log_up) { return }
         await Send_Message( alli_log_up.id_chat_monitor, `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по программе вознаграждений\n💬 id_chat_monitor: ${alli_get.id_chat_monitor} --> ${alli_log_up.id_chat_monitor}`)
     })
+
     hearManager.hear(/!привязать покупки/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1161,7 +1387,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (!account) { return }
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
         if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
+        
+        if (!(await isAdmin(user_check)) && !(await isRoot(user_check))) {
+            await context.send('❌ У вас нет прав для привязки покупок.');
+            return;
+        }
+        
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
         if (!alli_get) { return }
@@ -1175,6 +1406,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по покупкам из ролевых магазинов\n💬 id_chat_shop: ${alli_get.id_chat_shop} --> ${alli_log_up.id_chat_shop}`
         )
     })
+
     hearManager.hear(/!привязать обсуждения/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1185,7 +1417,11 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
         if (!user_check) { return }
         
-        if (await Accessed(context) == 1) { return }
+        if (!(await isAdmin(user_check)) && !(await isRoot(user_check))) {
+            await context.send('❌ У вас нет прав для привязки обсуждений.');
+            return;
+        }
+        
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
@@ -1203,6 +1439,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по активности в обсуждениях\n💬 id_chat_topic: ${alli_get.id_chat_topic} → ${alli_log_up.id_chat_topic}`
         )
     })
+
     hearManager.hear(/!привязать прокачку/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1213,7 +1450,11 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
         if (!user_check) { return }
         
-        if (await Accessed(context) == 1) { return }
+        if (!(await isAdmin(user_check)) && !(await isRoot(user_check))) {
+            await context.send('❌ У вас нет прав для привязки прокачки.');
+            return;
+        }
+        
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
         
         const alli_get: Alliance | null = await prisma.alliance.findFirst({ where: { id: Number(user_check.id_alliance) } })
@@ -1231,22 +1472,32 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             `✅ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), поздравляем, вы привязали свой чат к уведомлениям для альянса [${alli_get.name}] по прокачке способностей\n💬 id_chat_ability: ${alli_get.id_chat_ability} --> ${alli_log_up.id_chat_ability}`
         )
     })
+
     hearManager.hear(/⚙ !мониторы настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
-        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageMonitors')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление мониторами.');
+            return;
+        }
+        
+        if (user.id_alliance == 0 || user.id_alliance == -1) { return }
+        
         const keyboard = new KeyboardBuilder()
         keyboard.textButton({ label: '⚙ !подключить группу', payload: { command: 'Согласиться' }, color: 'negative' }).row()
         keyboard.textButton({ label: '🚀 !моники_on', payload: { command: 'Согласиться' }, color: 'negative' })
         keyboard.textButton({ label: '🚫 !моники_off', payload: { command: 'Согласиться' }, color: 'negative' }).row().inline().oneTime()
-        await Send_Message(user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
+        await Send_Message(user.idvk, `⚙ @id${context.senderId}(${user.name}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
+
     hearManager.hear(/!помощь/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1295,57 +1546,103 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
         await Keyboard_Index(context, `⌛ 911, что у вас случилось?`)
     })
+
     hearManager.hear(/⚙ !магазины настроить/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
-        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
-        const keyboard = new KeyboardBuilder()
-        await AllianceShop_Printer(context, user_check.id_alliance!)
-        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), Добро пожаловать в панель управления мониторами:`, keyboard)
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageShops')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление магазинами.');
+            return;
+        }
+        
+        if (user.id_alliance == 0 || user.id_alliance == -1) { return }
+        
+        await AllianceShop_Printer(context, user.id_alliance!)
     })
+
     hearManager.hear(/!товармасс/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
-        const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
-        if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
-        if (await Accessed(context) == 1) { return }
-        if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
-        await AllianceShopItem_Mass_Transfer(context, user_check.id_alliance!)
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageShops')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на массовый перенос товаров.');
+            return;
+        }
+        
+        if (user.id_alliance == 0 || user.id_alliance == -1) { return }
+        
+        await AllianceShopItem_Mass_Transfer(context, user.id_alliance!)
     })
+
     hearManager.hear(/⚙ !уровни настроить/, async (context) => {
-    const anti_vk_defender = await Antivirus_VK(context)
-    if (anti_vk_defender) return;
-    if (await Is_Chat_Checker(context) == true ) { return; }
-    if (await Accessed(context) == 1) return;
-    
-    await SkillLevels_Manager(context);
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageSkills')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление уровнями навыков.');
+            return;
+        }
+        
+        await SkillLevels_Manager(context);
     })
 
     hearManager.hear(/⚙ !навыки настроить/, async (context) => {
-    const anti_vk_defender = await Antivirus_VK(context)
-    if (anti_vk_defender) return;
-    if (await Is_Chat_Checker(context) == true ) { return; }
-    if (await Accessed(context) == 1) return;
-    
-    await SkillCategories_Manager(context);
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) return;
+        if (await Is_Chat_Checker(context) == true ) { return; }
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageSkills')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление навыками.');
+            return;
+        }
+        
+        await SkillCategories_Manager(context);
     })
+
     hearManager.hear(/⚙ !способности настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
+        
+        if (!(await hasPermission(user, 'canManageAbilities')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление способностями.');
+            return;
+        }
+        
         await Abilities_Admin_Menu(context);
     })
 
@@ -1353,25 +1650,33 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         if (await Is_Chat_Checker(context) == true ) { return; }
-        if (await Accessed(context) == 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
             return;
         }
+        
+        if (!(await hasPermission(user, 'canManageFinance')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление порядком валют.');
+            return;
+        }
+        
         await AllianceCoinOrder_Manager(context);
     })
+
     hearManager.hear(/🛍 Магазины/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         if (await Is_Chat_Checker(context) == true ) { return; }
         const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
         if (!account) { return }
-		const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
-		if (!user_check) { return }
+        const user_check = await prisma.user.findFirst({ where: { id: account.select_user } })
+        if (!user_check) { return }
         if (user_check.id_alliance == 0 || user_check.id_alliance == -1) { return }
-        const keyboard = new KeyboardBuilder()
         await AllianceShop_Selector(context, user_check.id_alliance!)
-        //await Send_Message( user_check.idvk, `⚙ @id${account.idvk}(${user_check.name}) (UID: ${user_check.id}), Добро пожаловать в панель управления мониторами:`, keyboard)
     })
+
     hearManager.hear(/👜 Инвентарь/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1393,7 +1698,8 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             // Если есть сундуки, используем новый инвентарь с сундуками
             await Inventory_With_Chests(context, user_check);
         }
-    });
+    })
+
     hearManager.hear(/!gpt/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1433,6 +1739,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
+
     hearManager.hear(/!погода/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
@@ -1454,25 +1761,132 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
+
     hearManager.hear(/!СБП|!сбп|!Сбп/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         await Operation_SBP(context)
         await Keyboard_Index(context, `⌛ Как насчет пожертвовать свои накопления админу?`)
     })
+
     hearManager.hear(/⚙ !зарплату настроить/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;
         if (await Is_Chat_Checker(context) == true ) { return; }
         
-        // Проверяем права
-        if (await Accessed(context) == 1) {
-            await context.send('❌ У вас нет прав администратора для этой команды.');
+        const user = await Person_Get(context);
+        if (!user) {
+            await context.send('❌ Сначала выберите персонажа.');
+            return;
+        }
+        
+        if (!(await hasPermission(user, 'canManageSalary')) && !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав на управление зарплатами.');
             return;
         }
         
         await Salary_Manager_Menu(context);
     });
+
+// ===== ФУНКЦИЯ ДЛЯ ВЫДАЧИ КАСТОМНОЙ РОЛИ =====
+async function AssignCustomRole(context: any, targetUser: User, adminUser: User) {
+    const customRoles = await prisma.customRole.findMany({
+        where: { allianceId: adminUser.id_alliance ?? 0 }
+    });
+    
+    if (customRoles.length === 0) {
+        await context.send('❌ Нет доступных кастомных ролей.');
+        return;
+    }
+    
+    const keyboard = new KeyboardBuilder();
+    let text = `👑 Выберите роль для ${targetUser.name} (UID: ${targetUser.id}):\n\n`;
+    
+    const currentRole = targetUser.customRoleId 
+        ? customRoles.find(r => r.id === targetUser.customRoleId)
+        : null;
+    
+    if (currentRole) {
+        text += `Текущая роль: ${currentRole.name}\n\n`;
+    } else {
+        text += `Текущая роль: не назначена\n\n`;
+    }
+    
+    // Кнопки ролей (по 2 в ряд)
+    for (let i = 0; i < customRoles.length; i++) {
+        const role = customRoles[i];
+        const isSelected = role.id === targetUser.customRoleId;
+        
+        keyboard.textButton({
+            label: `${isSelected ? '✅' : ''} ${role.name.slice(0, 25)}`,
+            payload: { command: 'select_custom_role', roleId: role.id },
+            color: isSelected ? 'positive' : 'secondary'
+        });
+        
+        if (i % 2 === 1 || i === customRoles.length - 1) {
+            keyboard.row();
+        }
+    }
+    
+    if (currentRole) {
+        keyboard.textButton({
+            label: '❌ Снять роль',
+            payload: { command: 'remove_custom_role' },
+            color: 'negative'
+        }).row();
+    }
+    
+    keyboard.textButton({
+        label: '🔙 Назад',
+        payload: { command: 'cancel' },
+        color: 'secondary'
+    }).inline().oneTime();
+    
+    const response = await context.question(text, { keyboard, answerTimeLimit });
+    
+    if (response.isTimeout) {
+        await context.send('⏰ Время истекло.');
+        return;
+    }
+    
+    if (!response.payload) return;
+    
+    if (response.payload.command === 'select_custom_role') {
+        const roleId = response.payload.roleId;
+        const selectedRole = customRoles.find(r => r.id === roleId);
+        
+        if (!selectedRole) {
+            await context.send('❌ Роль не найдена.');
+            return;
+        }
+        
+        await prisma.user.update({
+            where: { id: targetUser.id },
+            data: { customRoleId: roleId }
+        });
+        
+        await Send_Message_Smart(
+            context,
+            `Пользователю ${targetUser.name} (UID: ${targetUser.id}) назначена роль "${selectedRole.name}"`,
+            'admin_and_client',
+            targetUser
+        );
+    }
+    
+    if (response.payload.command === 'remove_custom_role') {
+        await prisma.user.update({
+            where: { id: targetUser.id },
+            data: { customRoleId: null }
+        });
+        
+        await Send_Message_Smart(
+            context,
+            `С пользователя ${targetUser.name} (UID: ${targetUser.id}) снята кастомная роль`,
+            'admin_and_client',
+            targetUser
+        );
+    }
+}
     hearManager.hear(/!обнулить scoopins/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context);
         if (anti_vk_defender) return;

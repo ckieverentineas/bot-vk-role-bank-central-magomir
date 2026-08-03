@@ -206,6 +206,10 @@ model User {
   account               Account                 @relation(fields: [id_account], references: [id], onDelete: Cascade)
   comment               String?
   card_image            String?
+  
+  customRoleId          Int?
+  customRole            CustomRole?             @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  
   Artefact              Artefact[]
   Inventory             Inventory[]
   Trigger               Trigger[]
@@ -217,8 +221,8 @@ model User {
   UserCard              UserCard?
   userSkills            UserSkill[]
   userAbilities         UserAbility[]
-  salary_coin_id   Int?   @map("salary_coin_id")
-  salary_amount    Float? @map("salary_amount")
+  salary_coin_id        Int?                    @map("salary_coin_id")
+  salary_amount         Float?                  @map("salary_amount")
 }
 
 model BlackBox {
@@ -230,6 +234,57 @@ model Role {
   id   Int    @id @default(autoincrement())
   name String
   User User[]
+}
+
+model CustomRole {
+  id          Int      @id @default(autoincrement())
+  name        String
+  allianceId  Int
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  
+  canMassOperations    Boolean @default(false)
+  canMassKick          Boolean @default(false)
+  
+  canManageRoles       Boolean @default(false)
+  canManageRolesAssign Boolean @default(false)
+  
+  canManageShops       Boolean @default(false)
+  canManageAbilities   Boolean @default(false)
+  canManageSkills      Boolean @default(false)
+  canManageChests      Boolean @default(false)
+  canManageLegacy      Boolean @default(false)
+  canManageBackgrounds Boolean @default(false)
+  canManageFacults     Boolean @default(false)
+  canManageClassSettings Boolean @default(false)
+  canManageYearEnd     Boolean @default(false)
+  canManageSalary      Boolean @default(false)
+  canManageFinance     Boolean @default(false)
+  canManageConverter   Boolean @default(false)
+  canManageScoopins    Boolean @default(false)
+  canManageMonitors    Boolean @default(false)
+  canManageTopics      Boolean @default(false)
+  
+  canViewAllUsers      Boolean @default(false)
+  canViewInventoryAll  Boolean @default(false)
+  
+  canEditAllUsers      Boolean @default(false)
+  canEditInventoryAll  Boolean @default(false)
+  canGiveItemsAll      Boolean @default(false)
+  canEditCoins         Boolean @default(false)
+
+  canUpgradeOthers     Boolean @default(false)
+  canAssignAbility     Boolean @default(false)
+  canAssignSkill       Boolean @default(false)
+  
+  canAssignShopOwner   Boolean @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+
+  @@unique([allianceId, name])
+  @@index([allianceId])
 }
 
 model Artefact {
@@ -324,6 +379,8 @@ model Alliance {
   id_chat_monitor Int                     @default(0)
   id_chat_shop    Int                     @default(0)
   id_chat_ability Int                     @default(0)
+  id_chat_topic   Int                     @default(0)
+  
   AllianceCoin    AllianceCoin[]
   AllianceFacult  AllianceFacult[]
   Monitor         Monitor[]
@@ -331,15 +388,16 @@ model Alliance {
   terminology     AllianceTerminology?
   MonitorSelection MonitorSelection[]
   classSettings   AllianceClassSetting? 
-  id_chat_topic   Int                     @default(0)
   Chests          AllianceChest[]
-  CardTemplate CardTemplate[]
+  CardTemplate    CardTemplate[]
   AllianceBackground AllianceBackground[]
   skillLevels     SkillLevel[]
   skillCategories SkillCategory[]
   skills          Skill[]
   abilityCategories AbilityCategory[]
   internalConversions AllianceCoinInternalConversion[]
+  CustomRole      CustomRole[]
+
 }
 
 model AllianceCoin {

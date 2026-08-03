@@ -15,6 +15,7 @@ import { Get_Person_Monitor_Status } from "./person/monitor_select"
 import { CardSystem } from "../../core/card_system"
 import { getUserSkillsForDisplay } from "./skills/user_skill_display"
 import { getLevelName } from "./abilities/abilities_helper"
+import { hasPermission, isAdmin, isRoot } from "../../core/permissions"
 
 // Вспомогательная функция для прогресс-бара
 function getProgressBar(progress: number): string {
@@ -212,7 +213,7 @@ export async function Card_Enter(context: any) {
     
     // ===================== КЛАВИАТУРА =====================
     const keyboard = new KeyboardBuilder()
-      .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
+      .textButton({ label: '➕👤 Добавить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' })
     
     if (await prisma.user.count({ where: { idvk: get_user.idvk } }) > 1) {
       keyboard.textButton({ label: '🔃👥 Сменить персонажа', payload: { command: 'Согласиться' }, color: 'secondary' }).row()
@@ -286,77 +287,143 @@ export async function Admin_Enter(context: any) {
   
   if (!user) { return }
   
+  // ===== ПРОВЕРКА ПРАВА =====
+  if (!(await hasPermission(user, 'canViewAllUsers')) && !(await isAdmin(user)) && !(await isRoot(user))) {
+    await Send_Message(context.peerId, '🔒 У вас нет прав на просмотр списка администраторов.');
+    return;
+  }
+  
   let puller = '🏦 Полный спектр рабов... \n'
   const keyboard = new KeyboardBuilder()
   
-  const currentUserRole = await prisma.role.findUnique({
-    where: { id: user.id_role }
-  })
+  const isRootUser = await isRoot(user);
+  const isAdminUser = await isAdmin(user);
   
-  const isRootOrSuperadmin = currentUserRole?.name === 'root' || 
-                              currentUserRole?.name === 'superadmin'
-  
-  if (isRootOrSuperadmin) {
+  // ===== ROOT — ВИДИТ ВСЕХ =====
+  if (isRootUser) {
+    // Все root
     const rootRole = await prisma.role.findFirst({ where: { name: 'root' } })
-    const rootUsers = rootRole ? await prisma.user.findMany({ 
-      where: { id_role: rootRole.id } 
+    const rootUsers = rootRole ? await prisma.user.findMany({
+      where: { id_role: rootRole.id },
+      include: { role: true }
     }) : []
     
     for (const rootUser of rootUsers) {
-      puller += `\n😎 ${rootUser.id} - @id${rootUser.idvk}(${rootUser.name})`
+      puller += `\n👑 ${rootUser.id} - ${rootUser.name}`
     }
     
-    const superadminRole = await prisma.role.findFirst({ where: { name: 'superadmin' } })
-    const superadminUsers = superadminRole ? await prisma.user.findMany({ 
-      where: { id_role: superadminRole.id } 
-    }) : []
-    
-    for (const superadminUser of superadminUsers) {
-      puller += `\n😎 ${superadminUser.id} - @id${superadminUser.idvk}(${superadminUser.name})`
-    }
-    
+    // Все admin
     const adminRole = await prisma.role.findFirst({ where: { name: 'admin' } })
-    const adminUsers = adminRole ? await prisma.user.findMany({ 
-      where: { id_role: adminRole.id } 
+    const adminUsers = adminRole ? await prisma.user.findMany({
+      where: { id_role: adminRole.id },
+      include: { role: true }
     }) : []
     
     for (const adminUser of adminUsers) {
-      puller += `\n👤 ${adminUser.id} - @id${adminUser.idvk}(${adminUser.name})`
+      puller += `\n⚙️ ${adminUser.id} - ${adminUser.name}`
     }
-  } 
-  else if (currentUserRole?.name === 'admin' && user.id_alliance && user.id_alliance > 0) {
-    puller += `\n👥 Администраторы вашего альянса:\n`
     
-    const adminRole = await prisma.role.findFirst({ where: { name: 'admin' } })
-    if (adminRole) {
-      const allianceAdmins = await prisma.user.findMany({ 
+  // ===== ADMIN ИЛИ canViewAllUsers — ВИДИТ ТОЛЬКО СВОЙ АЛЬЯНС =====
+  } else if (isAdminUser || await hasPermission(user, 'canViewAllUsers')) {
+    const allianceId = user.id_alliance;
+    
+    if (allianceId && allianceId > 0) {
+      // Root из своего альянса
+      const rootRole = await prisma.role.findFirst({ where: { name: 'root' } })
+      const rootUsers = rootRole ? await prisma.user.findMany({
+        where: { 
+          id_role: rootRole.id,
+          id_alliance: allianceId
+        },
+        include: { role: true }
+      }) : []
+      
+      for (const rootUser of rootUsers) {
+        puller += `\n👑 ${rootUser.id} - ${rootUser.name}`
+      }
+      
+      // Admin из своего альянса
+      const adminRole = await prisma.role.findFirst({ where: { name: 'admin' } })
+      const adminUsers = adminRole ? await prisma.user.findMany({
         where: { 
           id_role: adminRole.id,
-          id_alliance: user.id_alliance
-        } 
+          id_alliance: allianceId
+        },
+        include: { role: true }
+      }) : []
+      
+      for (const adminUser of adminUsers) {
+        puller += `\n⚙️ ${adminUser.id} - ${adminUser.name}`
+      }
+      
+      // Кастомные роли из своего альянса
+      const customRolesWithRights = await prisma.customRole.findMany({
+        where: {
+          allianceId: allianceId,
+          OR: [
+            { canMassOperations: true },
+            { canMassKick: true },
+            { canManageRoles: true },
+            { canManageRolesAssign: true },
+            { canManageShops: true },
+            { canManageAbilities: true },
+            { canManageSkills: true },
+            { canManageChests: true },
+            { canManageLegacy: true },
+            { canManageBackgrounds: true },
+            { canManageFacults: true },
+            { canManageClassSettings: true },
+            { canManageYearEnd: true },
+            { canManageSalary: true },
+            { canManageFinance: true },
+            { canManageConverter: true },
+            { canManageScoopins: true },
+            { canManageMonitors: true },
+            { canManageTopics: true },
+            { canViewAllUsers: true },
+            { canViewInventoryAll: true },
+            { canEditAllUsers: true },
+            { canEditInventoryAll: true },
+            { canGiveItemsAll: true },
+            { canEditCoins: true },
+            { canUpgradeOthers: true },
+            { canAssignAbility: true },
+            { canAssignSkill: true },
+            { canAssignShopOwner: true }
+          ]
+        },
+        select: { id: true }
       })
       
-      if (allianceAdmins.length > 0) {
-        for (const adminUser of allianceAdmins) {
-          puller += `\n👤 ${adminUser.id} - @id${adminUser.idvk}(${adminUser.name})`
-        }
-      } else {
-        puller += `\n📭 В вашем альянсе нет других администраторов`
+      const customRoleIds = customRolesWithRights.map(r => r.id)
+      
+      const customRoleUsers = await prisma.user.findMany({
+        where: {
+          id_alliance: allianceId,
+          customRoleId: { in: customRoleIds }
+        },
+        include: { customRole: true }
+      })
+      
+      for (const customUser of customRoleUsers) {
+        const roleName = customUser.customRole?.name || 'Кастомная роль'
+        puller += `\n🎭 ${customUser.id} - ${customUser.name} (${roleName})`
       }
-    }
-  } 
-  else {
-    puller += `\n🚫 Доступ запрещен\n`
-    
-    if (currentUserRole?.name === 'admin' && (!user.id_alliance || user.id_alliance <= 0)) {
-      puller += `\nℹ Вы являетесь администратором, но не состоите в альянсе.\nПрисоединитесь к альянсу, чтобы увидеть список администраторов.`
     }
   }
   
-  keyboard.callbackButton({ label: '🚫', payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
+  if (puller === '🏦 Полный спектр рабов... \n') {
+    puller += `\n📭 Нет пользователей с правами администратора.`
+  }
+  
+  keyboard.callbackButton({ 
+    label: '🚫', 
+    payload: { command: 'system_call' }, 
+    color: 'secondary' 
+  }).inline().oneTime()
   
   await Send_Message(context.peerId, puller, keyboard, attached)
-  await Logger(`In a private chat, the list administrators is viewed by ${currentUserRole?.name} ${user.idvk}`)
+  await Logger(`In a private chat, the list administrators is viewed by user ${user.idvk}`)
   
   await vk?.api.messages.sendMessageEventAnswer({
     event_id: context.eventId,

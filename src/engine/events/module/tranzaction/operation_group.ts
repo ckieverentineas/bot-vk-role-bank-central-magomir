@@ -8,6 +8,8 @@ import { AllianceCoin, BalanceCoin, BalanceFacult, User } from "@prisma/client"
 import { Facult_Coin_Printer_Self } from "../alliance/facult_rank"
 import { ico_list } from "../data_center/icons_lib"
 import { getTerminology } from "../alliance/terminology_helper"
+import { hasPermission, isAdmin, isRoot } from "../../../core/permissions"
+import { Person_Get } from "../person/person"
 
 interface LightAllianceCoin {
     id: number;
@@ -22,8 +24,17 @@ interface LightAllianceCoin {
 }
 
 export async function Operation_Group(context: any) {
-    if (await Is_Chat_Checker(context) == true ) { return; }
-    if (await Accessed(context) == 1) { return }
+    if (await Is_Chat_Checker(context) == true) { return; }
+    
+    // ===== ПРОВЕРКА ПРАВ =====
+    const user_adm = await Person_Get(context);
+    if (!user_adm) { return; }
+    
+    if (!(await hasPermission(user_adm, 'canMassOperations')) && !(await isAdmin(user_adm))) {
+        await context.send('❌ У вас нет прав на массовые операции.');
+        return;
+    }
+    
     let name_check = false
     let uids_prefab = null
     while (name_check == false) {
@@ -40,14 +51,12 @@ export async function Operation_Group(context: any) {
         )
         if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
         
-        // НОВОЕ: обработка команды "всем"
         if (uid.text.toLowerCase() === 'all' || uid.text.toLowerCase() === 'всем') {
             const account_adm = await prisma.account.findFirst({ where: { idvk: context.senderId } })
             if (!account_adm) { return }
             const person_adm = await prisma.user.findFirst({ where: { id: account_adm.select_user } })
             if (!person_adm) { return }
             
-            // Получаем всех пользователей альянса
             const allUsers = await prisma.user.findMany({
                 where: { id_alliance: person_adm.id_alliance }
             });
@@ -64,12 +73,10 @@ export async function Operation_Group(context: any) {
         }
         
         if (uid.text === "0") {
-            // Пользователь хочет кастомные операции - сразу переходим к выбору типа
             uids_prefab = []
             name_check = true
             await context.send(`⚙ Переходим к операциям с разными суммами`)
             
-            // Показываем только кастомные операции для валют
             const account_adm = await prisma.account.findFirst({ where: { idvk: context.senderId } })
             if (!account_adm) { return }
             const person_adm = await prisma.user.findFirst({ where: { id: account_adm.select_user } })
@@ -78,7 +85,7 @@ export async function Operation_Group(context: any) {
             info_coin = await Person_Coin_Printer_Self(context, person_adm.id)
             
             const keyboard = new KeyboardBuilder()
-            if (await Accessed(context) == 3) { 
+            if (await isRoot(user_adm)) { 
                 keyboard.textButton({ label: '🎯🔘', payload: { command: 'medal_custom_many' }, color: 'primary' }).row()
             }
             keyboard.textButton({ label: `🎯${info_coin?.smile}`, payload: { command: 'coin_engine_many_custom' }, color: 'primary' }).row()
@@ -124,7 +131,6 @@ export async function Operation_Group(context: any) {
         }
     }
 
-    // Обычный процесс для стандартных операций
     const account_adm = await prisma.account.findFirst({ where: { idvk: context.senderId } })
     if (!account_adm) { return }
     const person_adm = await prisma.user.findFirst({ where: { id: account_adm.select_user } })
@@ -137,19 +143,18 @@ export async function Operation_Group(context: any) {
         if (!user_gt) { await Send_Message(context.senderId, `⚠ Персонаж с UID ${ui} не найден`); continue }
         if (user_gt.id_alliance != person_adm.id_alliance) {
             await Send_Message(context.senderId, `⚠ Персонаж с UID ${ui} не состоит в вашей ролевой`); 
-            if (await Accessed(context) != 3) { continue }
+            if (await isRoot(user_adm)) { continue }
         }
         uids.push(Number(ui))
     }
     
-    // Если после фильтрации не осталось UID
     if (uids.length === 0) {
         await context.send(`❌ Нет корректных UID для выполнения операции!`);
         return await Keyboard_Index(context, `💡 Попробуйте еще раз!`);
     }
     
     const keyboard = new KeyboardBuilder()
-    if (await Accessed(context) == 3) { 
+    if (await isRoot(user_adm)) { 
         keyboard.textButton({ label: '+🔘', payload: { command: 'medal_up_many' }, color: 'secondary' })
         .textButton({ label: '—🔘', payload: { command: 'medal_down_many' }, color: 'secondary' }).row()
         .textButton({ label: '🎯🔘', payload: { command: 'medal_custom_many' }, color: 'primary' }).row()

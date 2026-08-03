@@ -1,5 +1,8 @@
+// engine/events/module/tranzaction/operation_sub.ts
+
 import { Keyboard, KeyboardBuilder } from "vk-io"
 import { Accessed, Logger, Send_Message, formatUserNameUid } from "../../../core/helper"
+import { hasPermission, hasAnyPermission, isAdmin, isRoot } from "../../../core/permissions"
 import { answerTimeLimit, chat_id } from "../../../.."
 import prisma from "../prisma_client"
 import { ico_list } from "../data_center/icons_lib"
@@ -17,10 +20,19 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
     if (!user) return;
     
     const keyboard = new KeyboardBuilder()
-    .textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' })
-    .textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' }).row()
     
-    // [!] Навыки - только если есть категории навыков в ролевой
+    // ✏ - Редактирование персонажа (только если есть право canEditAllUsers)
+    if (await hasPermission(user_adm, 'canEditAllUsers') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '✏', payload: { command: 'editor' }, color: 'secondary' });
+    }
+    
+    // 👁🌐👜 - Просмотр инвентаря (только если есть право canViewInventoryAll)
+    if (await hasPermission(user_adm, 'canViewInventoryAll') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '👁🌐👜', payload: { command: 'inventory_alliance_shop_show' }, color: 'secondary' });
+    }
+    keyboard.row();
+    
+    // ⚔️ - Навыки (только если есть право canAssignSkill И в альянсе есть навыки)
     let showSkills = false;
     if (user.id_alliance && user.id_alliance > 0) {
         const skillsCount = await prisma.skillCategory.count({
@@ -30,12 +42,11 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
             showSkills = true;
         }
     }
-    
-    if (showSkills) {
+    if ((await hasPermission(user_adm, 'canAssignSkill') || await isAdmin(user_adm)) && showSkills) {
         keyboard.textButton({ label: '⚔️', payload: { command: 'edit_skills' }, color: 'secondary' });
     }
     
-    // [!] Способности - только если есть категории способностей в ролевой
+    // ⚡ - Способности (только если есть право canAssignAbility И в альянсе есть способности)
     let showAbilities = false;
     if (user.id_alliance && user.id_alliance > 0) {
         const abilitiesCount = await prisma.abilityCategory.count({
@@ -45,21 +56,27 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
             showAbilities = true;
         }
     }
-    
-    if (showAbilities) {
+    if ((await hasPermission(user_adm, 'canAssignAbility') || await isAdmin(user_adm)) && showAbilities) {
         keyboard.textButton({ label: '⚡', payload: { command: 'edit_abilities' }, color: 'secondary' });
     }
     
+    // 🔙 - Назад (всегда)
     keyboard.textButton({ label: '🔙', payload: { command: 'back' }, color: 'secondary' }).row()
-    .textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
     
-    if (await Accessed(context) == 3) { 
+    // 👠 - Кик (только если есть право canMassKick)
+    if (await hasPermission(user_adm, 'canMassKick') || await isAdmin(user_adm)) {
+        keyboard.textButton({ label: '👠', payload: { command: 'user_drop' }, color: 'secondary' }).row()
+    }
+    
+    // ☠ - Удаление (только root)
+    if (await isRoot(user_adm)) { 
         keyboard.textButton({ label: '☠', payload: { command: 'user_delete' }, color: 'secondary' }) 
     }
     
     const ans_again: any = await context.question( `✉ Доступны следующие операции с 💳UID: ${id}`, { keyboard: keyboard.oneTime().inline(), answerTimeLimit })
     await Logger(`In a private chat, the sub menu for user ${id} is viewed by admin ${context.senderId}`)
     if (ans_again.isTimeout) { return await context.send(`⏰ Время ожидания на ввод операции с 💳UID: ${id} истекло!`) }
+    
     const config: any = {
         'back': Back,
         'inventory_alliance_shop_show': Inventory_Alliance_Shop_Show,
@@ -75,6 +92,7 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
             await UserAbilities_Editor(ctx, id, userAdmin);
         }
     }
+    
     if (ans_again?.payload?.command in config) {
         const commandHandler = config[ans_again.payload.command];
         const answergot = await commandHandler(Number(id), context, user_adm)
@@ -83,6 +101,8 @@ export async function Sub_Menu(id: number, context: any, user_adm: User) {
     }
 }
 
+// ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+
 async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
     if (!user_get) {
@@ -90,13 +110,7 @@ async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: 
         return;
     }
     
-    // Проверяем, состоит ли игрок в альянсе
     if (!user_get.id_alliance || user_get.id_alliance <= 0) {
-        // Если игрок сольник - используем старый инвентарь без сундуков
-        await context.send("📦 У соло-игроков нет сундуков. Открывается стандартный инвентарь...");
-        
-        // Здесь нужно импортировать и использовать старую функцию
-        // Или просто показать сообщение
         const oldInventory = await prisma.inventory.findMany({
             where: { id_user: user_get.id },
             take: 10
@@ -107,7 +121,6 @@ async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: 
         } else {
             let itemsText = "🎒 Инвентарь:\n\n";
             for (const item of oldInventory) {
-                // Получаем информацию о предмете
                 let itemInfo = null;
                 if (item.type === "ITEM_SHOP_ALLIANCE") {
                     itemInfo = await prisma.allianceShopItem.findFirst({ where: { id: item.id_item } });
@@ -116,14 +129,12 @@ async function Inventory_Alliance_Shop_Show(id: number, context: any, user_adm: 
                 } else if (item.type === "ITEM_STORAGE") {
                     itemInfo = await prisma.itemStorage.findFirst({ where: { id: item.id_item } });
                 }
-                
                 itemsText += `🧳 ${itemInfo?.name || "Неизвестный предмет"} (ID: ${item.id})\n`;
             }
-            
             await context.send(itemsText);
         }
     } else {
-        // Если игрок в альянсе - используем новый инвентарь с сундуками
+        const { Inventory_With_Chests } = await import('../shop/alliance_inventory_with_chests');
         await Inventory_With_Chests(context, user_get, user_adm);
     }
 }
@@ -144,7 +155,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
     if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение пинка для ${user_get.name} истекло!`) }
     if (confirmq.payload.command === 'confirm' && user_get) {
         if (user_get) {
-            // модуль принятия решения с баллами
             let answer_check = false
             let rank_action = null
             let singular = '';
@@ -154,7 +164,7 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                 singular = await getTerminology(alli_get?.id || 0, 'singular')
                 genitive = await getTerminology(alli_get?.id || 0, 'genitive')
                 const answer_selector = await context.question(`🧷 Укажите, что будем делать с баллами игрока, инвестированными в ${genitive} за текущий учебный год (обнулить — только рейтинговые, ограбить — все валюты):`,
-                    {	
+                    {   
                         keyboard: Keyboard.builder()
                         .textButton({ label: 'Ничего не делать', payload: { command: 'student' }, color: 'secondary' }).row()
                         .textButton({ label: 'Обнулить', payload: { command: 'professor' }, color: 'secondary' }).row()
@@ -177,7 +187,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             const notif_ans = await Send_Message(user_del.idvk, `❗ ${formatUserNameUid(user_del)}, ваш персонаж больше не состоит в ролевой.`)
             !notif_ans ? await context.send(`⚙ Сообщение пользователю ${user_del.name} не доставлено`) : await context.send(`⚙ Операция пинка пользователя завершена успешно.`)
             
-            // [!] Изменение: Пункт 8 - Уведомление в локальный чат альянса
             const ans_log = `⚙ @id${context.senderId}(${user_adm.name}) (UID: ${user_adm.id}) > "👠👤" > исключает из ролевого проекта ролевика @id${user_del.idvk}(${user_del.name}) (UID: ${user_del.id})`
             if (alli_get?.id_chat && alli_get.id_chat > 0) {
                 await Send_Message(alli_get.id_chat, ans_log);
@@ -187,7 +196,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
             
             await Logger(`In database, updated status user: ${user_del.idvk}-${user_del.id} on SOLO by admin ${context.senderId}`)
             
-            // Движок модуля принятия решений с баллами
             const alli_fac = await prisma.allianceFacult.findFirst({ where: { id: user_get.id_facult! } })
             switch (rank_action) {
                 case 'Ничего не делать':
@@ -210,7 +218,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                         const bal_usr = await prisma.balanceCoin.findFirst({ where: { id_coin: coin.id, id_user: user_get.id }})
                         if (!bal_usr || bal_usr.amount == 0) { continue }
                         
-                        // Для рейтинговых валют вычитаем из факультета
                         if (coin.point && user_get.id_facult) {
                             const bal_fac = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: user_get.id_facult! }})
                             if (bal_fac) {
@@ -221,7 +228,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
                             }
                         }
                         
-                        // Обнуляем все валюты (и рейтинговые и нерейтинговые)
                         const bal_usr_ch = await prisma.balanceCoin.update({ 
                             where: { id: bal_usr.id }, 
                             data: { amount: 0 } 
@@ -242,7 +248,6 @@ async function User_Drop(id: number, context: any, user_adm: User) {
     }
 }
 
-//Модуль уничтожения персонажа
 async function User_delete(id: number, context: any, user_adm: User) {
     const user_get: any = await prisma.user.findFirst({ where: { id: id } })
     const confirmq = await context.question(`⁉ Вы уверены, что хотите удалить клиента ${user_get.name}`,

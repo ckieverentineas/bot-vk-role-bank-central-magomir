@@ -147,75 +147,191 @@ export async function Alliance_Rank_Enter(context: any) {
     }
 }
 
-export async function Alliance_Rank_Coin_Enter(context:any, defaultCoinId?: number) {
-    const user: User | null | undefined = await Person_Get(context)
-    if (!user) { return }
-    const facult: AllianceFacult | null = await prisma.allianceFacult.findFirst({ where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } })
-    let facult_tr = context.eventPayload.facult ?? false
-    const id_coin_default = await prisma.allianceCoin.findFirst({ where: { id_alliance: user.id_alliance ?? 0 } })
-    let id_coin = defaultCoinId ?? context.eventPayload.id_coin ?? id_coin_default?.id ?? 0
-    const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 }})
-    const coin = await prisma.allianceCoin.findFirst({ where: { id: id_coin }})
+export async function Alliance_Rank_Coin_Enter(context: any, defaultCoinId?: number) {
+    const user: User | null | undefined = await Person_Get(context);
+    if (!user) return;
+    
+    const facult: AllianceFacult | null = await prisma.allianceFacult.findFirst({ 
+        where: { id: user.id_facult ?? 0, id_alliance: Number(user.id_alliance) } 
+    });
+    let facult_tr = context.eventPayload.facult ?? false;
+    const id_coin_default = await prisma.allianceCoin.findFirst({ 
+        where: { id_alliance: user.id_alliance ?? 0 } 
+    });
+    let id_coin = defaultCoinId ?? context.eventPayload.id_coin ?? id_coin_default?.id ?? 0;
+    const stats = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
+    const coin = await prisma.allianceCoin.findFirst({ where: { id: id_coin } });
     const terminology = await getTerminology(stats?.id || 0, 'prepositional');
-    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по ${coin?.name} в ролевом проекте ${stats?.name}${facult_tr ? `, ${terminology} ${facult?.smile} ${facult?.name}` : ``}:\n\n`
-    const keyboard = new KeyboardBuilder()
-    const stat: { rank: number, text: string, score: number, me: boolean }[] = []
-    let counter = 1
-    for (const userok of facult_tr ? await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
-        const user_balance = await prisma.balanceCoin.findFirst({ where: { id_coin: id_coin, id_user: userok.id } })
+    
+    let text = `${ico_list['statistics'].ico} Рейтинг персонажей по ${coin?.name} в ролевом проекте ${stats?.name}${facult_tr ? `, ${terminology} ${facult?.smile} ${facult?.name}` : ``}:\n\n`;
+    
+    const keyboard = new KeyboardBuilder();
+    const stat: { rank: number, text: string, score: number, me: boolean }[] = [];
+    let counter = 1;
+    
+    for (const userok of facult_tr ? 
+        await prisma.user.findMany({ where: { id_alliance: user.id_alliance, id_facult: user.id_facult } }) : 
+        await prisma.user.findMany({ where: { id_alliance: user.id_alliance } })) {
+        const user_balance = await prisma.balanceCoin.findFirst({ where: { id_coin: id_coin, id_user: userok.id } });
         if (user_balance) {
             stat.push({
                 rank: counter,
                 text: `- UID-${userok.id} @id${userok.idvk}(${userok.name.slice(0, 20)}) --> ${user_balance.amount}${coin?.smile}\n`,
                 score: user_balance.amount,
                 me: userok.idvk == user.idvk ? true : false
-            })
-            counter++
+            });
+            counter++;
         }
     }
+    
     stat.sort(function(a, b){
         return b.score - a.score;
     });
-    let counter_last = 1
-    let counter_limit = 0
-    let counter_init = context.eventPayload.counter_init ?? 0
-    let trig_find_me = false
+    
+    let counter_last = 1;
+    let counter_limit = 0;
+    let counter_init = context.eventPayload.counter_init ?? 0;
+    let trig_find_me = false;
+    
     for (const stat_sel of stat) {
         if (counter_last >= counter_init && counter_limit <= 10) {
-            text += `${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
-            if (stat_sel.me) { trig_find_me = true }
-            counter_limit++
+            text += `${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`;
+            if (stat_sel.me) { trig_find_me = true; }
+            counter_limit++;
         }
         if ((counter_last <= counter_init || counter_limit > 10)) {
             if (stat_sel.me) {
-                text += `\n\n${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`
+                text += `\n\n${stat_sel.me ? ico_list['success'].ico : ico_list['person'].ico} ${counter_last} ${stat_sel.text}`;
             }
         }
-        counter_last++
+        counter_last++;
     }
-    text += `\n\n${ico_list['help'].ico} В статистике участвует ${counter-1} персонажей`
-    await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`)
-    let counter_coin = 0
-    const allCoins = await prisma.allianceCoin.findMany({ where: { id_alliance: user.id_alliance ?? 0 }, orderBy: { order: 'asc' } })
-    for (const coi of allCoins) {
-        if (counter_coin < 5) {
-            keyboard.callbackButton({ label: `${coi.smile}`, payload: { command: 'alliance_rank_coin_enter', facult: facult_tr, id_coin: coi.id }, color: 'secondary' })
+    
+    text += `\n\n${ico_list['help'].ico} В статистике участвует ${counter-1} персонажей`;
+    
+    await Logger(`In a private chat, the rank information is viewed by user ${user.idvk}`);
+    
+    // ===== ПАГИНАЦИЯ ДЛЯ ВАЛЮТ =====
+    const coinPage = context.eventPayload.coinPage ?? 0;
+    const COINS_PER_PAGE = 5;
+    
+    const allCoins = await prisma.allianceCoin.findMany({ 
+        where: { id_alliance: user.id_alliance ?? 0 },
+        orderBy: { order: 'asc' }
+    });
+    
+    const totalCoins = allCoins.length;
+    const pageCoins = allCoins.slice(coinPage * COINS_PER_PAGE, (coinPage + 1) * COINS_PER_PAGE);
+    const totalCoinPages = Math.ceil(totalCoins / COINS_PER_PAGE);
+    
+    // Кнопки валют (по 5 на страницу)
+    let coinRow = 0;
+    for (const coi of pageCoins) {
+        const isSelected = coi.id === id_coin;
+        keyboard.callbackButton({ 
+            label: `${isSelected ? '✅' : ''} ${coi.smile}`, 
+            payload: { 
+                command: 'alliance_rank_coin_enter', 
+                facult: facult_tr, 
+                id_coin: coi.id,
+                coinPage: coinPage,
+                counter_init: 0
+            }, 
+            color: isSelected ? 'positive' : 'secondary' 
+        });
+        coinRow++;
+        // После 5 кнопок в ряд - новая строка
+        if (coinRow % 5 === 0) {
+            keyboard.row();
         }
-        counter_coin++
     }
-    keyboard.row()
+    // Если не было row после последней кнопки
+    if (coinRow % 5 !== 0) {
+        keyboard.row();
+    }
+    
+    // Навигация по валютам
+    if (totalCoins > COINS_PER_PAGE) {
+        if (coinPage > 0) {
+            keyboard.callbackButton({ 
+                label: '◀️', 
+                payload: { 
+                    command: 'alliance_rank_coin_enter', 
+                    facult: facult_tr, 
+                    id_coin: id_coin,
+                    coinPage: coinPage - 1,
+                    counter_init: 0
+                }, 
+                color: 'secondary' 
+            });
+        }
+        
+        // Информация о странице
+        keyboard.callbackButton({ 
+            label: `${coinPage + 1}/${totalCoinPages}`, 
+            payload: { 
+                command: 'alliance_rank_coin_enter', 
+                facult: facult_tr, 
+                id_coin: id_coin,
+                coinPage: coinPage,
+                counter_init: 0
+            }, 
+            color: 'primary' 
+        });
+        
+        if (coinPage < totalCoinPages - 1) {
+            keyboard.callbackButton({ 
+                label: '▶️', 
+                payload: { 
+                    command: 'alliance_rank_coin_enter', 
+                    facult: facult_tr, 
+                    id_coin: id_coin,
+                    coinPage: coinPage + 1,
+                    counter_init: 0
+                }, 
+                color: 'secondary' 
+            });
+        }
+        keyboard.row();
+    }
+    
+    // Кнопки фильтрации по факультету
     if (facult && !facult_tr) {
-        keyboard.callbackButton({ label: `${ico_list['facult'].ico} ${facult.name.slice(0,30)}`, payload: { command: 'alliance_rank_coin_enter', facult: true, id_coin: id_coin }, color: 'secondary' })
+        keyboard.callbackButton({ 
+            label: `${ico_list['facult'].ico} ${facult.name.slice(0,30)}`, 
+            payload: { command: 'alliance_rank_coin_enter', facult: true, id_coin: id_coin, coinPage: coinPage }, 
+            color: 'secondary' 
+        });
     }
     if (facult && facult_tr) {
-        keyboard.callbackButton({ label: `${ico_list['alliance'].ico} ${stats?.name.slice(0,30)}`, payload: { command: 'alliance_rank_coin_enter', facult: false, id_coin: id_coin }, color: 'secondary' })
+        keyboard.callbackButton({ 
+            label: `${ico_list['alliance'].ico} ${stats?.name.slice(0,30)}`, 
+            payload: { command: 'alliance_rank_coin_enter', facult: false, id_coin: id_coin, coinPage: coinPage }, 
+            color: 'secondary' 
+        });
     }
-    if (-10+counter_init >= 0 && -10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: `${ico_list['back'].ico}`, payload: { command: 'alliance_rank_coin_enter', counter_init: -10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary' })
+    
+    // Пагинация по персонажам
+    if (-10 + counter_init >= 0 && -10 + counter_init < stat.length) {
+        keyboard.callbackButton({ 
+            label: `${ico_list['back'].ico}`, 
+            payload: { command: 'alliance_rank_coin_enter', counter_init: -10 + counter_init, facult: facult_tr, id_coin: id_coin, coinPage: coinPage }, 
+            color: 'secondary' 
+        });
     }
-    if (10+counter_init < stat.length) {
-        keyboard.callbackButton({ label: `${ico_list['next'].ico}`, payload: { command: 'alliance_rank_coin_enter', counter_init: 10+counter_init, facult: facult_tr, id_coin: id_coin }, color: 'secondary' })
+    if (10 + counter_init < stat.length) {
+        keyboard.callbackButton({ 
+            label: `${ico_list['next'].ico}`, 
+            payload: { command: 'alliance_rank_coin_enter', counter_init: 10 + counter_init, facult: facult_tr, id_coin: id_coin, coinPage: coinPage }, 
+            color: 'secondary' 
+        });
     }
-    keyboard.callbackButton({ label: `${ico_list['stop'].ico}`, payload: { command: 'system_call' }, color: 'secondary' }).inline().oneTime()
-    await Send_Message(context.peerId, text, keyboard)
+    
+    keyboard.callbackButton({ 
+        label: `${ico_list['stop'].ico}`, 
+        payload: { command: 'system_call' }, 
+        color: 'secondary' 
+    }).inline().oneTime();
+    
+    await Send_Message(context.peerId, text, keyboard);
 }
