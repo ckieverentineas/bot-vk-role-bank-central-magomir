@@ -27,6 +27,7 @@ import { Exit, Keyboard_Admin_Main, Keyboard_User_Main, Main_Menu_Admin_Init, Ma
 import { Abilities_Upgrade_Menu } from './engine/events/module/abilities/abilities_upgrade';
 import { deductAbilityCost, getAllianceLevels, getLevelName } from './engine/events/module/abilities/abilities_helper';
 import { PrismaClient } from '@prisma/client';
+import { PlayerStatistics } from './engine/events/module/statistics/player_statistics';
 
 const prisma = new PrismaClient();
 
@@ -164,6 +165,7 @@ initializeGroupId().then(async () => {
             "monitor_select_person": Monitor_Select_Person_Handler,
             "alliance_topic_monitor_enter": Alliance_Topic_Monitor_Printer,
             "topic_rank_v2": Topic_Rank_V2_Enter,
+            "player_statistics": PlayerStatistics,
             "alliance_config_coin_order": async (ctx: any) => {
             await ctx.send('!порядок валют настроить');
             await ctx.answer();

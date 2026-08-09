@@ -48,6 +48,7 @@ import { Finance_Statistics_Command } from "./events/module/alliance/finance_sta
 import { Salary_Manager_Menu } from "./events/module/salary_manager";
 import { RoleManager_Menu } from "./events/module/role_management/role_manager";
 import { hasPermission, isAdmin, isRoot } from "./core/permissions";
+import { PlayerStatistics } from "./events/module/statistics/player_statistics";
 const fs = require('fs');
 
 async function Get_Admin_Alliance_User(context: any): Promise<User | null> {
@@ -376,6 +377,13 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         if (anti_vk_defender) { return; }
         await Operation_Solo(context)
     })
+    hearManager.hear(/!персонажи/, async (context) => {
+        const anti_vk_defender = await Antivirus_VK(context);
+        if (anti_vk_defender) return;
+        if (await Is_Chat_Checker(context) == true) return;
+        context.eventPayload = { command: 'player_statistics', page: 0 };
+        await PlayerStatistics(context);
+    });
     hearManager.hear(/!админка/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }

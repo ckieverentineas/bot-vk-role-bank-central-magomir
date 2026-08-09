@@ -397,6 +397,7 @@ model Alliance {
   abilityCategories AbilityCategory[]
   internalConversions AllianceCoinInternalConversion[]
   CustomRole      CustomRole[]
+  salarySettings  SalarySettings?
 
 }
 
@@ -695,4 +696,13 @@ model UserAbility {
   @@index([userId])
   @@index([abilityId])
   @@index([levelId])
+}
+
+model SalarySettings {
+  id          Int      @id @default(autoincrement())
+  allianceId  Int      @unique
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  mode        String   @default("auto")
+  activeUsers String   @default("[]")
+  updatedAt   DateTime @default(now()) @updatedAt
 }

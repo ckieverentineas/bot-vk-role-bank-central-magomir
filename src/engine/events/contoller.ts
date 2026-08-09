@@ -184,16 +184,24 @@ export async function Keyboard_Admin_Main(context: Context) {
     const isRootUser = await isRoot(admin);
     const hasViewRights = await hasPermission(admin, 'canViewAllUsers');
     
-    // ===== КНОПКА "Админы" — ТОЛЬКО если есть право canViewAllUsers ИЛИ root/админ =====
+    // ===== РЯД 1: "Админы" и "Персонажи" =====
     if (isRootUser || isAdminUser || hasViewRights) {
         keyboard_admin.callbackButton({ 
             label: '⚙ Админы', 
             payload: { command: 'admin_enter' }, 
             color: 'secondary' 
         });
+        
+        keyboard_admin.callbackButton({ 
+            label: '⚙ Персонажи', 
+            payload: { command: 'player_statistics', page: 0 }, 
+            color: 'secondary' 
+        });
+        
+        keyboard_admin.row();
     }
     
-    // ===== КНОПКА "Админам" — если есть права на управление =====
+    // ===== РЯД 2: "Админам" =====
     const hasManageRights = await hasAnyPermission(admin, [
         'canManageShops', 'canManageAbilities', 'canManageSkills',
         'canManageChests', 'canManageLegacy', 'canManageBackgrounds',
@@ -208,14 +216,10 @@ export async function Keyboard_Admin_Main(context: Context) {
             label: `${ico_list['config'].ico} Админам`, 
             payload: { command: 'alliance_enter_admin' }, 
             color: 'secondary' 
-        });
+        }).row();
     }
     
-    if ((isRootUser || isAdminUser || hasViewRights) || (isRootUser || isAdminUser || hasManageRights)) {
-        keyboard_admin.row();
-    }
-    
-    // ===== СОЮЗНИКИ — ТОЛЬКО ROOT =====
+    // ===== РЯД 3: "Союзники" — ТОЛЬКО ROOT =====
     if (isRootUser) {
         keyboard_admin.callbackButton({ 
             label: '⚙ Союзники', 
@@ -224,6 +228,7 @@ export async function Keyboard_Admin_Main(context: Context) {
         }).row();
     }
     
+    // ===== РЯД 4: "Закрыть" =====
     keyboard_admin.callbackButton({ 
         label: `${ico_list['stop'].ico}`, 
         payload: { command: 'system_call' }, 

@@ -849,32 +849,35 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
     });
 
     if (deleted) {
-        await Logger(`Игрок @id${user_adm?.idvk || user.idvk} удалил "${deleted.id}-${itemName}" из инвентаря`);
-        await context.send(`Вы удалили "${deleted.id}-${itemName}" из инвентаря.`);
+        // Получаем альянс пользователя
+        const alliance = await prisma.alliance.findFirst({ 
+            where: { id: user.id_alliance ?? 0 } 
+        });
         
-        if(user_adm) {
+        // Формируем сообщение в зависимости от того, кто удаляет
+        let logMessage = '';
+        if (user_adm) {
+            // Админ удаляет у игрока
+            logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря у @id${user.idvk}(${user.name}) (UID: ${user.id})`;
             await Send_Message(
                 user.idvk, 
                 `🎒 Вашу покупку "${deleted.id}-${itemName}" выкрали из инвентаря, надеемся, что ее раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`
             );
-            
-            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
-            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
-            const logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`;
-            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
-                await Send_Message(alliance.id_chat_shop, logMessage);
-            } else {
-                await Send_Message(chat_id, logMessage);
-            }
-        } else { 
-            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
-            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
-            const logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из инвентаря`;
-            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
-                await Send_Message(alliance.id_chat_shop, logMessage);
-            } else {
-                await Send_Message(chat_id, logMessage);
-            }
+        } else {
+            // Обычный игрок удаляет сам
+            logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из своего инвентаря`;
+            await context.send(`Вы удалили "${deleted.id}-${itemName}" из своего инвентаря.`);
+        }
+        
+        // Логируем в консоль
+        await Logger(logMessage);
+        
+        // Отправляем в финансовый лог-чат альянса (id_chat), если есть
+        if (alliance?.id_chat && alliance.id_chat > 0) {
+            await Send_Message(alliance.id_chat, logMessage);
+        } else {
+            // Fallback в мейн-чат
+            await Send_Message(chat_id, logMessage);
         }
     }
 
@@ -884,7 +887,6 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
 async function Inventory_Group_Delete(context: any, data: any, user: User, user_adm?: User) {
     const res = { cursor: data.cursor, group_mode: data.group_mode };
     
-    // Получаем информацию о группе
     const groupedItems = await groupInventoryItems(user.id);
     const group = groupedItems.find(g => g.type === data.type && g.id_item === data.id_item);
     
@@ -900,7 +902,6 @@ async function Inventory_Group_Delete(context: any, data: any, user: User, user_
     
     if (!confirm.status) return res;
 
-    // Выполняем удаление всех предметов группы
     let success_count = 0;
     let failed_count = 0;
 
@@ -921,31 +922,36 @@ async function Inventory_Group_Delete(context: any, data: any, user: User, user_
         }
     }
 
-    // Логируем и уведомляем
     if (success_count > 0) {
-        await Logger(`Игрок @id${user_adm?.idvk || user.idvk} удалил "${group.name} × ${success_count}" из инвентаря`);
-        await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря.`);
+        // Получаем альянс пользователя
+        const alliance = await prisma.alliance.findFirst({ 
+            where: { id: user.id_alliance ?? 0 } 
+        });
         
-        if(user_adm) {
-            await Send_Message(user.idvk, `🎒 Ваши покупки "${group.name} × ${success_count}" выкрали из инвентаря, надеемся, что их раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`);
-            
-            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
-            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
-            const logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`;
-            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
-                await Send_Message(alliance.id_chat_shop, logMessage);
-            } else {
-                await Send_Message(chat_id, logMessage);
-            }
-        } else { 
-            // [!] Изменение: Пункт 6 - Уведомление отправляется в локальный чат магазина альянса
-            const alliance = await prisma.alliance.findFirst({ where: { id: user.id_alliance ?? 0 } });
-            const logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из инвентаря`;
-            if (alliance?.id_chat_shop && alliance.id_chat_shop > 0) {
-                await Send_Message(alliance.id_chat_shop, logMessage);
-            } else {
-                await Send_Message(chat_id, logMessage);
-            }
+        // Формируем сообщение в зависимости от того, кто удаляет
+        let logMessage = '';
+        if (user_adm) {
+            // Админ удаляет у игрока
+            logMessage = `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря у @id${user.idvk}(${user.name}) (UID: ${user.id})`;
+            await Send_Message(
+                user.idvk, 
+                `🎒 Ваши покупки "${group.name} × ${success_count}" выкрали из инвентаря, надеемся, что их раздали бездомным детям в Африке, а не себе, или хотя бы пожертвовали в Азкабан.`
+            );
+        } else {
+            // Обычный игрок удаляет сам
+            logMessage = `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`;
+            await context.send(`Вы удалили "${group.name} × ${success_count}" из своего инвентаря.`);
+        }
+        
+        // Логируем в консоль
+        await Logger(logMessage);
+        
+        // Отправляем в финансовый лог-чат альянса (id_chat), если есть
+        if (alliance?.id_chat && alliance.id_chat > 0) {
+            await Send_Message(alliance.id_chat, logMessage);
+        } else {
+            // Fallback в мейн-чат
+            await Send_Message(chat_id, logMessage);
         }
     }
 
