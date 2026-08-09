@@ -158,7 +158,6 @@ export async function Salary_Manager_Menu(context: any) {
 
     const keyboard = new KeyboardBuilder();
 
-    // Строка 1: Настройки
     keyboard.textButton({
       label: `⚙ Настройки`,
       payload: { command: 'salary_settings' },
@@ -166,7 +165,6 @@ export async function Salary_Manager_Menu(context: any) {
     });
     keyboard.row();
 
-    // Строки с пользователями
     for (const user of pageUsers) {
       const shortName = user.name.length > 14 ? user.name.slice(0, 12) + '..' : user.name;
       
@@ -210,7 +208,6 @@ export async function Salary_Manager_Menu(context: any) {
       keyboard.row();
     }
 
-    // Навигация
     if (totalUsers > ITEMS_PER_PAGE) {
       if (cursor > 0) {
         keyboard.textButton({
@@ -231,7 +228,6 @@ export async function Salary_Manager_Menu(context: any) {
       keyboard.row();
     }
 
-    // Действия
     keyboard.textButton({
       label: `💰 Всем`,
       payload: { command: 'salary_pay_all' },
@@ -359,7 +355,6 @@ async function salarySettingsMenu(context: any, allianceId: number) {
     });
   }
 
-  // Получаем текущую валюту
   let currentCoin = null;
   const firstSalary = await prisma.user.findFirst({
     where: {
