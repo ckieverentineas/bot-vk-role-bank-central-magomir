@@ -1,6 +1,6 @@
 // engine/events/module/salary_manager.ts
 import { KeyboardBuilder } from "vk-io";
-import { User } from "@prisma/client";
+import { SalarySettings, User } from "@prisma/client";
 import { 
   Confirm_User_Success, 
   Input_Number, 
@@ -20,6 +20,24 @@ import { answerTimeLimit } from "../../..";
 // ГЛАВНОЕ МЕНЮ УПРАВЛЕНИЯ ЗАРПЛАТАМИ
 // ============================================================
 
+async function getOrCreateSalarySettings(allianceId: number): Promise<SalarySettings> {
+  const settings = await prisma.salarySettings.findFirst({
+    where: { allianceId }
+  });
+
+  if (settings) {
+    return settings;
+  }
+
+  return prisma.salarySettings.create({
+    data: {
+      allianceId,
+      mode: 'auto',
+      activeUsers: '[]'
+    }
+  });
+}
+
 export async function Salary_Manager_Menu(context: any) {
   const admin = await Person_Get(context);
   if (!admin) {
@@ -36,6 +54,7 @@ export async function Salary_Manager_Menu(context: any) {
     await context.send(`❌ Вы не состоите в ролевой.`);
     return;
   }
+  const allianceId = admin.id_alliance;
 
   const ITEMS_PER_PAGE = 3;
 
@@ -44,7 +63,7 @@ export async function Salary_Manager_Menu(context: any) {
   
   const firstSalary = await prisma.user.findFirst({
     where: {
-      id_alliance: admin.id_alliance,
+      id_alliance: allianceId,
       salary_coin_id: { not: null }
     },
     select: { salary_coin_id: true }
@@ -57,19 +76,7 @@ export async function Salary_Manager_Menu(context: any) {
     });
   }
 
-  let activitySettings = await prisma.salarySettings.findFirst({
-    where: { allianceId: admin.id_alliance }
-  });
-
-  if (!activitySettings) {
-    activitySettings = await prisma.salarySettings.create({
-      data: {
-        allianceId: admin.id_alliance,
-        mode: 'auto',
-        activeUsers: '[]'
-      }
-    });
-  }
+  let activitySettings = await getOrCreateSalarySettings(allianceId);
 
   let exit = false;
   let cursor = 0;
@@ -77,7 +84,7 @@ export async function Salary_Manager_Menu(context: any) {
   while (!exit) {
     const allUsers = await prisma.user.findMany({
       where: {
-        id_alliance: admin.id_alliance
+        id_alliance: allianceId
       }
     });
 
@@ -269,26 +276,13 @@ export async function Salary_Manager_Menu(context: any) {
 
       switch (payload.command) {
         case 'salary_settings':
-          await salarySettingsMenu(context, admin.id_alliance);
-          activitySettings = await prisma.salarySettings.findFirst({
-            where: { allianceId: admin.id_alliance }
-          });
-          if (!activitySettings) {
-            activitySettings = await prisma.salarySettings.create({
-              data: {
-                allianceId: admin.id_alliance,
-                mode: 'auto',
-                activeUsers: '[]'
-              }
-            });
-          }
+          await salarySettingsMenu(context, allianceId);
+          activitySettings = await getOrCreateSalarySettings(allianceId);
           break;
 
         case 'salary_toggle_active':
-          await toggleUserActive(context, payload.userId, admin.id_alliance, !payload.currentStatus);
-          activitySettings = await prisma.salarySettings.findFirst({
-            where: { allianceId: admin.id_alliance }
-          });
+          await toggleUserActive(context, payload.userId, allianceId, !payload.currentStatus);
+          activitySettings = await getOrCreateSalarySettings(allianceId);
           break;
 
         case 'salary_edit':
@@ -341,19 +335,7 @@ export async function Salary_Manager_Menu(context: any) {
 // ============================================================
 
 async function salarySettingsMenu(context: any, allianceId: number) {
-  let settings = await prisma.salarySettings.findFirst({
-    where: { allianceId }
-  });
-
-  if (!settings) {
-    settings = await prisma.salarySettings.create({
-      data: {
-        allianceId,
-        mode: 'auto',
-        activeUsers: '[]'
-      }
-    });
-  }
+  let settings = await getOrCreateSalarySettings(allianceId);
 
   let currentCoin = null;
   const firstSalary = await prisma.user.findFirst({
@@ -462,7 +444,7 @@ async function salarySettingsMenu(context: any, allianceId: number) {
           where: { allianceId },
           data: { mode: 'auto', activeUsers: '[]' }
         });
-        settings = await prisma.salarySettings.findFirst({ where: { allianceId } });
+        settings = await getOrCreateSalarySettings(allianceId);
         activeUsers = [];
         await context.send(`✅ Режим изменен на "Авто (рп-активность)"`);
         break;
@@ -472,7 +454,7 @@ async function salarySettingsMenu(context: any, allianceId: number) {
           where: { allianceId },
           data: { mode: 'manual' }
         });
-        settings = await prisma.salarySettings.findFirst({ where: { allianceId } });
+        settings = await getOrCreateSalarySettings(allianceId);
         await context.send(`✅ Режим изменен на "Ручной"\nТеперь можно вручную отмечать активных игроков кнопками ✅/⏸️`);
         break;
 
@@ -528,8 +510,8 @@ async function toggleUserActive(context: any, userId: number, allianceId: number
 // ФУНКЦИЯ ПРОВЕРКИ АКТИВНОСТИ (С УЧЕТОМ РЕЖИМА)
 // ============================================================
 
-async function checkUserActivityThisWeek(userId: number, settings: any): Promise<boolean> {
-  if (settings.mode === 'manual') {
+async function checkUserActivityThisWeek(userId: number, settings: SalarySettings | null): Promise<boolean> {
+  if (settings?.mode === 'manual') {
     let activeUsers: number[] = [];
     try {
       activeUsers = JSON.parse(settings.activeUsers || '[]');
@@ -780,13 +762,19 @@ async function paySalaryToAll(context: any) {
   const admin = await Person_Get(context);
   if (!admin) return;
 
+  if (!admin.id_alliance || admin.id_alliance <= 0) {
+    await context.send(`❌ Вы не состоите в ролевой.`);
+    return;
+  }
+  const allianceId = admin.id_alliance;
+
   const alliance = await prisma.alliance.findFirst({
-    where: { id: admin.id_alliance as number }
+    where: { id: allianceId }
   });
 
   const usersWithSalary = await prisma.user.findMany({
     where: {
-      id_alliance: admin.id_alliance,
+      id_alliance: allianceId,
       salary_coin_id: { not: null },
       salary_amount: { not: null }
     }
@@ -803,7 +791,7 @@ async function paySalaryToAll(context: any) {
   message += `📊 Всего: ${filteredUsers.length}\n\n`;
   
   const settings = await prisma.salarySettings.findFirst({
-    where: { allianceId: admin.id_alliance }
+    where: { allianceId }
   });
 
   for (const user of filteredUsers) {
@@ -873,13 +861,19 @@ async function paySalaryToActiveOnly(context: any) {
   const admin = await Person_Get(context);
   if (!admin) return;
 
+  if (!admin.id_alliance || admin.id_alliance <= 0) {
+    await context.send(`❌ Вы не состоите в ролевой.`);
+    return;
+  }
+  const allianceId = admin.id_alliance;
+
   const alliance = await prisma.alliance.findFirst({
-    where: { id: admin.id_alliance as number }
+    where: { id: allianceId }
   });
 
   const usersWithSalary = await prisma.user.findMany({
     where: {
-      id_alliance: admin.id_alliance,
+      id_alliance: allianceId,
       salary_coin_id: { not: null },
       salary_amount: { not: null }
     }
@@ -893,7 +887,7 @@ async function paySalaryToActiveOnly(context: any) {
   }
 
   const settings = await prisma.salarySettings.findFirst({
-    where: { allianceId: admin.id_alliance }
+    where: { allianceId }
   });
 
   const activeUsers = [];

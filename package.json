@@ -3,30 +3,28 @@
   "version": "1.0.0",
   "description": "cap",
   "engines": {
-    "node": "16.x"
+    "node": ">=18.17 <19"
   },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "devon": "nodemon --exec ts-node-dev src/index.ts",
     "build": "tsc --project src/tsconfig.json",
-    "start": "ts-node src/index.ts",
-    "dev": "ts-node-dev --max-old-space-size=256 --optimize-for-size --dedupe --deps --interval --poll --respawn src/index.ts --optimize-for-size max_new_space_size=256 --optimize-for-size"
+    "start": "node node_modules/ts-node/dist/bin.js --project tsconfig.json src/index.ts",
+    "start:magomir-cb": "npm run start -- --bot=magomir-cb",
+    "dev": "node node_modules/ts-node/dist/bin.js --project tsconfig.json src/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@prisma/client": "^3.12.0",
-    "@types/node": "^17.0.45",
+    "@prisma/client": "3.13.0",
+    "@types/node": "18.17.1",
     "@vk-io/hear": "^1.1.0",
-    "nodemon": "^2.0.15",
-    "prisma": "^3.12.0",
+    "prisma": "3.13.0",
     "rimraf": "^3.0.2",
-    "ts-node": "^10.7.0",
-    "ts-node-dev": "^1.1.8",
+    "ts-node": "10.9.2",
     "ts-xlsx": "^0.0.11",
-    "typescript": "^4.6.3",
+    "typescript": "4.9.5",
     "vk-io": "^4.5.2",
     "vk-io-question": "^3.1.1",
     "xlsx": "^0.18.5"
