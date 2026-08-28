@@ -2,7 +2,7 @@ import { HearManager } from "@vk-io/hear";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
 import { answerTimeLimit, chat_id, root, timer_text, vk } from '../index';
-import { Accessed, Antivirus_VK, Confirm_User_Success, Is_Chat_Checker, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "./core/helper";
+import { Accessed, Antivirus_VK, Confirm_User_Success, Is_Chat_Checker, Keyboard_Index, Logger, OperationCancelledError, Send_Message, Send_Message_Smart } from "./core/helper";
 import prisma from "./events/module/prisma_client";
 import { User_Info } from "./events/module/tool";
 import { Account, Alliance, User } from "@prisma/client";
@@ -172,7 +172,41 @@ async function Service_Menu_Background_Delete(context: any): Promise<void> {
     await Keyboard_Index(context, '💡 Управление фоном меню услуг');
 }
 
+async function withOperationBack<T>(context: any, operation: () => Promise<T>): Promise<T> {
+    const originalQuestion = context.question;
+    context.question = async (message: string, options: any = {}) => {
+        const keyboardText = options.keyboard ? JSON.stringify(options.keyboard) : '';
+        const hasExitButton = /Назад|Отмена|🚫|back|limited/i.test(keyboardText);
+        const keyboard = options.keyboard && hasExitButton
+            ? options.keyboard
+            : options.keyboard
+                ? options.keyboard.textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
+                : Keyboard.builder().textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline();
+        const answer = await originalQuestion.call(context, message, { ...options, keyboard });
+        if (answer.payload?.command === 'back') {
+            throw new OperationCancelledError();
+        }
+        return answer;
+    };
+
+    try {
+        return await operation();
+    } finally {
+        context.question = originalQuestion;
+    }
+}
+
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
+    const originalHear = hearManager.hear.bind(hearManager);
+    (hearManager as any).hear = (pattern: any, handler: any) => originalHear(pattern, async (context: any) => {
+        try {
+            await withOperationBack(context, () => handler(context));
+        } catch (error) {
+            if (!(error instanceof OperationCancelledError)) { throw error; }
+            await Keyboard_Index(context, `🔙 Операция отменена.`);
+        }
+    });
+
     hearManager.hear(/!Лютный переулок/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }

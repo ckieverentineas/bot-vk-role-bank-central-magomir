@@ -872,12 +872,9 @@ async function Inventory_Delete(context: any, data: any, user: User, user_adm?: 
         // Логируем в консоль
         await Logger(logMessage);
         
-        // Отправляем в финансовый лог-чат альянса (id_chat), если есть
+        // Отправляем только в привязанный финансовый лог-чат
         if (alliance?.id_chat && alliance.id_chat > 0) {
             await Send_Message(alliance.id_chat, logMessage);
-        } else {
-            // Fallback в мейн-чат
-            await Send_Message(chat_id, logMessage);
         }
     }
 
@@ -946,12 +943,9 @@ async function Inventory_Group_Delete(context: any, data: any, user: User, user_
         // Логируем в консоль
         await Logger(logMessage);
         
-        // Отправляем в финансовый лог-чат альянса (id_chat), если есть
+        // Отправляем только в привязанный финансовый лог-чат
         if (alliance?.id_chat && alliance.id_chat > 0) {
             await Send_Message(alliance.id_chat, logMessage);
-        } else {
-            // Fallback в мейн-чат
-            await Send_Message(chat_id, logMessage);
         }
     }
 

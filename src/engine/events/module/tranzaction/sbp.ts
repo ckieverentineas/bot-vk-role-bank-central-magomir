@@ -18,11 +18,20 @@ export async function Operation_SBP(context: Context) {
     
     const person_goten_input = await context.question(
         `🧷 Введите UID персонажа (или несколько через пробел), кому будет совершен перевод от вашего персонажа ${user_check.name}:\n`,
-        { answerTimeLimit }
+        {
+            keyboard: Keyboard.builder()
+                .textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' })
+                .oneTime().inline(),
+            answerTimeLimit
+        }
     );
     
     if (person_goten_input.isTimeout) {
         await context.send(`⏰ Время ожидания истекло!`);
+        return;
+    }
+    if (person_goten_input.payload?.command === 'back') {
+        await context.send(`🔙 Операция отменена.`);
         return;
     }
     
@@ -68,7 +77,7 @@ export async function Operation_SBP(context: Context) {
     
     // ===== ВЫБОР ВАЛЮТЫ (ТОЛЬКО С РАЗРЕШЕННОЙ СБП) =====
     // [!] ИЗМЕНЕНИЕ: Передаем true для фильтрации только валют с sbp_on: true
-    const selectedCoinId = await Select_Alliance_Coin(context, user_check.id_alliance ?? 0, true);
+    const selectedCoinId = await Select_Alliance_Coin(context, user_check.id_alliance ?? 0, true, true);
     if (!selectedCoinId) {
         await context.send(`${ico_list['warn'].ico} Выбор валюты прерван.`);
         return;
@@ -106,6 +115,8 @@ export async function Operation_SBP(context: Context) {
             `👤 Получатель: ${validRecipients[0].name} (UID: ${validRecipients[0].id})\n` +
             `💱 Валюта: ${coin.smile} ${coin.name}\n` +
             `💳 Ваш баланс: ${coin_me.amount}${coin.smile}`,
+            true,
+            300,
             true
         );
         
@@ -129,11 +140,20 @@ export async function Operation_SBP(context: Context) {
         
         const amountInput = await context.question(
             `Введите суммы через пробел:`,
-            { answerTimeLimit }
+            {
+                keyboard: Keyboard.builder()
+                    .textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' })
+                    .oneTime().inline(),
+                answerTimeLimit
+            }
         );
         
         if (amountInput.isTimeout) {
             await context.send(`⏰ Время ожидания истекло!`);
+            return;
+        }
+        if (amountInput.payload?.command === 'back') {
+            await context.send(`🔙 Операция отменена.`);
             return;
         }
         
@@ -170,6 +190,7 @@ export async function Operation_SBP(context: Context) {
             keyboard: Keyboard.builder()
                 .textButton({ label: '✅ Да', payload: { command: 'add_comment' }, color: 'positive' })
                 .textButton({ label: '❌ Нет', payload: { command: 'no_comment' }, color: 'negative' })
+                    .textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' })
                 .oneTime().inline(),
             answerTimeLimit
         }
@@ -179,15 +200,22 @@ export async function Operation_SBP(context: Context) {
         await context.send(`⏰ Время ожидания истекло!`);
         return;
     }
+    if (want_comment.payload?.command === 'back') {
+        await context.send(`🔙 Операция отменена.`);
+        return;
+    }
     
     if (want_comment.payload?.command === 'add_comment') {
         const comment_input = await Input_Text(context, 
             `💬 Введите комментарий к переводу (максимум 200 символов):`,
-            200
+            200,
+            true
         );
-        if (comment_input) {
-            comment = comment_input;
+        if (!comment_input) {
+            await context.send(`🔙 Операция отменена.`);
+            return;
         }
+        comment = comment_input;
     }
     
     // ===== ПОДТВЕРЖДЕНИЕ =====
@@ -202,7 +230,7 @@ export async function Operation_SBP(context: Context) {
         confirm_message += `\n💬 Комментарий: "${comment}"`;
     }
     
-    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, confirm_message);
+    const confirm_gift: { status: boolean, text: string } = await Confirm_User_Success(context, confirm_message, true);
     
     if (!confirm_gift.status) {
         await context.send(`❌ Перевод отменен.`);
@@ -213,6 +241,7 @@ export async function Operation_SBP(context: Context) {
     let successCount = 0;
     let failCount = 0;
     const results = [];
+    const transferLogLines: string[] = [];
     
     // Сначала списываем с отправителя общую сумму
     const updatedSenderBalance = await prisma.balanceCoin.update({
@@ -267,12 +296,18 @@ export async function Operation_SBP(context: Context) {
     }
     
     // ===== ОТЧЕТ =====
-    const resultMessage = `✅ Массовый перевод завершен!\n\n` +
-        `✅ Успешно: ${successCount}\n` +
-        `❌ Ошибок: ${failCount}\n` +
-        `💰 Всего отправлено: ${totalAmount}${coin.smile}\n` +
-        `💱 Валюта: ${coin.smile} ${coin.name}\n\n` +
-        results.join('\n');
+        const resultMessage = validRecipients.length === 1
+                ? `✅ Перевод завершен!\n\n` +
+                    `✅ Получатель: ${validRecipients[0].name} (UID: ${validRecipients[0].id})\n` +
+                    `💰 Переведено: ${totalAmount}${coin.smile}\n` +
+                    `💱 Валюта: ${coin.smile} ${coin.name}\n\n` +
+                    results.join('\n')
+                : `✅ Массовый перевод завершен!\n\n` +
+                    `✅ Успешно: ${successCount}\n` +
+                    `❌ Ошибок: ${failCount}\n` +
+                    `💰 Всего отправлено: ${totalAmount}${coin.smile}\n` +
+                    `💱 Валюта: ${coin.smile} ${coin.name}\n\n` +
+                    results.join('\n');
     
     if (resultMessage.length > 3900) {
         for (let i = 0; i < resultMessage.length; i += 3900) {
@@ -292,13 +327,11 @@ export async function Operation_SBP(context: Context) {
     // ===== ЛОГ В ЧАТ АЛЬЯНСА =====
     const alliance = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 } });
     const logMessage = 
-        `💸 МАССОВЫЙ ПЕРЕВОД ВАЛЮТЫ\n` +
-        `👤 Отправитель: @id${user_check.idvk}(${user_check.name}) (UID: ${user_check.id})\n` +
-        `💱 Валюта: ${coin.smile} ${coin.name}\n` +
-        `💰 Всего: ${totalAmount}${coin.smile}\n` +
-        `✅ Получателей: ${successCount}\n` +
-        `❌ Ошибок: ${failCount}\n` +
-        `${comment ? `💬 Комментарий: "${comment}"` : ''}`;
+        `💷 СБП --> совершен перевод в валюте "${coin.name}":\n` +
+        `👤 Отправитель [${user_check.name}](https://vk.ru/id${user_check.idvk}) (UID: ${user_check.id}) --> ` +
+        `${coin_me.amount} - ${totalAmount} = ${updatedSenderBalance.amount}${coin.smile}\n` +
+        `${transferLogLines.join('\n')}` +
+        `${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
     
     if (alliance?.id_chat && alliance.id_chat > 0) {
         await Send_Message(alliance.id_chat, logMessage);

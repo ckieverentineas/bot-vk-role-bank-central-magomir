@@ -3,7 +3,7 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Accessed, Antivirus_VK, Group_Id_Get, Is_Chat_Checker, Logger, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
+import { Accessed, Antivirus_VK, Group_Id_Get, Is_Chat_Checker, Logger, OperationCancelledError, Send_Message, Sleep, Worker_Checker, Worker_Online_Setter } from './engine/core/helper';
 import * as dotenv from 'dotenv'
 import { Admin_Enter, Card_Enter, Comment_Person_Enter, Rank_Enter, Statistics_Enter} from './engine/events/module/info';
 import { Operation_Enter, Right_Enter, User_Info } from './engine/events/module/tool';
@@ -488,10 +488,31 @@ initializeGroupId().then(async () => {
         
         const cmd = context.eventPayload.command;
         if (config[cmd]) {
+            const originalQuestion = context.question;
+            context.question = async (message: string, options: any = {}) => {
+                const keyboardText = options.keyboard ? JSON.stringify(options.keyboard) : '';
+                const hasExitButton = /Назад|Отмена|🚫|back|limited/i.test(keyboardText);
+                const keyboard = options.keyboard && hasExitButton
+                    ? options.keyboard
+                    : options.keyboard
+                        ? options.keyboard.textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
+                        : Keyboard.builder().textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline();
+                const answer = await originalQuestion.call(context, message, { ...options, keyboard });
+                if (answer.payload?.command === 'back') {
+                    throw new OperationCancelledError();
+                }
+                return answer;
+            };
             try {
                 await config[cmd](context);
             } catch (e) {
-                await Logger(`⚠ Ошибка при выполнении команды "${cmd}": ${e}`);
+                if (e instanceof OperationCancelledError) {
+                    await Main_Menu_Admin_Init(context);
+                } else {
+                    await Logger(`⚠ Ошибка при выполнении команды "${cmd}": ${e}`);
+                }
+            } finally {
+                context.question = originalQuestion;
             }
         } else {
             await Logger(`🌀 Неизвестная команда: ${cmd}`);

@@ -13,6 +13,13 @@ export function Sleep(ms: number) {
 
 type UserNameUid = Pick<User, 'name' | 'id'>
 
+export class OperationCancelledError extends Error {
+    constructor() {
+        super('Operation cancelled by user');
+        this.name = 'OperationCancelledError';
+    }
+}
+
 export function formatUserNameUid(user: UserNameUid): string {
     return `${user.name} (UID: ${user.id})`
 }
@@ -165,18 +172,24 @@ export async function Edit_Message_Pro(context: any, message: string, keyboard?:
         
     }
 }
-export async function Confirm_User_Success(context: any, text: string) {
+export async function Confirm_User_Success(context: any, text: string, showBack: boolean = true) {
     let res = { status: false, text: `` }
+    const keyboard = Keyboard.builder()
+        .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
+        .textButton({ label: 'Нет', payload: { command: 'not' }, color: 'secondary' });
+    if (showBack) {
+        keyboard.textButton({ label: `${ico_list['stop'].ico} Назад`, payload: { command: 'back' }, color: 'negative' });
+    }
     const confirmq = await context.question(`⁉ Вы уверены, что хотите ${text}`,
         {
-            keyboard: Keyboard.builder()
-            .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
-            .textButton({ label: 'Нет', payload: { command: 'not' }, color: 'secondary' })
-            .oneTime().inline(),
+            keyboard: keyboard.oneTime().inline(),
             answerTimeLimit
         }
     )
     if (confirmq.isTimeout) { return await context.send(`⏰ Время ожидания на подтверждение операции ${text} истекло!`) }
+    if (confirmq?.payload?.command === 'back') {
+        throw new OperationCancelledError();
+    }
     if (confirmq?.payload?.command === 'confirm') {
         res.status = true
         res.text = `✅ Success agree: ${text}`
@@ -242,13 +255,17 @@ export async function Group_Id_Get(token: string) {
 	return groupId
 }
 
-export async function Input_Text(context: any, prompt: string, limit?: number) {
+export async function Input_Text(context: any, prompt: string, limit?: number, showBack: boolean = true) {
     limit = limit ?? 300
     let input_tr = false
     let input = ''
 	while (input_tr == false) {
-		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
+        const inputOptions: any = showBack
+            ? { ...timer_text, keyboard: Keyboard.builder().textButton({ label: `${ico_list['stop'].ico} Назад`, payload: { command: 'back' }, color: 'negative' }).oneTime().inline() }
+            : timer_text;
+        const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, inputOptions)
 		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
+        if (name.payload?.command === 'back') { throw new OperationCancelledError() }
 		if (name.text.length <= limit && name.text.length > 0) {
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\nВы уверены?`, {	
 				keyboard: Keyboard.builder()
@@ -261,7 +278,7 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
                 input = `${name.text}`
                 input_tr = true
             } else {
-                if (confirma.text == `${ico_list['stop'].ico} Назад`) { await context.send(`${ico_list['stop'].ico} Ввод прерван пользователем`); return false }
+                if (confirma.text == `${ico_list['stop'].ico} Назад`) { throw new OperationCancelledError() }
                 continue
             }
 		} else { 
@@ -270,13 +287,17 @@ export async function Input_Text(context: any, prompt: string, limit?: number) {
 	}
     return input
 }
-export async function Input_Number(context: any, prompt: string, float: boolean, limit?: number) {
+export async function Input_Number(context: any, prompt: string, float: boolean, limit?: number, showBack: boolean = true) {
     limit = limit ?? 300
     let input_tr = false
     let input = 0
 	while (input_tr == false) {
-		const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, timer_text)
+        const inputOptions: any = showBack
+            ? { ...timer_text, keyboard: Keyboard.builder().textButton({ label: `${ico_list['stop'].ico} Назад`, payload: { command: 'back' }, color: 'negative' }).oneTime().inline() }
+            : timer_text;
+        const name = await context.question( `${ico_list['attach'].ico} ${prompt}\n\n${ico_list['warn'].ico} Допустимый лимит символов: ${limit}`, inputOptions)
 		if (name.isTimeout) { await context.send(`${ico_list['time'].ico} Время ожидания ввода истекло!`); return false }
+        if (name.payload?.command === 'back') { throw new OperationCancelledError() }
 		if (name.text.length <= limit && name.text.length > 0) {
             const confirma = await context.question( `${ico_list['question'].ico} Вы ввели: ${name.text}\nВы уверены?`, {	
 				keyboard: Keyboard.builder()
@@ -304,7 +325,7 @@ export async function Input_Number(context: any, prompt: string, float: boolean,
                 }
                 
             } else {
-                if (confirma.text == `${ico_list['stop'].ico} Назад`) { await context.send(`${ico_list['stop'].ico} Ввод прерван пользователем`); return false }
+                if (confirma.text == `${ico_list['stop'].ico} Назад`) { throw new OperationCancelledError() }
                 continue
             }
 		} else { 
@@ -436,7 +457,7 @@ export async function Send_Message_Smart(
  * @param id_alliance ID альянса, чьи валюты показываем
  * @returns ID выбранной валюты или null
  */
-export async function Select_Alliance_Coin(context: any, id_alliance: number, onlySBP: boolean = false): Promise<number | null> {
+export async function Select_Alliance_Coin(context: any, id_alliance: number, onlySBP: boolean = false, showBack: boolean = false): Promise<number | null> {
     const coin_pass: AllianceCoin[] = await prisma.allianceCoin.findMany({
         where: { 
             id_alliance: Number(id_alliance),
@@ -504,6 +525,14 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number, on
             });
         }
 
+        if (showBack) {
+            keyboard.textButton({
+                label: '🔙 Назад',
+                payload: { command: 'back' },
+                color: 'secondary'
+            });
+        }
+
         // Запрос у пользователя
         const answer = await context.question(event_logger, {
             keyboard: keyboard.inline(),
@@ -521,6 +550,10 @@ export async function Select_Alliance_Coin(context: any, id_alliance: number, on
         }
 
         const payload = answer.payload;
+
+        if (payload.command === 'back') {
+            return null;
+        }
         
         if (payload.command === 'select_coin') {
             // Пользователь выбрал валюту
