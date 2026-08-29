@@ -6,6 +6,16 @@ import { Confirm_User_Success, Input_Number, Input_Text, Select_Alliance_Coin, S
 import { ico_list } from "../data_center/icons_lib"
 import { answerTimeLimit } from "../../../.."
 
+function formatVkProfileLink(user: { idvk?: number | string | bigint | null, name: string, id: number }) {
+    const idvk = user.idvk == null ? '' : String(user.idvk).trim();
+    if (!idvk) {
+        return `${user.name} (UID: ${user.id})`;
+    }
+
+    // Используем @id для вшитой ссылки VK
+    return `@id${idvk}(${user.name}) (UID: ${user.id})`;
+}
+
 export async function Operation_SBP(context: Context) {
     // проверяем отправителя
     const account: Account | null = await prisma.account.findFirst({ where: { idvk: context.senderId } })
@@ -76,7 +86,6 @@ export async function Operation_SBP(context: Context) {
     }
     
     // ===== ВЫБОР ВАЛЮТЫ (ТОЛЬКО С РАЗРЕШЕННОЙ СБП) =====
-    // [!] ИЗМЕНЕНИЕ: Передаем true для фильтрации только валют с sbp_on: true
     const selectedCoinId = await Select_Alliance_Coin(context, user_check.id_alliance ?? 0, true, true);
     if (!selectedCoinId) {
         await context.send(`${ico_list['warn'].ico} Выбор валюты прерван.`);
@@ -190,7 +199,7 @@ export async function Operation_SBP(context: Context) {
             keyboard: Keyboard.builder()
                 .textButton({ label: '✅ Да', payload: { command: 'add_comment' }, color: 'positive' })
                 .textButton({ label: '❌ Нет', payload: { command: 'no_comment' }, color: 'negative' })
-                    .textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' })
+                .textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' })
                 .oneTime().inline(),
             answerTimeLimit
         }
@@ -243,6 +252,9 @@ export async function Operation_SBP(context: Context) {
     const results = [];
     const transferLogLines: string[] = [];
     
+    // Получаем альянс для логирования
+    const alliance = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 } });
+    
     // Сначала списываем с отправителя общую сумму
     const updatedSenderBalance = await prisma.balanceCoin.update({
         where: { id: coin_me.id },
@@ -281,6 +293,10 @@ export async function Operation_SBP(context: Context) {
             successCount++;
             results.push(`✅ ${recipient.name} (UID: ${recipient.id}): +${amount}${coin.smile} (${oldRecipientAmount} → ${newRecipientAmount})`);
             
+            transferLogLines.push(
+                `👤 Получатель ${formatVkProfileLink(recipient)} (UID: ${recipient.id}) --> +${amount}${coin.smile} | ${oldRecipientAmount} → ${newRecipientAmount}${coin.smile}`
+            );
+
             // Уведомление получателю
             await Send_Message(recipient.idvk,
                 `🔔 Уведомление для ${recipient.name} (UID: ${recipient.id})\n` +
@@ -296,18 +312,16 @@ export async function Operation_SBP(context: Context) {
     }
     
     // ===== ОТЧЕТ =====
-        const resultMessage = validRecipients.length === 1
-                ? `✅ Перевод завершен!\n\n` +
-                    `✅ Получатель: ${validRecipients[0].name} (UID: ${validRecipients[0].id})\n` +
-                    `💰 Переведено: ${totalAmount}${coin.smile}\n` +
-                    `💱 Валюта: ${coin.smile} ${coin.name}\n\n` +
-                    results.join('\n')
-                : `✅ Массовый перевод завершен!\n\n` +
-                    `✅ Успешно: ${successCount}\n` +
-                    `❌ Ошибок: ${failCount}\n` +
-                    `💰 Всего отправлено: ${totalAmount}${coin.smile}\n` +
-                    `💱 Валюта: ${coin.smile} ${coin.name}\n\n` +
-                    results.join('\n');
+    const resultMessage = validRecipients.length === 1
+            ? `✅ Перевод завершен!\n\n` +
+                `✅ Получатель: ${validRecipients[0].name} (UID: ${validRecipients[0].id})\n` +
+                `💰 Переведено: ${totalAmount}${coin.smile}\n` +
+                `💱 Валюта: ${coin.smile} ${coin.name}\n\n`
+            : `✅ Массовый перевод завершен!\n\n` +
+                `✅ Успешно: ${successCount}\n` +
+                `❌ Ошибок: ${failCount}\n` +
+                `💰 Всего отправлено: ${totalAmount}${coin.smile}\n` +
+                `💱 Валюта: ${coin.smile} ${coin.name}\n\n`;
     
     if (resultMessage.length > 3900) {
         for (let i = 0; i < resultMessage.length; i += 3900) {
@@ -324,15 +338,15 @@ export async function Operation_SBP(context: Context) {
         `💰 Ваш баланс: ${coin_me.amount} - ${totalAmount} = ${updatedSenderBalance.amount}${coin.smile}${comment ? `\n💬 Комментарий: "${comment}"` : ''}`
     );
     
-    // ===== ЛОГ В ЧАТ АЛЬЯНСА =====
-    const alliance = await prisma.alliance.findFirst({ where: { id: user_check.id_alliance ?? 0 } });
+    // ===== ЛОГ В ФИНАНСОВЫЙ ЧАТ АЛЬЯНСА =====
     const logMessage = 
         `💷 СБП --> совершен перевод в валюте "${coin.name}":\n` +
-        `👤 Отправитель [${user_check.name}](https://vk.ru/id${user_check.idvk}) (UID: ${user_check.id}) --> ` +
+        `👤 Отправитель ${formatVkProfileLink(user_check)} (UID: ${user_check.id}) --> ` +
         `${coin_me.amount} - ${totalAmount} = ${updatedSenderBalance.amount}${coin.smile}\n` +
-        `${transferLogLines.join('\n')}` +
-        `${comment ? `\n💬 Комментарий: "${comment}"` : ''}`;
-    
+        transferLogLines.join('\n') +
+        (comment ? `\n💬 Комментарий: "${comment}"` : '');
+
+    // Логируем в финансовый чат (id_chat)
     if (alliance?.id_chat && alliance.id_chat > 0) {
         await Send_Message(alliance.id_chat, logMessage);
     }
