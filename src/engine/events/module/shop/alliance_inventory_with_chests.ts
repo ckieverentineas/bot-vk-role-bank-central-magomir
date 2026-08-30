@@ -63,6 +63,19 @@ async function getLogChatForMassPresent(sender: User, recipient: User): Promise<
     return null;
 }
 
+async function getProjectLogChatId(allianceId?: number | null): Promise<number> {
+    if (allianceId && allianceId > 0) {
+        const alliance = await prisma.alliance.findFirst({
+            where: { id: allianceId }
+        });
+        if (alliance?.id_chat && alliance.id_chat > 0) {
+            return alliance.id_chat;
+        }
+    }
+
+    return chat_id;
+}
+
 // ===================== ОСНОВНАЯ ФУНКЦИЯ ИНВЕНТАРЯ С СУНДУКАМИ =====================
 
 export async function Inventory_With_Chests(context: any, user: User, user_adm?: User) {
@@ -4553,14 +4566,14 @@ async function handleItemDelete(context: any, data: any, user: User, user_adm?: 
                 `🎒 Администратор ${user_adm.name} удалил "${deleted.id}-${itemName}" из вашего инвентаря.`
             );
             await Send_Message(
-                chat_id, 
+                await getProjectLogChatId(user.id_alliance),
                 `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${deleted.id}-${itemName}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
             );
         } else { 
             await Logger(`Игрок @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из своего инвентаря`);
             await context.send(`Вы удалили "${deleted.id}-${itemName}" из своего инвентаря.`);
             await Send_Message(
-                chat_id, 
+                await getProjectLogChatId(user.id_alliance),
                 `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${deleted.id}-${itemName}" из своего инвентаря`
             );
         }
@@ -4623,11 +4636,11 @@ async function handleGroupItemDelete(context: any, data: any, user: User, user_a
             await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря ${user.name}.`);
             
             await Send_Message(user.idvk, `🎒 Администратор ${user_adm.name} удалил "${group.name} × ${success_count}" из вашего инвентаря.`);
-            await Send_Message(chat_id, `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
+            await Send_Message(await getProjectLogChatId(user.id_alliance), `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
         } else { 
             await Logger(`Игрок @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
             await context.send(`Вы удалили "${group.name} × ${success_count}" из своего инвентаря.`);
-            await Send_Message(chat_id, `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
+            await Send_Message(await getProjectLogChatId(user.id_alliance), `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
         }
     }
 
