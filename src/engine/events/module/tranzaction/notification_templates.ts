@@ -29,8 +29,7 @@ export async function NotificationTemplate_Menu(context: any): Promise<void> {
             }
             keyboard.row();
         }
-        keyboard.textButton({ label: '➕ Создать шаблон', payload: { command: 'notification_template_create' }, color: 'positive' }).row();
-        keyboard.textButton({ label: '🔙 Закрыть', payload: { command: 'notification_template_exit' }, color: 'secondary' }).oneTime().inline();
+        keyboard.textButton({ label: '➕ Создать шаблон', payload: { command: 'notification_template_create' }, color: 'positive' }).inline();
 
         const description = templates.length
             ? templates.map(template => `• ${template.name}: ${template.text}`).join('\n')
