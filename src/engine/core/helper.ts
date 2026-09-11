@@ -686,7 +686,12 @@ export async function hasCommunityDonorAdmin(allianceId: number): Promise<boolea
     const admins = await prisma.user.findMany({
         where: {
             id_alliance: allianceId,
-            role: { name: 'admin' }
+            // Админские права могут быть выданы системной ролью admin
+            // или любой назначенной кастомной ролью.
+            OR: [
+                { role: { name: 'admin' } },
+                { customRoleId: { not: null } }
+            ]
         },
         select: { idvk: true }
     });

@@ -571,7 +571,7 @@ async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm:
                     ? await prisma.balanceFacult.update({ where: { id: rank_put_check.id }, data: { amount: { increment: ui.amount } } })
                     : await prisma.balanceFacult.update({ where: { id: rank_put_check.id }, data: { amount: { decrement: ui.amount } } });
                 
-                facult_income = rank_updated ? `🌐 "${ui.operation}${person.coin?.smile}" > ${rank_put_check.amount} ${ui.operation} ${ui.amount} = ${rank_updated.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]` : ''
+                facult_income = rank_updated ? `🌐 "${ui.operation}${person.coin?.smile}" > ${Format_Number_Correction(rank_put_check.amount)} ${ui.operation} ${Format_Number_Correction(ui.amount)} = ${Format_Number_Correction(rank_updated.amount)} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]` : ''
             }
         }
         
@@ -586,7 +586,7 @@ async function Coin_Engine_Many_Custom(uids: number[], context: any, person_adm:
             facult_income
         )
         
-        const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${ui.operation}${person.coin?.smile}" > ${current_balance.amount} ${ui.operation} ${ui.amount} = ${updated_balance.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
+        const ans_log = `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${ui.operation}${person.coin?.smile}" > ${Format_Number_Correction(current_balance.amount)} ${ui.operation} ${Format_Number_Correction(ui.amount)} = ${Format_Number_Correction(updated_balance.amount)} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
         const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
         if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
         await Logger(`User ${pers.idvk} ${ui.operation} ${ui.amount} ${person.coin?.smile}. Balance now ${updated_balance.amount}`)
@@ -707,7 +707,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         const rank_put_plus_check = await prisma.balanceFacult.findFirst({ where: { id_coin: person.coin.id, id_facult: pers.id_facult! } }) 
 
                         const rank_put_plus: BalanceFacult | null = rank_put_plus_check ? await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { increment: person.amount } } }) : null
-                        facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check?.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]` : ''
+                        facult_income = rank_put_plus ? `🌐 "${person.operation}${person.coin?.smile}" > ${Format_Number_Correction(rank_put_plus_check?.amount)} ${person.operation} ${Format_Number_Correction(person.amount)} = ${Format_Number_Correction(rank_put_plus.amount)} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]` : ''
                     }
                     
                     const notif_ans = await Send_Coin_Operation_Notification(
@@ -721,7 +721,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         facult_income
                     )
                     
-                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_plus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
+                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${Format_Number_Correction(pers_bal_coin.amount)} ${person.operation} ${Format_Number_Correction(person.amount)} = ${Format_Number_Correction(money_put_plus.amount)} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                     await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
@@ -749,7 +749,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         if (rank_put_plus_check) {
                             const rank_put_plus: BalanceFacult = await prisma.balanceFacult.update({ where: { id: rank_put_plus_check.id }, data: { amount: { decrement: person.amount } } })
                             if (rank_put_plus) {
-                                facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${rank_put_plus_check.amount} ${person.operation} ${person.amount} = ${rank_put_plus.amount} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
+                                facult_income += `🌐 "${person.operation}${person.coin?.smile}" > ${Format_Number_Correction(rank_put_plus_check.amount)} ${person.operation} ${Format_Number_Correction(person.amount)} = ${Format_Number_Correction(rank_put_plus.amount)} для ${genitive} [${alli_fac.smile} ${alli_fac.name}]`
                             }
                         }
                     }
@@ -765,7 +765,7 @@ async function Coin_Engine_Many_Infinity(uids: number[], context: any, person_ad
                         facult_income
                     )
                     
-                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${pers_bal_coin.amount} ${person.operation} ${person.amount} = ${money_put_minus.amount} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${messa}\n${facult_income}`
+                    const ans_log = `🗿 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "${person.operation}${person.coin?.smile}" > ${Format_Number_Correction(pers_bal_coin.amount)} ${person.operation} ${Format_Number_Correction(person.amount)} = ${Format_Number_Correction(money_put_minus.amount)} для @id${pers.idvk}(${pers.name}) (UID: ${pers.id}) 🧷: ${facult_income}`
                     const notif_ans_chat = await Send_Message(alli_get?.id_chat ?? 0, ans_log)
                     if (!notif_ans_chat ) { await Send_Message(chat_id, ans_log) }
                     await Logger(`User ${pers.idvk} ${person.operation} ${person.amount} gold. Him/Her bank now unknown`)
