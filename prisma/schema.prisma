@@ -398,6 +398,7 @@ model Alliance {
   internalConversions AllianceCoinInternalConversion[]
   CustomRole      CustomRole[]
   salarySettings  SalarySettings?
+  notificationTemplates NotificationTemplate[]
 
 }
 
@@ -705,4 +706,17 @@ model SalarySettings {
   mode        String   @default("auto")
   activeUsers String   @default("[]")
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model NotificationTemplate {
+  id         Int      @id @default(autoincrement())
+  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId Int
+  name       String
+  text       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([allianceId, name])
+  @@index([allianceId])
 }

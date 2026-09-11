@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid, Is_Chat_Checker } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid, Is_Chat_Checker, hasCommunityDonorAdmin } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -29,6 +29,11 @@ export async function Operation_Group(context: any) {
     // ===== ПРОВЕРКА ПРАВ =====
     const user_adm = await Person_Get(context);
     if (!user_adm) { return; }
+
+    if (!(await isRoot(user_adm)) && !(await hasCommunityDonorAdmin(user_adm.id_alliance ?? 0))) {
+        await context.send('❌ Выполнение !опмасс недоступно: среди администраторов проекта нет действующего подписчика ВК Донат.');
+        return;
+    }
     
     if (!(await hasPermission(user_adm, 'canMassOperations')) && !(await isAdmin(user_adm))) {
         await context.send('❌ У вас нет прав на массовые операции.');

@@ -45,6 +45,7 @@ import { SkillCategories_Manager } from "./events/module/skills/skill_categories
 import { Abilities_Admin_Menu } from "./events/module/abilities/abilities_admin";
 import { AllianceCoinOrder_Manager } from "./events/module/alliance/alliance_coin_order";
 import { Finance_Statistics_Command } from "./events/module/alliance/finance_statistics";
+import { NotificationTemplate_Menu } from "./events/module/tranzaction/notification_templates";
 import { Salary_Manager_Menu } from "./events/module/salary_manager";
 import { RoleManager_Menu } from "./events/module/role_management/role_manager";
 import { hasPermission, isAdmin, isRoot } from "./core/permissions";
@@ -410,6 +411,17 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return; }
         await Operation_Solo(context)
+    })
+    hearManager.hear(/(?:⚙\s*)?!шаблоны настроить/, async (context: any) => {
+        const anti_vk_defender = await Antivirus_VK(context)
+        if (anti_vk_defender) { return; }
+        if (await Is_Chat_Checker(context) == true) { return; }
+        const user = await Person_Get(context);
+        if (!user || !(await isAdmin(user))) {
+            await context.send('❌ У вас нет прав администратора.');
+            return;
+        }
+        await NotificationTemplate_Menu(context);
     })
     hearManager.hear(/!персонажи/, async (context) => {
         const anti_vk_defender = await Antivirus_VK(context);

@@ -1,5 +1,5 @@
 import { Context, Keyboard, KeyboardBuilder, MessageContext, PhotoAttachment, VK } from "vk-io"
-import { answerTimeLimit, chat_id, root, starting_date, timer_text, vk } from "../.."
+import { answerTimeLimit, chat_id, group_id, root, starting_date, timer_text, vk } from "../.."
 import prisma from "../events/module/prisma_client"
 import { AllianceCoin, User } from "@prisma/client"
 import { Person_Get } from "../events/module/person/person"
@@ -666,4 +666,31 @@ export async function Is_Chat_Checker(context: any) {
             return true
     }
     return false
+}
+
+/** Returns true when at least one administrator character of the alliance is a VK Donut subscriber. */
+export async function hasCommunityDonorAdmin(allianceId: number): Promise<boolean> {
+    if (!allianceId || !vk?.api || !group_id) return false;
+
+    const admins = await prisma.user.findMany({
+        where: {
+            id_alliance: allianceId,
+            role: { name: 'admin' }
+        },
+        select: { idvk: true }
+    });
+
+    for (const admin of admins) {
+        try {
+            const result: any = await vk.api.donut.isDon({
+                owner_id: -Math.abs(Number(group_id)),
+                user_id: Number(admin.idvk)
+            } as any);
+            if (result === 1 || result?.response === 1 || result?.response === true) return true;
+        } catch (error) {
+            console.warn(`Не удалось проверить VK Donut для администратора ${admin.idvk}:`, error);
+        }
+    }
+
+    return false;
 }

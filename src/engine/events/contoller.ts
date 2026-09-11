@@ -339,6 +339,10 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
         await Salary_Manager_Menu(ctx);
         await ctx.answer();
     },
+    "alliance_config_notification_templates": async (ctx: any) => {
+        await ctx.send('!шаблоны настроить');
+        await ctx.answer();
+    },
     
     // Админ-меню альянса
     "alliance_enter_admin": async (ctx: any) => {

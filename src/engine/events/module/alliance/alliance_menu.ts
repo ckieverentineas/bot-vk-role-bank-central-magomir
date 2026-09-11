@@ -112,7 +112,7 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
             }
             keyboard.row();
         }
-        
+
         // Валюты + Магазины
         if (isAdminUser || await hasPermission(user, 'canManageFinance') || await hasPermission(user, 'canManageShops')) {
             if (await hasPermission(user, 'canManageFinance')) {
@@ -482,6 +482,15 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
             });
         }
         keyboard.row();
+
+        // Шаблоны уведомлений
+        if (isAdminUser) {
+            keyboard.textButton({
+                label: `${ico_list['config'].ico} !шаблоны настроить`,
+                payload: { command: 'alliance_config_notification_templates' },
+                color: 'secondary'
+            }).row();
+        }
         
         // Навигация ← на страницу 3
         keyboard.callbackButton({ 
