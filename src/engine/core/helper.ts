@@ -656,7 +656,10 @@ export async function Send_Coin_Operation_Notification(
     message: string,
     facult_income: string = ''
 ): Promise<boolean> {
-    const notification = `🔔 Уведомление для ${user_target.name} (UID: ${user_target.id})\n💬 "${operation} ${amount}${coin_smile}" --> ${old_balance} ${operation} ${amount} = ${new_balance}\n🧷 Сообщение: ${message}${facult_income ? `\n${facult_income}` : ''}`;
+    const formattedAmount = Format_Number_Correction(amount);
+    const formattedOldBalance = Format_Number_Correction(old_balance);
+    const formattedNewBalance = Format_Number_Correction(new_balance);
+    const notification = `🔔 Уведомление для ${user_target.name} (UID: ${user_target.id})\n💬 "${operation} ${formattedAmount}${coin_smile}" --> ${formattedOldBalance} ${operation} ${formattedAmount} = ${formattedNewBalance}\n🧷 Сообщение: ${message}${facult_income ? `\n${facult_income}` : ''}`;
     
     return await Send_Message(user_target.idvk, notification);
 }
@@ -670,7 +673,15 @@ export async function Is_Chat_Checker(context: any) {
 
 /** Returns true when at least one administrator character of the alliance is a VK Donut subscriber. */
 export async function hasCommunityDonorAdmin(allianceId: number): Promise<boolean> {
-    if (!allianceId || !vk?.api || !group_id) return false;
+    if (!allianceId || !vk?.api) return false;
+
+    // Проверяем подписку именно сообщества из конфигурации. Оно может
+    // отличаться от группы, автоматически определенной по токену бота.
+    const configuredGroupId = Number(process.env.group_id);
+    const donorGroupId = Number.isFinite(configuredGroupId) && configuredGroupId > 0
+        ? configuredGroupId
+        : group_id;
+    if (!donorGroupId) return false;
 
     const admins = await prisma.user.findMany({
         where: {
@@ -683,10 +694,11 @@ export async function hasCommunityDonorAdmin(allianceId: number): Promise<boolea
     for (const admin of admins) {
         try {
             const result: any = await vk.api.donut.isDon({
-                owner_id: -Math.abs(Number(group_id)),
+                owner_id: -Math.abs(Number(donorGroupId)),
                 user_id: Number(admin.idvk)
             } as any);
-            if (result === 1 || result?.response === 1 || result?.response === true) return true;
+            const isDon = result?.is_don ?? result?.response?.is_don ?? result?.response;
+            if (result === 1 || isDon === 1 || isDon === true) return true;
         } catch (error) {
             console.warn(`Не удалось проверить VK Donut для администратора ${admin.idvk}:`, error);
         }

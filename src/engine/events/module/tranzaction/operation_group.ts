@@ -1,5 +1,5 @@
 import { Keyboard, KeyboardBuilder } from "vk-io"
-import { Accessed, Fixed_Number_To_Five, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid, Is_Chat_Checker, hasCommunityDonorAdmin } from "../../../core/helper"
+import { Accessed, Fixed_Number_To_Five, Format_Number_Correction, Keyboard_Index, Logger, Send_Message, Send_Coin_Operation_Notification, formatUserNameUid, Is_Chat_Checker, hasCommunityDonorAdmin } from "../../../core/helper"
 import { answerTimeLimit, chat_id, timer_text } from "../../../.."
 import prisma from "../prisma_client"
 import { Person_Coin_Printer_Self } from "../person/person_coin"
@@ -317,8 +317,8 @@ async function Medal_Custom_Many(uids: number[], context: any, person_adm: User)
         
         try {
             const operation_message = ui.operation === '+' 
-                ? `⚙ ${formatUserNameUid(user_get)}, вам начислено ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`
-                : `⚙ ${formatUserNameUid(user_get)}, с вас снято ${ui.amount}🔘. \nВаш счёт: ${money_put.medal}🔘 \nУведомление: ${messa}`;
+                ? `⚙ ${formatUserNameUid(user_get)}, вам начислено ${Format_Number_Correction(ui.amount)}🔘. \nВаш счёт: ${Format_Number_Correction(money_put.medal)}🔘 \nУведомление: ${messa}`
+                : `⚙ ${formatUserNameUid(user_get)}, с вас снято ${Format_Number_Correction(ui.amount)}🔘. \nВаш счёт: ${Format_Number_Correction(money_put.medal)}🔘 \nУведомление: ${messa}`;
                 
             await Send_Message(user_get.idvk, operation_message)
             await context.send(`✅ Успешная операция для UID ${ui.id}: ${operation_text}`)
@@ -328,8 +328,8 @@ async function Medal_Custom_Many(uids: number[], context: any, person_adm: User)
         }
         
         const log_message = ui.operation === '+'
-            ? `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "+🔘" > ${user_get.medal}🔘+${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
-            : `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "-🔘" > ${user_get.medal}🔘-${ui.amount}🔘=${money_put.medal}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`;
+            ? `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "+🔘" > ${Format_Number_Correction(user_get.medal)}🔘+${Format_Number_Correction(ui.amount)}🔘=${Format_Number_Correction(money_put.medal)}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`
+            : `🎯 @id${context.senderId}(${person_adm.name}) (UID: ${person_adm.id}) > "-🔘" > ${Format_Number_Correction(user_get.medal)}🔘-${Format_Number_Correction(ui.amount)}🔘=${Format_Number_Correction(money_put.medal)}🔘 для @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id}) 🧷: ${messa}`;
             
         await Send_Message(chat_id, log_message)
         

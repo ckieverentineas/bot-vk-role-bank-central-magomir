@@ -4,7 +4,7 @@ import { GetSelectedPersonForAlliance } from "../person/monitor_select";
 import { Alliance, Monitor, User } from "@prisma/client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
-import { Confirm_User_Success, Fixed_Number_To_Five, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
+import { Confirm_User_Success, Fixed_Number_To_Five, Format_Number_Correction, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
@@ -1534,7 +1534,7 @@ function formatAppliedRewardBalanceLine(change: AppliedRewardBalanceChange): str
     const coinSmile = change.coin?.smile || '';
     const facultText = change.facult ? ` для факультета [${change.facult.smile} ${change.facult.name}]` : '';
 
-    return `💳 Баланс ${coinLabel}: ${change.oldAmount} ${operation} ${amount} = ${change.newAmount}${coinSmile}${facultText}`;
+    return `💳 Баланс ${coinLabel}: ${Format_Number_Correction(change.oldAmount)} ${operation} ${Format_Number_Correction(amount)} = ${Format_Number_Correction(change.newAmount)}${coinSmile}${facultText}`;
 }
 
 function formatAppliedRewardBalanceText(changes: AppliedRewardBalanceChange[]): string {
@@ -2880,7 +2880,7 @@ async function logToTopicChat(
                 const operationSymbol = `"${change.coin?.smile || ''}"`;
                 const facultText = change.facult ? ` для факультета [${change.facult.smile} ${change.facult.name}]` : '';
 
-                logMessage += `🔮 ${operationSymbol} > ${change.oldAmount} ${operation} ${Math.abs(change.amountChange)} = ${change.newAmount}${facultText}\n`;
+                logMessage += `🔮 ${operationSymbol} > ${Format_Number_Correction(change.oldAmount)} ${operation} ${Format_Number_Correction(Math.abs(change.amountChange))} = ${Format_Number_Correction(change.newAmount)}${facultText}\n`;
             }
         } else if (rewardChange !== 0 && coin) {
             const balanceCoin = await prisma.balanceCoin.findFirst({
@@ -2894,7 +2894,7 @@ async function logToTopicChat(
             const operationSymbol = `"${coin.smile}"`;
             const oldBalance = userBalance - rewardChange; // Так проще вычислить старое значение
             
-            logMessage += `🔮 ${operationSymbol} > ${oldBalance} ${operation} ${Math.abs(rewardChange)} = ${userBalance}\n`;
+            logMessage += `🔮 ${operationSymbol} > ${Format_Number_Correction(oldBalance)} ${operation} ${Format_Number_Correction(Math.abs(rewardChange))} = ${Format_Number_Correction(userBalance)}\n`;
         }
         
         // Добавляем ссылку на пост

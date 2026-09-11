@@ -1,6 +1,6 @@
 import { AllianceCoin, User } from "@prisma/client";
 import prisma from "../prisma_client";
-import { Logger } from "../../../core/helper";
+import { Format_Number_Correction, Logger } from "../../../core/helper";
 import { Person_Get } from "../person/person";
 
 async function Person_Coin_Finder(data: Array<{ id: number, amount: number }>, target: AllianceCoin) {
@@ -32,10 +32,10 @@ export async function Facult_Rank_Printer(context: any) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})
                 if (!coin_check) {
                     const coin_init = await prisma.balanceFacult.create({ data: { id_coin: Number(coin.id), id_facult: Number(facult.id), amount: 0 } })
-                    res += `  •  ${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+                    res += `  •  ${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
                     await Logger(`In database, init balance facult: ${coin.smile} ${coin.name} for facult ${facult.smile} ${facult.name} by user ${user.idvk}`)
                 } else {
-                    res += `  •  ${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+                    res += `  •  ${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
                 }
             }
         }
@@ -56,10 +56,10 @@ export async function Facult_Coin_Printer_Self(context: any, id: number) {
                 const coin_check = await prisma.balanceFacult.findFirst({ where: { id_coin: coin.id, id_facult: facult.id }})
                 if (!coin_check) {
                     const coin_init = await prisma.balanceFacult.create({ data: { id_coin: Number(coin.id), id_facult: Number(facult.id), amount: 0 } })
-                    res.text += `${coin.smile} ${coin.name}: ${coin_init.amount}\n`
+                    res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_init.amount)}\n`
                     await Logger(`In database, init balance facult: ${coin.smile} ${coin.name} for facult ${facult.smile} ${facult.name} by user ${user.idvk}`)
                 } else {
-                    res.text += `${coin.smile} ${coin.name}: ${coin_check.amount}\n`
+                    res.text += `${coin.smile} ${coin.name}: ${Format_Number_Correction(coin_check.amount)}\n`
                 }
             }
         }
