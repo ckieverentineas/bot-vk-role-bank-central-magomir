@@ -50,10 +50,10 @@ export async function Operation_Solo(context: any) {
     const user_adm: User | null | undefined = await Person_Get(context)
     if (!user_adm) { return }
 
-    if (!(await isRoot(user_adm)) && !(await hasCommunityDonorAdmin(user_adm.id_alliance ?? 0))) {
-        await context.send('❌ Выполнение !опсоло недоступно: среди администраторов проекта нет действующего подписчика ВК Донат.');
-        return;
-    }
+    //if (!(await isRoot(user_adm)) && !(await hasCommunityDonorAdmin(user_adm.id_alliance ?? 0))) {
+    //    await context.send('❌ Выполнение !опсоло недоступно: среди администраторов проекта нет действующего подписчика ВК Донат.');
+    //    return;
+    //}
     
     // ===== ПРОВЕРЯЕМ ЕСТЬ ЛИ ХОТЯ БЫ ОДНО ПРАВО =====
     const hasAnyEditRight = await hasAnyPermission(user_adm, [

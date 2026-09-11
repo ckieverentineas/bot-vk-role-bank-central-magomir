@@ -30,10 +30,10 @@ export async function Operation_Group(context: any) {
     const user_adm = await Person_Get(context);
     if (!user_adm) { return; }
 
-    if (!(await isRoot(user_adm)) && !(await hasCommunityDonorAdmin(user_adm.id_alliance ?? 0))) {
-        await context.send('❌ Выполнение !опмасс недоступно: среди администраторов проекта нет действующего подписчика ВК Донат.');
-        return;
-    }
+    //if (!(await isRoot(user_adm)) && !(await hasCommunityDonorAdmin(user_adm.id_alliance ?? 0))) {
+    //    await context.send('❌ Выполнение !опмасс недоступно: среди администраторов проекта нет действующего подписчика ВК Донат.');
+    //    return;
+    //}
     
     if (!(await hasPermission(user_adm, 'canMassOperations')) && !(await isAdmin(user_adm))) {
         await context.send('❌ У вас нет прав на массовые операции.');
