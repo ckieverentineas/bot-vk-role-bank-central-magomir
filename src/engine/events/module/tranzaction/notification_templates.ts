@@ -12,21 +12,28 @@ export async function NotificationTemplate_Menu(context: any): Promise<void> {
     }
 
     let exit = false;
+    let page = 0;
     while (!exit) {
         const templates = await prisma.notificationTemplate.findMany({
             where: { allianceId: user.id_alliance },
             orderBy: { name: 'asc' }
         });
         const keyboard = new KeyboardBuilder();
-        // VK допускает максимум 6 рядов в inline-клавиатуре. Показываем до 8 шаблонов,
-        // размещая по два удаления в ряд; остальные доступны после удаления/пересоздания.
-        for (let index = 0; index < Math.min(templates.length, 8); index += 2) {
-            const first = templates[index];
+        const pageSize = 6;
+        const start = page * pageSize;
+        const visible = templates.slice(start, start + pageSize);
+        for (let index = 0; index < visible.length; index += 2) {
+            const first = visible[index];
             keyboard.textButton({ label: `❌ ${first.name.slice(0, 25)}`, payload: { command: 'notification_template_delete', id: first.id }, color: 'negative' });
-            const second = templates[index + 1];
+            const second = visible[index + 1];
             if (second) {
                 keyboard.textButton({ label: `❌ ${second.name.slice(0, 25)}`, payload: { command: 'notification_template_delete', id: second.id }, color: 'negative' });
             }
+            keyboard.row();
+        }
+        if (templates.length > pageSize) {
+            if (page > 0) keyboard.textButton({ label: '◀️', payload: { command: 'notification_template_prev' }, color: 'secondary' });
+            if (start + pageSize < templates.length) keyboard.textButton({ label: '▶️', payload: { command: 'notification_template_next' }, color: 'secondary' });
             keyboard.row();
         }
         keyboard.textButton({ label: '➕ Создать шаблон', payload: { command: 'notification_template_create' }, color: 'positive' }).inline();
@@ -39,6 +46,8 @@ export async function NotificationTemplate_Menu(context: any): Promise<void> {
             exit = true;
             continue;
         }
+        if (answer.payload?.command === 'notification_template_prev') { page = Math.max(0, page - 1); continue; }
+        if (answer.payload?.command === 'notification_template_next') { page = Math.min(Math.ceil(templates.length / pageSize) - 1, page + 1); continue; }
         if (answer.payload?.command === 'notification_template_create') {
             const name = await Input_Text(context, 'Введите название шаблона:', 80);
             const text = await Input_Text(context, 'Введите текст шаблона уведомления:', 3000);
