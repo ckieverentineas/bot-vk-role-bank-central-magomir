@@ -63,7 +63,7 @@ export async function Ipnut_Message(context: any, operation: string) {
             if (start + pageSize < templates.length) keyboard.textButton({ label: '▶️', payload: { command: 'notification_template_next' }, color: 'secondary' })
             keyboard.row()
         }
-        const gold = await context.question(`🧷 Введите уведомление пользователю по операции ${operation}:`, { ...timer_text_oper, keyboard })
+        const gold = await context.question(`🧷 Введите уведомление пользователю по операции ${operation}:`, { ...timer_text_oper, keyboard, disableAutoBack: true })
         if (gold.isTimeout) { await context.send(`⏰ Время ожидания на задание уведомления пользователю ${operation} истекло!`); return "Отсутствует." }
         if (gold.payload?.command === 'back') { throw new OperationCancelledError() }
         if (gold.payload?.command === 'notification_template_prev') { page = Math.max(0, page - 1); continue }

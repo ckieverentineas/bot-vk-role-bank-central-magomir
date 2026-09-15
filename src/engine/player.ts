@@ -178,7 +178,9 @@ async function withOperationBack<T>(context: any, operation: () => Promise<T>): 
     context.question = async (message: string, options: any = {}) => {
         const keyboardText = options.keyboard ? JSON.stringify(options.keyboard) : '';
         const hasExitButton = /Назад|Отмена|🚫|back|limited/i.test(keyboardText);
-        const keyboard = options.keyboard && hasExitButton
+        const keyboard = options.disableAutoBack
+            ? options.keyboard
+            : options.keyboard && hasExitButton
             ? options.keyboard
             : options.keyboard
                 ? options.keyboard.textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
