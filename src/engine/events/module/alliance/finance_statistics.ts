@@ -468,7 +468,7 @@ function Build_Response(stats: ResolvedFinanceCoinDelta[], coin: AllianceCoin, p
     }
 
     return stats
-        .map((stat, index) => `${index + 1} - UID-${stat.uid}${stat.oldAmount !== undefined ? ` ${Format_Number_Correction(stat.oldAmount)} + ${Format_Number_Correction(stat.delta)} = ${Format_Number_Correction(stat.newAmount ?? stat.oldAmount + stat.delta)} для ` : ' '}@id${stat.idvk}(${stat.name}) --> ${Format_Delta(stat.delta)}${coin.smile}`)
+        .map((stat, index) => `${index + 1} - UID-${stat.uid}${stat.oldAmount !== undefined ? ` ${Format_Number_Correction(stat.oldAmount)} ${stat.delta >= 0 ? '+' : '-'} ${Format_Number_Correction(Math.abs(stat.delta))} = ${Format_Number_Correction(stat.newAmount ?? stat.oldAmount + stat.delta)} для ` : ' '}@id${stat.idvk}(${stat.name}) --> ${Format_Delta(stat.delta)}${coin.smile}`)
         .join('\n');
 }
 
