@@ -312,10 +312,12 @@ async function Collect_Post_Coin_Deltas(period: FinanceStatPeriod, allianceId: n
 
 async function Resolve_Coin_Delta(stat: FinanceCoinDelta, allianceId: number): Promise<ResolvedFinanceCoinDelta | null> {
     if (stat.uid) {
+        const user = await prisma.user.findUnique({ where: { id: stat.uid }, select: { id: true, idvk: true, name: true, id_alliance: true } });
+        if (!user || user.id_alliance !== allianceId) return null;
         return {
-            uid: stat.uid,
-            idvk: stat.idvk ?? stat.uid,
-            name: stat.name,
+            uid: user.id,
+            idvk: Number(user.idvk),
+            name: user.name,
             delta: stat.delta,
             oldAmount: stat.oldAmount,
             newAmount: stat.newAmount
