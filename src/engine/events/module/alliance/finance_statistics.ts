@@ -98,7 +98,7 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
 }
 
 function Parse_Command(text: string | undefined): FinanceStatCommand | null {
-    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d+)(?:\s+(все|начисления|посты))?$/iu);
+    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d+)(?:\s+(начисления|посты))?$/iu);
     if (!match) { return null; }
 
     const coinId = Number(match[1]);
@@ -107,8 +107,8 @@ function Parse_Command(text: string | undefined): FinanceStatCommand | null {
         return null;
     }
 
-    const word = (match[3] || 'начисления').toLowerCase();
-    const source = word === 'все' ? 'all' : word === 'посты' ? 'posts' : word === 'начисления' ? 'grants' : null;
+    const word = (match[3] || 'all').toLowerCase();
+    const source = word === 'посты' ? 'posts' : word === 'начисления' ? 'grants' : word === 'все' || word === 'all' ? 'all' : null;
     if (!source) return null;
     return { coinId, weekNumber, source };
 }
@@ -446,7 +446,7 @@ function Build_Response(stats: ResolvedFinanceCoinDelta[], coin: AllianceCoin, p
     }
 
     return stats
-        .map((stat, index) => `👤 ${index + 1} - UID-${stat.uid} ${stat.name} --> ${Format_Delta(stat.delta)}${coin.smile}`)
+        .map((stat, index) => ` ${index + 1} - [${stat.name}](https://vk.ru/id${stat.uid}) --> ${Format_Delta(stat.delta)}${coin.smile}`)
         .join('\n');
 }
 
