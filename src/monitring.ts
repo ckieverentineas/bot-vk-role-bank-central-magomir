@@ -28,7 +28,9 @@ const monitors: { [key: number]: { running: boolean; instance: VK } } = {};
 
 export async function Monitoring() {
     const startupReports: MonitorStartupReportItem[] = [];
-    const startupMonitors = await prisma.monitor.findMany({ where: { starting: true } });
+    const startupMonitors = await prisma.monitor.findMany({
+        where: { starting: true, alliance: { hidden: false } }
+    });
     const allianceById = await getAllianceNameById(startupMonitors);
 
     for (const monitor of startupMonitors) {
@@ -603,7 +605,9 @@ export async function stopMonitor(monitorId: number) {
 
 // Функция для ручного перезапуска монитора
 export async function restartMonitor(monitorId: number) {
-    const monitor = await prisma.monitor.findUnique({ where: { id: monitorId } });
+    const monitor = await prisma.monitor.findFirst({
+        where: { id: monitorId, alliance: { hidden: false } }
+    });
     if (!monitor) {
         await Logger(`Монитор с ID ${monitorId} не найден.`);
         await Send_Message(chat_id, `⚠ Монитор с ID ${monitorId} не найден.`);

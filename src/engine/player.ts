@@ -1408,7 +1408,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `⌛ Настройки уведомлений обновлены!`)
     })
 
-    hearManager.hear(/^!стата\s+\d+\s+\d+$/i, Finance_Statistics_Command)
+    hearManager.hear(/^!стата\s+\d+\s+\d+(?:\s+(?:все|начисления|посты))?$/i, Finance_Statistics_Command)
 
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)

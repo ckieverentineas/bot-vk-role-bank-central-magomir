@@ -64,7 +64,7 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
         return;
     }
 
-    if (!alliance.id_chat || alliance.id_chat <= 0) {
+    if (command.source !== 'posts' && (!alliance.id_chat || alliance.id_chat <= 0)) {
         await context.send('❌ Сначала привяжите финансовый лог-чат командой !привязать финансы.');
         return;
     }
