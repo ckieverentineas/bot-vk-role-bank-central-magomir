@@ -216,7 +216,7 @@ function Collect_Coin_Deltas(messages: FinanceLogMessage[], coin: AllianceCoin):
             const line = rawLine.trim();
             if (!line) { continue; }
 
-            const lineIdentity = Extract_Identity(line);
+    const lineIdentity = Extract_Identity(line);
             if (lineIdentity) {
                 currentIdentity = lineIdentity;
             }
@@ -260,7 +260,10 @@ async function Resolve_Coin_Deltas(stats: FinanceCoinDelta[], allianceId: number
         const current = resolvedStats.get(resolvedStat.uid);
         if (current) {
             current.delta += resolvedStat.delta;
-            current.name = resolvedStat.name;
+                current.name = resolvedStat.name;
+                current.idvk = resolvedStat.idvk;
+                if (resolvedStat.oldAmount !== undefined) current.oldAmount = resolvedStat.oldAmount;
+                if (resolvedStat.newAmount !== undefined) current.newAmount = resolvedStat.newAmount;
             continue;
         }
 
