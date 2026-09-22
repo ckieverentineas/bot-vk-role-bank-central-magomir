@@ -35,12 +35,17 @@ type FinanceStatIdentity = {
 
 type FinanceCoinDelta = FinanceStatIdentity & {
     delta: number;
+    oldAmount?: number;
+    newAmount?: number;
 };
 
 type ResolvedFinanceCoinDelta = {
     uid: number;
+    idvk: number;
     name: string;
     delta: number;
+    oldAmount?: number;
+    newAmount?: number;
 };
 
 export async function Finance_Statistics_Command(context: any): Promise<void> {
@@ -228,12 +233,15 @@ function Collect_Coin_Deltas(messages: FinanceLogMessage[], coin: AllianceCoin):
             if (current) {
                 current.delta += delta;
                 current.name = currentIdentity.name;
+                const amounts = Parse_Amounts(line);
+                if (amounts) { current.oldAmount = amounts.oldAmount; current.newAmount = amounts.newAmount; }
                 continue;
             }
 
             deltas.set(identityKey, {
                 ...currentIdentity,
-                delta
+                delta,
+                ...((() => { const amounts = Parse_Amounts(line); return amounts ?? {}; })())
             });
         }
     }
@@ -303,8 +311,11 @@ async function Resolve_Coin_Delta(stat: FinanceCoinDelta, allianceId: number): P
     if (stat.uid) {
         return {
             uid: stat.uid,
+            idvk: stat.idvk ?? stat.uid,
             name: stat.name,
-            delta: stat.delta
+            delta: stat.delta,
+            oldAmount: stat.oldAmount,
+            newAmount: stat.newAmount
         };
     }
 
@@ -327,8 +338,11 @@ async function Resolve_Coin_Delta(stat: FinanceCoinDelta, allianceId: number): P
 
     return {
         uid: user.id,
+        idvk: Number(user.idvk),
         name: user.name || stat.name,
-        delta: stat.delta
+        delta: stat.delta,
+        oldAmount: stat.oldAmount,
+        newAmount: stat.newAmount
     };
 }
 
@@ -440,13 +454,21 @@ function Parse_Log_Number(value: string): number | null {
     return parsed;
 }
 
+function Parse_Amounts(line: string): { oldAmount: number; newAmount: number } | null {
+    const match = line.match(/(-?\d+(?:[.,]\d+)?)\s*[+-]\s*\d+(?:[.,]\d+)?\s*=\s*(-?\d+(?:[.,]\d+)?)/);
+    if (!match) return null;
+    const oldAmount = Parse_Log_Number(match[1]);
+    const newAmount = Parse_Log_Number(match[2]);
+    return oldAmount === null || newAmount === null ? null : { oldAmount, newAmount };
+}
+
 function Build_Response(stats: ResolvedFinanceCoinDelta[], coin: AllianceCoin, period: FinanceStatPeriod): string {
     if (stats.length === 0) {
         return `⚠ За период ${Format_Date(period.startDate)} - ${Format_Date(period.endDate)} изменений по валюте ${coin.name} ${coin.smile} не найдено.`;
     }
 
     return stats
-        .map((stat, index) => ` ${index + 1} - [${stat.name}](https://vk.ru/id${stat.uid}) --> ${Format_Delta(stat.delta)}${coin.smile}`)
+        .map((stat, index) => `${index + 1} - UID-${stat.uid}${stat.oldAmount !== undefined ? ` ${Format_Number_Correction(stat.oldAmount)} + ${Format_Number_Correction(stat.delta)} = ${Format_Number_Correction(stat.newAmount ?? stat.oldAmount + stat.delta)} для ` : ' '}@id${stat.idvk}(${stat.name}) --> ${Format_Delta(stat.delta)}${coin.smile}`)
         .join('\n');
 }
 
