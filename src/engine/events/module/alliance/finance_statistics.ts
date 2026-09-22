@@ -12,6 +12,7 @@ const NUMBER_EPSILON = 0.000001;
 type FinanceStatCommand = {
     coinId: number;
     weekNumber: number;
+    source: 'all' | 'grants' | 'posts';
 };
 
 type FinanceStatPeriod = {
@@ -81,8 +82,10 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
 
     const period = Build_Period(command.weekNumber);
     try {
-        const messages = await Fetch_Log_Messages(alliance.id_chat, period);
-        const stats = await Resolve_Coin_Deltas(Collect_Coin_Deltas(messages, coin), alliance.id);
+        const messages = command.source === 'posts' ? [] : await Fetch_Log_Messages(alliance.id_chat, period);
+        const grantStats = command.source === 'posts' ? [] : Collect_Coin_Deltas(messages, coin);
+        const postStats = command.source === 'grants' ? [] : await Collect_Post_Coin_Deltas(period, alliance.id, coin.id);
+        const stats = await Resolve_Coin_Deltas([...grantStats, ...postStats], alliance.id);
         const response = Build_Response(stats, coin, period);
 
         for (const message of splitVkMessage(response)) {
@@ -95,7 +98,7 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
 }
 
 function Parse_Command(text: string | undefined): FinanceStatCommand | null {
-    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d+)$/i);
+    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d+)(?:\s+(все|начисления|посты))?$/iu);
     if (!match) { return null; }
 
     const coinId = Number(match[1]);
@@ -104,7 +107,10 @@ function Parse_Command(text: string | undefined): FinanceStatCommand | null {
         return null;
     }
 
-    return { coinId, weekNumber };
+    const word = (match[3] || 'начисления').toLowerCase();
+    const source = word === 'все' ? 'all' : word === 'посты' ? 'posts' : word === 'начисления' ? 'grants' : null;
+    if (!source) return null;
+    return { coinId, weekNumber, source };
 }
 
 function Build_Period(weekNumber: number): FinanceStatPeriod {
@@ -264,6 +270,33 @@ async function Resolve_Coin_Deltas(stats: FinanceCoinDelta[], allianceId: number
 
             return a.uid - b.uid;
         });
+}
+
+async function Collect_Post_Coin_Deltas(period: FinanceStatPeriod, allianceId: number, coinId: number): Promise<FinanceCoinDelta[]> {
+    const rows = await prisma.postStatistic.findMany({
+        where: {
+            date: { gte: period.startDate, lt: period.endDate },
+            topicMonitor: { monitorId: { not: undefined } }
+        },
+        select: {
+            userId: true, rewardGiven: true, rewardAmount: true, rewardCoinId: true,
+            extraRewardGiven: true, extraRewardAmount: true, extraRewardCoinId: true
+        }
+    });
+    const users = await prisma.user.findMany({ where: { id_alliance: allianceId, id: { in: rows.map(r => r.userId) } }, select: { id: true, name: true, idvk: true } });
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const result = new Map<number, FinanceCoinDelta>();
+    for (const row of rows) {
+        let delta = 0;
+        if (row.rewardGiven && row.rewardCoinId === coinId) delta += row.rewardAmount || 0;
+        if (row.extraRewardGiven && row.extraRewardCoinId === coinId) delta += row.extraRewardAmount || 0;
+        if (!delta) continue;
+        const user = userMap.get(row.userId); if (!user) continue;
+        const current = result.get(row.userId);
+        if (current) current.delta += delta;
+        else result.set(row.userId, { uid: row.userId, idvk: Number(user.idvk), name: user.name, delta });
+    }
+    return Array.from(result.values());
 }
 
 async function Resolve_Coin_Delta(stat: FinanceCoinDelta, allianceId: number): Promise<ResolvedFinanceCoinDelta | null> {

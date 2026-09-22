@@ -34,6 +34,7 @@ import { createReadStream } from "fs";
 import * as path from 'path';
 import { join } from "path";
 import { AllianceChest_Manager } from "./events/module/alliance/alliance_chest_manager";
+import { RecalculateFacultyBalancesWithChanges } from "./events/module/alliance/facult_balance_recalculator";
 import { splitVkMessage } from "./core/vk_limits";
 import { Alliance_Enter, Alliance_Enter_Admin } from "./events/module/alliance/alliance_menu";
 import { Inventory_With_Chests } from "./events/module/shop/alliance_inventory_with_chests";
@@ -208,6 +209,24 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (!(error instanceof OperationCancelledError)) { throw error; }
             await Keyboard_Index(context, `🔙 Операция отменена.`);
         }
+    });
+
+    // Скрытая служебная команда: намеренно не добавляется в меню и справку.
+    hearManager.hear(/^!пересчитать$/i, async (context: any) => {
+        if (await Is_Chat_Checker(context) === true) return;
+        const user = await Person_Get(context);
+        if (!user || (!(await isAdmin(user)) && !(await isRoot(user)))) return;
+        if (!user.id_alliance || user.id_alliance <= 0) {
+            await context.send('❌ Вы не состоите в ролевой.');
+            return;
+        }
+        const result = await RecalculateFacultyBalancesWithChanges(user.id_alliance);
+        const changes = result.changes.length
+            ? `\n\nИзменения:\n${result.changes.map(change =>
+                `${change.faculty} — ${change.currency}: ${change.before} → ${change.after}`
+            ).join('\n')}`
+            : '\n\nИзменений не найдено.';
+        await context.send(`✅ Счета фракций пересчитаны в вашей ролевой.${changes}`);
     });
 
     hearManager.hear(/!Лютный переулок/, async (context) => {

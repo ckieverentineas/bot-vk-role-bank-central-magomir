@@ -7,6 +7,7 @@ import { Confirm_User_Success, Format_Number_Correction, Keyboard_Index, Logger,
 import { button_alliance_return } from "../data_center/standart";
 import { ico_list } from "../data_center/icons_lib";
 import { getTerminology } from "../alliance/terminology_helper"
+import { RecalculateFacultyBalance } from "./facult_balance_recalculator";
 
 type InternalConversionWithCoins = {
     id: number;
@@ -832,10 +833,11 @@ async function Internal_Converter_Edit(context: any, data: any, alliance: Allian
         })
     ]);
 
-    const facultyChanges = [
-        await Apply_Facult_Rating_Change(alliance, user, conversion.sourceCoin, sourceAmount, 'decrement'),
-        await Apply_Facult_Rating_Change(alliance, user, conversion.targetCoin, targetAmount, 'increment')
-    ].filter((change): change is FacultRatingChange => change !== null);
+    // Факультетский счёт является производным от счетов персонажей.
+    // Пересчитываем его после конвертации, чтобы учитывались обе стороны обмена.
+    if (user.id_facult) await RecalculateFacultyBalance(user.id_facult);
+
+    const facultyChanges: FacultRatingChange[] = [];
     const facultyBlock = Format_Facult_Rating_Block(facultyChanges);
 
     const userMessage =
