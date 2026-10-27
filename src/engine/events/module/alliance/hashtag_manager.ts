@@ -7,7 +7,8 @@ export async function getHashtagRank(
     periodEnd: Date | null,
     sortBy: string = 'pc',
     page: number = 0,
-    perPage: number = 10
+    perPage: number = 10,
+    currentAccountId?: number
 ): Promise<{ stats: any[], totalCount: number }> {
     //console.log(`\n📊 [DEBUG] getHashtagRank:`);
     //console.log(`   allianceId: ${allianceId}, hashtag: #${hashtag}`);
@@ -104,7 +105,7 @@ export async function getHashtagRank(
             id: { in: userStats.map(s => s.userId) },
             id_alliance: allianceId
         },
-        select: { id: true, name: true, idvk: true }
+        select: { id: true, name: true, idvk: true, id_account: true }
     });
     
     const result = userStats.map(stat => {
@@ -113,6 +114,7 @@ export async function getHashtagRank(
             userId: stat.userId,
             userIdvk: user?.idvk || 0,
             userName: user?.name || 'Неизвестный',
+            accountId: user?.id_account ?? null,
             postCount: stat.postCount,
             totalChars: stat.totalChars,
             totalWords: stat.totalWords,
@@ -124,6 +126,11 @@ export async function getHashtagRank(
     
     // Сортировка
     result.sort((a, b) => {
+        // Поднимаем персонажей текущего аккаунта наверх даже в рейтинге по хэштегу.
+        const aIsMine = currentAccountId !== undefined && a.accountId === currentAccountId;
+        const bIsMine = currentAccountId !== undefined && b.accountId === currentAccountId;
+        if (aIsMine !== bIsMine) return aIsMine ? -1 : 1;
+
         switch(sortBy) {
             case 'posts': return b.postCount - a.postCount;
             case 'characters': return b.totalChars - a.totalChars;

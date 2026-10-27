@@ -66,7 +66,8 @@ export async function Topic_Rank_V2_Enter(context: any) {
             periodEnd,
             sortBy,
             page,
-            perPage
+            perPage,
+            user.id_account
         );
         stats = hashtagResult.stats;
         totalCount = hashtagResult.totalCount;
@@ -76,7 +77,7 @@ export async function Topic_Rank_V2_Enter(context: any) {
     } else {
         // Стандартное получение данных
         const result = await getActivityStatsWithRanking(
-            alliance.id, user.id, period, sortBy, viewType, monitorId, topicId, facultId, page, perPage
+            alliance.id, user.id_account, period, sortBy, viewType, monitorId, topicId, facultId, page, perPage
         );
         stats = result.stats;
         totalCount = result.totalCount;
@@ -117,7 +118,7 @@ export async function Topic_Rank_V2_Enter(context: any) {
     
     for (const stat_sel of stats) {
         if (counter_limit < perPage) {
-            const isMe = stat_sel.userIdvk === context.senderId;
+            const isMe = stat_sel.accountId === user.id_account || Number(stat_sel.userIdvk) === Number(context.senderId);
             const score = getScoreBySortType(stat_sel, sortBy);
             const scoreText = getScoreText(score, sortBy);
             
@@ -560,7 +561,7 @@ function getDateRangeText(period: PeriodType): string {
 
 async function getActivityStatsWithRanking(
     allianceId: number,
-    currentUserId: number,
+    currentAccountId: number,
     period: PeriodType,
     sortBy: SortBy,
     viewType: ViewType,
@@ -674,7 +675,7 @@ async function getActivityStatsWithRanking(
 
     const allUsers = await prisma.user.findMany({
         where: allUsersWhere,
-        select: { id: true, name: true, idvk: true, id_facult: true }
+        select: { id: true, name: true, idvk: true, id_facult: true, id_account: true }
     });
 
     // Формируем результат для всех пользователей
@@ -685,6 +686,7 @@ async function getActivityStatsWithRanking(
             userId: user.id,
             userIdvk: user.idvk,
             userName: user.name || 'Неизвестный',
+            accountId: user.id_account,
             userFacultId: user.id_facult || null,
             postCount: stat?.postCount || 0,
             totalChars: stat?.totalChars || 0,
@@ -697,6 +699,11 @@ async function getActivityStatsWithRanking(
 
     // Сортировка
     allStats.sort((a: any, b: any) => {
+        // Персонажи текущего аккаунта закреплены вверху, чтобы их не приходилось искать по страницам.
+        const aIsMine = a.accountId === currentAccountId;
+        const bIsMine = b.accountId === currentAccountId;
+        if (aIsMine !== bIsMine) return aIsMine ? -1 : 1;
+
         switch(sortBy) {
             case 'posts': return b.postCount - a.postCount;
             case 'characters': return b.totalChars - a.totalChars;

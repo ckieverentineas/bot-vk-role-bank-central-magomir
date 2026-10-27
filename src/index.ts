@@ -28,6 +28,7 @@ import { Abilities_Upgrade_Menu } from './engine/events/module/abilities/abiliti
 import { deductAbilityCost, getAllianceLevels, getLevelName } from './engine/events/module/abilities/abilities_helper';
 import { PrismaClient } from '@prisma/client';
 import { PlayerStatistics } from './engine/events/module/statistics/player_statistics';
+import { RP_Work_Settings_Enter, RP_Work_Settings_ProcessInput } from './engine/events/module/rp_work';
 
 const prisma = new PrismaClient();
 
@@ -97,6 +98,10 @@ initializeGroupId().then(async () => {
     vk.updates.on('message_new', async (context: any, next: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
         if (anti_vk_defender) { return await next(); }
+
+        // Pending RP-work input must be handled before the free-text PK counter module.
+        const rpWorkInputHandled = await RP_Work_Settings_ProcessInput(context);
+        if (rpWorkInputHandled) { return; }
         
         const pk_counter_st = await Counter_PK_Module(context)
         if (pk_counter_st) { return await next(); }
@@ -166,6 +171,7 @@ initializeGroupId().then(async () => {
             "alliance_topic_monitor_enter": Alliance_Topic_Monitor_Printer,
             "topic_rank_v2": Topic_Rank_V2_Enter,
             "player_statistics": PlayerStatistics,
+            "rp_work_settings": RP_Work_Settings_Enter,
             "alliance_config_coin_order": async (ctx: any) => {
             await ctx.send('!порядок валют настроить');
             await ctx.answer();
@@ -489,22 +495,25 @@ initializeGroupId().then(async () => {
         const cmd = context.eventPayload.command;
         if (config[cmd]) {
             const originalQuestion = context.question;
-            context.question = async (message: string, options: any = {}) => {
-                const keyboardText = options.keyboard ? JSON.stringify(options.keyboard) : '';
-                const hasExitButton = /Назад|Отмена|🚫|back|limited/i.test(keyboardText);
-                const keyboard = options.disableAutoBack
-                    ? options.keyboard
-                    : options.keyboard && hasExitButton
-                    ? options.keyboard
-                    : options.keyboard
-                        ? options.keyboard.textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
-                        : Keyboard.builder().textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline();
-                const answer = await originalQuestion.call(context, message, { ...options, keyboard });
-                if (answer.payload?.command === 'back') {
-                    throw new OperationCancelledError();
-                }
-                return answer;
-            };
+            const canAskQuestions = typeof originalQuestion === 'function';
+            if (canAskQuestions) {
+                context.question = async (message: string, options: any = {}) => {
+                    const keyboardText = options.keyboard ? JSON.stringify(options.keyboard) : '';
+                    const hasExitButton = /Назад|Отмена|🚫|back|limited/i.test(keyboardText);
+                    const keyboard = options.disableAutoBack
+                        ? options.keyboard
+                        : options.keyboard && hasExitButton
+                        ? options.keyboard
+                        : options.keyboard
+                            ? options.keyboard.textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline()
+                            : Keyboard.builder().textButton({ label: '🔙 Назад', payload: { command: 'back' }, color: 'secondary' }).oneTime().inline();
+                    const answer = await originalQuestion.call(context, message, { ...options, keyboard });
+                    if (answer.payload?.command === 'back') {
+                        throw new OperationCancelledError();
+                    }
+                    return answer;
+                };
+            }
             try {
                 await config[cmd](context);
             } catch (e) {
@@ -514,7 +523,11 @@ initializeGroupId().then(async () => {
                     await Logger(`⚠ Ошибка при выполнении команды "${cmd}": ${e}`);
                 }
             } finally {
-                context.question = originalQuestion;
+                if (canAskQuestions) {
+                    context.question = originalQuestion;
+                } else if (Object.prototype.hasOwnProperty.call(context, 'question')) {
+                    delete context.question;
+                }
             }
         } else {
             await Logger(`🌀 Неизвестная команда: ${cmd}`);

@@ -11,7 +11,8 @@ const NUMBER_EPSILON = 0.000001;
 
 type FinanceStatCommand = {
     coinId: number;
-    weekNumber: number;
+    weekNumber: number | null;
+    dateRange: FinanceStatPeriod | null;
     source: 'all' | 'grants' | 'posts';
 };
 
@@ -54,7 +55,7 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
 
     const command = Parse_Command(context.text);
     if (!command) {
-        await context.send('⚠ Формат команды: !стата <айди валюты> <номер недели>');
+        await context.send('⚠ Формат команды: !стата <айди валюты> <номер недели | ДД.ММ.ГГГГ-ДД.ММ.ГГГГ> [все | начисления | посты]');
         return;
     }
 
@@ -85,7 +86,7 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
         return;
     }
 
-    const period = Build_Period(command.weekNumber);
+    const period = command.dateRange ?? Build_Period(command.weekNumber as number);
     try {
         const messages = command.source === 'posts' ? [] : await Fetch_Log_Messages(alliance.id_chat, period);
         const grantStats = command.source === 'posts' ? [] : Collect_Coin_Deltas(messages, coin);
@@ -103,19 +104,55 @@ export async function Finance_Statistics_Command(context: any): Promise<void> {
 }
 
 function Parse_Command(text: string | undefined): FinanceStatCommand | null {
-    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d+)(?:\s+(начисления|посты))?$/iu);
+    const match = (text ?? '').trim().match(/^!стата\s+(\d+)\s+(\d{2}\.\d{2}\.\d{4}-\d{2}\.\d{2}\.\d{4}|\d+)(?:\s+(все|начисления|посты))?$/iu);
     if (!match) { return null; }
 
     const coinId = Number(match[1]);
-    const weekNumber = Number(match[2]);
-    if (!Number.isSafeInteger(coinId) || !Number.isSafeInteger(weekNumber) || coinId <= 0 || weekNumber <= 0) {
-        return null;
+    if (!Number.isSafeInteger(coinId) || coinId <= 0) return null;
+
+    const periodToken = match[2];
+    let weekNumber: number | null = null;
+    let dateRange: FinanceStatPeriod | null = null;
+    if (periodToken.includes('-')) {
+        dateRange = Parse_Date_Range(periodToken);
+        if (!dateRange) return null;
+    } else {
+        weekNumber = Number(periodToken);
+        if (!Number.isSafeInteger(weekNumber) || weekNumber <= 0) return null;
     }
 
     const word = (match[3] || 'all').toLowerCase();
     const source = word === 'посты' ? 'posts' : word === 'начисления' ? 'grants' : word === 'все' || word === 'all' ? 'all' : null;
     if (!source) return null;
-    return { coinId, weekNumber, source };
+    return { coinId, weekNumber, dateRange, source };
+}
+
+function Parse_Date_Range(raw: string): FinanceStatPeriod | null {
+    const match = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})-(\d{2})\.(\d{2})\.(\d{4})$/);
+    if (!match) return null;
+
+    const startDate = Parse_Ru_Date(match[1], match[2], match[3]);
+    const endDate = Parse_Ru_Date(match[4], match[5], match[6]);
+    if (!startDate || !endDate || startDate.getTime() > endDate.getTime()) return null;
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    return {
+        startDate,
+        endDate,
+        startUnix: Math.floor(startDate.getTime() / 1000),
+        endUnix: Math.floor(endDate.getTime() / 1000)
+    };
+}
+
+function Parse_Ru_Date(dayRaw: string, monthRaw: string, yearRaw: string): Date | null {
+    const day = Number(dayRaw);
+    const month = Number(monthRaw);
+    const year = Number(yearRaw);
+    if (year < 2000 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
 }
 
 function Build_Period(weekNumber: number): FinanceStatPeriod {
@@ -286,8 +323,8 @@ async function Resolve_Coin_Deltas(stats: FinanceCoinDelta[], allianceId: number
 async function Collect_Post_Coin_Deltas(period: FinanceStatPeriod, allianceId: number, coinId: number): Promise<FinanceCoinDelta[]> {
     const rows = await prisma.postStatistic.findMany({
         where: {
-            date: { gte: period.startDate, lt: period.endDate },
-            topicMonitor: { monitorId: { not: undefined } }
+            date: { gte: period.startDate, lte: period.endDate },
+            topicMonitor: { monitor: { id_alliance: allianceId } }
         },
         select: {
             userId: true, rewardGiven: true, rewardAmount: true, rewardCoinId: true,

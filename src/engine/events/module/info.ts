@@ -92,6 +92,7 @@ export async function Card_Enter(context: any) {
     // Строка мониторов показывается только если есть мониторы
     let monitorsLine = '';
     let hasMonitors = false;
+    let hasTopicMonitors = false;
     if (get_user.id_alliance && get_user.id_alliance > 0) {
         const monitorCount = await prisma.monitor.count({
             where: { id_alliance: get_user.id_alliance }
@@ -102,6 +103,10 @@ export async function Card_Enter(context: any) {
             // Добавляем статус только если есть мониторы
             monitorsLine += `${monitorStatus.description}`;
         }
+        const topicMonitorCount = await prisma.topicMonitor.count({
+            where: { monitor: { id_alliance: get_user.id_alliance } }
+        });
+        hasTopicMonitors = topicMonitorCount > 0;
     }
 
     // Базовый текст карточки
@@ -231,6 +236,15 @@ export async function Card_Enter(context: any) {
     // Кнопка рейтинга только если жетонов > 5
     if (get_user.medal > 5) {
         keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' });
+    }
+
+    // Расчёт работы и планов доступен только если в ролевой подключены обсуждения.
+    if (get_user.id_alliance && get_user.id_alliance > 0 && hasTopicMonitors) {
+        keyboard.callbackButton({
+            label: '📊 Работа и цели',
+            payload: { command: 'rp_work_settings' },
+            color: 'secondary'
+        }).row();
     }
     
     // Кнопки мониторов/обсуждений только если есть мониторы

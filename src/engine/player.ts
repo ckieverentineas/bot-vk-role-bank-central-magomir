@@ -1408,7 +1408,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         await Keyboard_Index(context, `⌛ Настройки уведомлений обновлены!`)
     })
 
-    hearManager.hear(/^!стата\s+\d+\s+\d+(?:\s+(?:все|начисления|посты))?$/i, Finance_Statistics_Command)
+    hearManager.hear(/^!стата\s+\d+\s+(?:\d+|\d{2}\.\d{2}\.\d{4}-\d{2}\.\d{2}\.\d{4})(?:\s+(?:все|начисления|посты))?$/iu, Finance_Statistics_Command)
 
     hearManager.hear(/!привязать финансы/, async (context: any) => {
         const anti_vk_defender = await Antivirus_VK(context)
@@ -2166,5 +2166,3 @@ async function AssignCustomRole(context: any, targetUser: User, adminUser: User)
         }
     })*/
 }
-
-    
