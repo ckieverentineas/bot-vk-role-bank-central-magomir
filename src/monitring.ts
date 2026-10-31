@@ -516,7 +516,9 @@ async function startMonitor(monitor: any, allianceName?: string): Promise<Monito
                     id: postId,
                     topicId: topicId,
                     text: text,
-                    groupId: groupId
+                    groupId: groupId,
+                    // Keep the original VK post date for restores and period-based goals.
+                    createdAt: context.createdAt ?? context.date
                 };
                 
                 // Обрабатываем пост (минимальное логирование)

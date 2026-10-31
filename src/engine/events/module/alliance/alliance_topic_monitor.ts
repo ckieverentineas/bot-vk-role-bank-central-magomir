@@ -10,6 +10,7 @@ import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
 import { serializeLinesRewards, parseLinesRewards } from "../topic_statistic";
 import { getMonitorHashtags, addMonitorHashtag, removeMonitorHashtag, extractHashtags } from "./hashtag_manager";
+import { RP_Work_GetProgressNotificationText, RP_Work_ReconcileGoalStatisticsForUser } from "../rp_work";
 import {
     applyMonitorTopicSettings,
     buildRewardBalanceChanges,
@@ -1225,6 +1226,25 @@ interface BoardPostContext {
     topicId: number;
     text?: string;
     groupId?: number;
+    createdAt?: Date | number | string;
+}
+
+function getBoardPostDate(context: BoardPostContext): Date {
+    const raw = context.createdAt;
+    if (raw instanceof Date && Number.isFinite(raw.getTime())) return raw;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        const timestamp = raw < 100000000000 ? raw * 1000 : raw;
+        const date = new Date(timestamp);
+        if (Number.isFinite(date.getTime())) return date;
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+        const numeric = Number(raw);
+        const date = new Date(Number.isFinite(numeric)
+            ? (numeric < 100000000000 ? numeric * 1000 : numeric)
+            : raw);
+        if (Number.isFinite(date.getTime())) return date;
+    }
+    return new Date();
 }
 
 async function determineTargetUser(
@@ -1602,6 +1622,8 @@ async function notifyUserOfTopicPostChange(params: {
     uidSpecified: boolean;
     specifiedUid: number | null;
     hashtags: string[];
+    goalHashtags?: string[];
+    goalProgressDate?: Date;
     oldDisplayPc?: number;
     oldHadReward?: boolean;
     userChanged?: boolean;
@@ -1631,10 +1653,22 @@ async function notifyUserOfTopicPostChange(params: {
         : '';
     const balanceText = await buildRewardBalanceText(params.user, params.monitor, params.appliedChanges);
     const customMessage = getTopicPostNotificationMessage(params.belowMin, params.oldHadReward || false, params.appliedChanges.length > 0, params.userChanged || false);
+    let goalProgressText = '';
+    try {
+        goalProgressText = await RP_Work_GetProgressNotificationText(
+            params.user.id,
+            params.monitor.id_alliance,
+            params.goalHashtags ?? params.hashtags,
+            params.goalProgressDate ?? new Date()
+        );
+    } catch (error) {
+        console.error(`❌ Ошибка расчёта прогресса целей для уведомления: ${error}`);
+    }
 
     const message = `📝 ${params.user.name} (UID: ${params.user.id}), ваш ролевой пост в обсуждении "${params.topicMonitor.name}" ${actionText}${volumeChange}!${uidInfo}${hashtagText}\n` +
         `📊 Статистика: ${params.stats.words} слов, ${params.stats.characters} символов\n` +
         `💻 ПК: ${params.displayPc}, 📱 МБ: ${params.stats.mb.toFixed(2)}${minPcText}\n` +
+        `${goalProgressText}` +
         `${customMessage}` +
         `${balanceText}` +
         `🧷 Ссылка: https://vk.com/topic${params.monitor.idvk}_${params.context.topicId}?post=${params.context.id}`;
@@ -1780,6 +1814,8 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
                 postId: context.id
             }
         });
+        const oldPostHashtags = existingStat ? await getPostHashtags(existingStat.id) : [];
+        const progressHashtags = Array.from(new Set([...oldPostHashtags, ...relevantHashtags]));
         const oldRewards = getStoredRewardSnapshots(existingStat, monitor);
         const oldHadReward = oldRewards.main.amount > 0 || oldRewards.extra.amount > 0;
         const oldDisplayPc = existingStat ? getPcLinesForDisplay(existingStat.pc) : 0;
@@ -1814,8 +1850,20 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             monitor,
             monitor.id_alliance,
             newRewards.extra.amount > 0,
-            newRewards.extra.amount
+            newRewards.extra.amount,
+            existingStat?.date
         );
+
+        // Recompute the affected users' plans after every new/edit/restore event.
+        // This also reopens a previously notified goal if the edited post reduces progress.
+        try {
+            if (userChanged && oldUser) {
+                await RP_Work_ReconcileGoalStatisticsForUser(oldUser.id, monitor.id_alliance, 'редактирования поста и смены персонажа');
+            }
+            await RP_Work_ReconcileGoalStatisticsForUser(targetUser.id, monitor.id_alliance, action === 'restore' ? 'восстановления поста' : action === 'edit' ? 'редактирования поста' : 'добавления поста');
+        } catch (goalError) {
+            console.error(`❌ Ошибка пересчёта целей: ${goalError}`);
+        }
 
         await notifyUserOfTopicPostChange({
             user: targetUser,
@@ -1829,6 +1877,8 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             uidSpecified,
             specifiedUid,
             hashtags: relevantHashtags,
+            goalHashtags: progressHashtags,
+            goalProgressDate: existingStat?.date ?? getBoardPostDate(context),
             oldDisplayPc,
             oldHadReward: userChanged ? false : oldHadReward,
             userChanged,
@@ -2094,7 +2144,8 @@ async function savePostStatsWithHashtags(
     monitor: any,
     allianceId: number,
     extraRewardGiven: boolean = false,
-    extraRewardAmount: number = 0
+    extraRewardAmount: number = 0,
+    originalPostDate?: Date
 ): Promise<any> {
     const rewardCoinId = getRewardCoinIdForPostStatistic(rewardGiven, rewardAmount, monitor);
     const extraRewardCoinId = getExtraRewardCoinIdForPostStatistic(extraRewardGiven, extraRewardAmount, monitor);
@@ -2111,7 +2162,7 @@ async function savePostStatsWithHashtags(
             words: stats.words,
             pc: stats.pc,
             mb: stats.mb,
-            date: new Date(),
+            date: originalPostDate ?? getBoardPostDate(context),
             action: action,
             userId: targetUser.id,
             rewardGiven: rewardGiven,
@@ -2129,7 +2180,7 @@ async function savePostStatsWithHashtags(
             words: stats.words,
             pc: stats.pc,
             mb: stats.mb,
-            date: new Date(),
+            date: getBoardPostDate(context),
             action: action,
             rewardGiven: rewardGiven,
             rewardAmount: rewardAmount,
@@ -2183,12 +2234,10 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     const postHashtags = postStat ? await getPostHashtags(postStat.id) : [];
 
     let user = null;
-
     if (postStat) {
         user = await prisma.user.findFirst({
             where: {
-                id: postStat.userId,
-                id_alliance: monitor.id_alliance
+                id: postStat.userId
             }
         });
     } else if (fromId) {
@@ -2200,11 +2249,10 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         });
     }
 
+    // No matching user: still remove an orphaned statistic so it cannot remain in plan totals.
     if (!user) {
         if (postStat) {
-            await prisma.postHashtag.deleteMany({
-                where: { postStatisticId: postStat.id }
-            });
+            await prisma.postHashtag.deleteMany({ where: { postStatisticId: postStat.id } });
             await prisma.postStatistic.delete({
                 where: {
                     topicMonitorId_postId: {
@@ -2220,6 +2268,33 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
     const oldRewards = getStoredRewardSnapshots(postStat, monitor);
     const rewardChanges = buildTopicRewardBalanceChanges(oldRewards, getEmptyRewardSnapshots());
     const appliedChanges = await applyRewardBalanceChanges(user, rewardChanges);
+
+    let goalProgressText = '';
+    if (postStat) {
+        // Remove the saved post first: all following plan queries must exclude it.
+        await prisma.postHashtag.deleteMany({ where: { postStatisticId: postStat.id } });
+        await prisma.postStatistic.delete({
+            where: {
+                topicMonitorId_postId: {
+                    topicMonitorId: topicMonitor.id,
+                    postId: postId
+                }
+            }
+        });
+
+        try {
+            await RP_Work_ReconcileGoalStatisticsForUser(user.id, monitor.id_alliance, 'удаления поста');
+            goalProgressText = await RP_Work_GetProgressNotificationText(
+                user.id,
+                monitor.id_alliance,
+                postHashtags,
+                postStat.date ? new Date(postStat.date) : new Date()
+            );
+        } catch (goalError) {
+            console.error(`❌ Ошибка пересчёта целей после удаления поста ${postId}: ${goalError}`);
+        }
+    }
+
     const hashtagText = postHashtags.length > 0
         ? `\n🏷️ Хештеги: #${postHashtags.join(', #')}`
         : `\n🏷️ Хештеги: отсутствовали`;
@@ -2233,6 +2308,7 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         : '';
     let message = `🗑️ ${user.name} (UID: ${user.id}), ваш ролевой пост в обсуждении "${topicMonitor.name}" удален!${hashtagText}\n` +
         statsText +
+        goalProgressText +
         rewardText +
         balanceText.trimEnd();
 
@@ -2240,29 +2316,12 @@ async function handlePostDeletion(topicMonitor: any, postId: number, monitor: an
         message += `\n🧷 Ссылка: https://vk.com/topic${monitor.idvk}_${topicId}?post=${postId}`;
     }
 
-    if (postStat) {
-        await prisma.postHashtag.deleteMany({
-            where: { postStatisticId: postStat.id }
-        });
-        await prisma.postStatistic.delete({
-            where: {
-                topicMonitorId_postId: {
-                    topicMonitorId: topicMonitor.id,
-                    postId: postId
-                }
-            }
-        });
-    }
-
-    const account = await prisma.account.findFirst({ 
-        where: { idvk: user.idvk } 
-    });
-    
+    const account = await prisma.account.findFirst({ where: { idvk: user.idvk } });
     if (account && user.notification_topic) {
         try {
             await Send_Message(account.idvk, message);
         } catch (error) {
-            console.error(`❌ Ошибка отправки уведомления об удаления: ${error}`);
+            console.error(`❌ Ошибка отправки уведомления об удалении: ${error}`);
         }
     }
 

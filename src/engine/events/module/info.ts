@@ -238,10 +238,10 @@ export async function Card_Enter(context: any) {
         keyboard.callbackButton({ label: '🏆', payload: { command: 'rank_enter' }, color: 'secondary' });
     }
 
-    // Расчёт работы и планов доступен только если в ролевой подключены обсуждения.
+    // Раздел целей доступен только если в ролевой подключены обсуждения.
     if (get_user.id_alliance && get_user.id_alliance > 0 && hasTopicMonitors) {
         keyboard.callbackButton({
-            label: '📊 Работа и цели',
+            label: '💼 Цели персонажа',
             payload: { command: 'rp_work_settings' },
             color: 'secondary'
         }).row();
