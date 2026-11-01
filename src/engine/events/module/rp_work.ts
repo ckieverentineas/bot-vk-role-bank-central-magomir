@@ -643,24 +643,71 @@ export async function RP_Work_Settings_ProcessInput(context: any): Promise<boole
             }
             case 'goalSettingText': {
                 const value = raw.replace(/\s+/g, ' ').trim();
+
                 if (!value || value.length > 40) {
-                    await sendInputPrompt(context, `❌ Название должно содержать от 1 до 40 символов.\n\n${flow.prompt}`, 2);
+                    await sendInputPrompt(
+                        context,
+                        `❌ Название должно содержать от 1 до 40 символов.\n\n${flow.prompt}`,
+                        2
+                    );
                     return true;
                 }
-                const goal = await getOwnedGoal(flow.userId, flow.allianceId, flow.goalId);
-                if (!goal) throw new Error('Цель не найдена');
-                await db.rpWritingGoal.updateMany({
-                    where: { id: flow.goalId, userId: flow.userId, allianceId: flow.allianceId },
-                    data: { [flow.field]: value }
-                });
-                pendingInputFlows.delete(key);
-                if (flow.field === 'goalName') {
-                    await sendContextMessage(context, `✅ Название цели изменено на «${value}».`);
-                    await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
-                } else {
-                    await sendContextMessage(context, '✅ Название дополнительной выплаты сохранено.');
-                    await renderGoalAdvancedSettings(context, flow.userId, flow.allianceId, flow.goalId);
+
+                const goal = await getOwnedGoal(
+                    flow.userId,
+                    flow.allianceId,
+                    flow.goalId
+                );
+
+                if (!goal) {
+                    throw new Error('Цель не найдена');
                 }
+
+                // goalName — внутреннее имя сценария ввода.
+                // В Prisma поле называется name.
+                const prismaField = flow.field === 'goalName'
+                    ? 'name'
+                    : flow.field;
+
+                await db.rpWritingGoal.updateMany({
+                    where: {
+                        id: flow.goalId,
+                        userId: flow.userId,
+                        allianceId: flow.allianceId
+                    },
+                    data: {
+                        [prismaField]: value
+                    }
+                });
+
+                pendingInputFlows.delete(key);
+
+                if (flow.field === 'goalName') {
+                    await sendContextMessage(
+                        context,
+                        `✅ Название цели изменено на «${value}».`
+                    );
+
+                    await renderGoalConfig(
+                        context,
+                        flow.userId,
+                        flow.allianceId,
+                        flow.goalId
+                    );
+                } else {
+                    await sendContextMessage(
+                        context,
+                        '✅ Название дополнительной выплаты сохранено.'
+                    );
+
+                    await renderGoalAdvancedSettings(
+                        context,
+                        flow.userId,
+                        flow.allianceId,
+                        flow.goalId
+                    );
+                }
+
                 return true;
             }
             case 'goalTemplateName': {
