@@ -64,7 +64,7 @@ type PendingInputFlow =
     }
     | {
         kind: 'goalSettingText'; userId: number; allianceId: number; goalId: number; menuPage: number;
-        field: 'extraPaymentLabel'; prompt: string;
+        field: 'extraPaymentLabel' | 'goalName'; prompt: string;
     }
     | { kind: 'goalTemplateName'; userId: number; allianceId: number; goalId: number; menuPage: number; }
     | { kind: 'goalTemplateCode'; userId: number; allianceId: number; goalId: number; menuPage: number; };
@@ -114,6 +114,8 @@ export async function RP_Work_Settings_Enter(context: any): Promise<void> {
                 } else if (pendingFlow?.kind === 'goalTierAdd' || pendingFlow?.kind === 'goalTierEdit') {
                     await renderGoalTierMenu(context, user.id, allianceId, pendingFlow.goalId, 0);
                 } else if (pendingFlow?.kind === 'goalTemplateName' || pendingFlow?.kind === 'goalTemplateCode') {
+                    await renderGoalConfig(context, user.id, allianceId, pendingFlow.goalId);
+                } else if (pendingFlow?.kind === 'goalSettingText' && pendingFlow.field === 'goalName') {
                     await renderGoalConfig(context, user.id, allianceId, pendingFlow.goalId);
                 } else if (pendingFlow?.kind === 'goalSettingNumber' || pendingFlow?.kind === 'goalSettingText') {
                     await renderGoalAdvancedSettings(context, user.id, allianceId, pendingFlow.goalId);
@@ -195,6 +197,12 @@ export async function RP_Work_Settings_Enter(context: any): Promise<void> {
                 await renderGoalAdvancedSettings(context, user.id, allianceId, goalId);
                 return;
             }
+            case 'goal_edit_name':
+                await startGoalSettingTextFlow(
+                    context, user.id, allianceId, Number(context.eventPayload?.goalId ?? 0), 'goalName',
+                    'Введите новое название цели (от 1 до 40 символов):'
+                );
+                return;
             case 'goal_edit_extra_label':
                 await startGoalSettingTextFlow(
                     context, user.id, allianceId, Number(context.eventPayload?.goalId ?? 0), 'extraPaymentLabel',
@@ -342,6 +350,8 @@ export async function RP_Work_Settings_ProcessInput(context: any): Promise<boole
         } else if (flow.kind === 'goalTierAdd' || flow.kind === 'goalTierEdit') {
             await renderGoalTierMenu(context, flow.userId, flow.allianceId, flow.goalId, 0);
         } else if (flow.kind === 'goalTemplateName' || flow.kind === 'goalTemplateCode') {
+            await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
+        } else if (flow.kind === 'goalSettingText' && flow.field === 'goalName') {
             await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
         } else if (flow.kind === 'goalSettingNumber' || flow.kind === 'goalSettingText') {
             await renderGoalAdvancedSettings(context, flow.userId, flow.allianceId, flow.goalId);
@@ -644,8 +654,13 @@ export async function RP_Work_Settings_ProcessInput(context: any): Promise<boole
                     data: { [flow.field]: value }
                 });
                 pendingInputFlows.delete(key);
-                await sendContextMessage(context, '✅ Название дополнительной выплаты сохранено.');
-                await renderGoalAdvancedSettings(context, flow.userId, flow.allianceId, flow.goalId);
+                if (flow.field === 'goalName') {
+                    await sendContextMessage(context, `✅ Название цели изменено на «${value}».`);
+                    await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
+                } else {
+                    await sendContextMessage(context, '✅ Название дополнительной выплаты сохранено.');
+                    await renderGoalAdvancedSettings(context, flow.userId, flow.allianceId, flow.goalId);
+                }
                 return true;
             }
             case 'goalTemplateName': {
@@ -700,6 +715,7 @@ export async function RP_Work_Settings_ProcessInput(context: any): Promise<boole
             if (flow.kind === 'lifeTierAdd' || flow.kind === 'lifeTierEdit') await showLifeTierMenuAfterInput(context, flow);
             else if (flow.kind === 'goalTierAdd' || flow.kind === 'goalTierEdit') await renderGoalTierMenu(context, flow.userId, flow.allianceId, flow.goalId, 0);
             else if (flow.kind === 'goalTemplateName' || flow.kind === 'goalTemplateCode') await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
+            else if (flow.kind === 'goalSettingText' && flow.field === 'goalName') await renderGoalConfig(context, flow.userId, flow.allianceId, flow.goalId);
             else if (flow.kind === 'goalSettingNumber' || flow.kind === 'goalSettingText') await renderGoalAdvancedSettings(context, flow.userId, flow.allianceId, flow.goalId);
             else await showSettingsAfterInput(context, flow);
         } catch { /* avoid a secondary error */ }
@@ -1019,7 +1035,7 @@ async function startGoalSettingTextFlow(
     userId: number,
     allianceId: number,
     goalId: number,
-    field: 'extraPaymentLabel',
+    field: 'extraPaymentLabel' | 'goalName',
     prompt: string
 ): Promise<void> {
     const goal = await getOwnedGoal(userId, allianceId, goalId);
@@ -1268,6 +1284,7 @@ async function renderGoalConfig(context: any, userId: number, allianceId: number
     const keyboard = new KeyboardBuilder()
         .callbackButton({ label: '📝 Все посты', payload: { command: 'rp_work_settings', action: 'goal_tracking_all', goalId, menuPage: 2 }, color: !isGoalHashtagMode(goal) ? 'positive' : 'secondary' })
         .callbackButton({ label: `🏷 Хештеги (${tags.length})`, payload: { command: 'rp_work_settings', action: 'goal_tracking_tags_menu', goalId, hashtagPage: 0, menuPage: 2 }, color: isGoalHashtagMode(goal) ? 'positive' : 'secondary' }).row()
+        .callbackButton({ label: '✏ Изменить название цели', payload: { command: 'rp_work_settings', action: 'goal_edit_name', goalId, menuPage: 2 }, color: 'secondary' }).row()
         .callbackButton({ label: '💾 Сохранить шаблон', payload: { command: 'rp_work_settings', action: 'goal_template_save', goalId, menuPage: 2 }, color: 'secondary' })
         .callbackButton({ label: '🔑 Применить код', payload: { command: 'rp_work_settings', action: 'goal_template_apply', goalId, menuPage: 2 }, color: 'secondary' }).row()
         .callbackButton({ label: '🔧 Углублённые настройки', payload: { command: 'rp_work_settings', action: 'goal_advanced', goalId, menuPage: 2 }, color: 'primary' }).row()
