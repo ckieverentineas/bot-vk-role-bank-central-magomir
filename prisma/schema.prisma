@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["interactiveTransactions"]
 }
 
 datasource db {
@@ -116,10 +117,41 @@ model TopicMonitor {
   rewardMinLines Int?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  locationAccessEnabled Boolean  @default(false)
+  locationAccessCost    Float    @default(30)
+  locationAccessDays    Int      @default(3)
   PostStatistic  PostStatistic[]
+  LocationAccess TopicLocationAccess[]
+  AccessExemptions TopicAccessExemption[]
 
   @@index([monitorId])
   @@unique([monitorId, topicId])
+}
+
+model TopicLocationAccess {
+  id              Int          @id @default(autoincrement())
+  topicMonitor    TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  topicMonitorId  Int
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  paidAt          DateTime     @default(now())
+  validUntil      DateTime
+
+  @@unique([topicMonitorId, userId])
+  @@index([topicMonitorId, validUntil])
+  @@index([userId])
+}
+
+model TopicAccessExemption {
+  id              Int          @id @default(autoincrement())
+  topicMonitor    TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  topicMonitorId  Int
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  createdAt       DateTime     @default(now())
+
+  @@unique([topicMonitorId, userId])
+  @@index([userId])
 }
 
 model PostStatistic {
@@ -220,6 +252,8 @@ model User {
   salary_amount         Float?                  @map("salary_amount")
   rpWorkSettings        RpWorkSettings[]
   rpWritingGoals        RpWritingGoal[]
+  TopicLocationAccess   TopicLocationAccess[]
+  TopicAccessExemptions TopicAccessExemption[]
 }
 
 model BlackBox {

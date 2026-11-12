@@ -518,6 +518,47 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         return {chestId: selectedChestId, chestName: selectedChestName};
     }
 
+    async function askStorageQuantity(itemName: string): Promise<number | null> {
+        while (true) {
+            const quantityInput = await Input_Number(
+                context,
+                `Сколько экземпляров предмета «${itemName}» выдать игроку ${user_get!.name}? Введите число от 1 до 1000:`,
+                false
+            );
+            if (quantityInput === false) return null;
+            const quantity = Number(quantityInput);
+            if (Number.isInteger(quantity) && quantity >= 1 && quantity <= 1000) return quantity;
+            await context.send("❌ Количество должно быть целым числом от 1 до 1000.");
+        }
+    }
+
+    async function createStorageCopies(
+        itemId: number,
+        quantity: number,
+        targetChestId: number,
+        comment: string
+    ): Promise<number[]> {
+        return await prisma.$transaction(async (tx) => {
+            const inventoryIds: number[] = [];
+            for (let index = 0; index < quantity; index++) {
+                const inventory = await tx.inventory.create({
+                    data: {
+                        id_user: user_get!.id,
+                        id_item: itemId,
+                        type: InventoryType.ITEM_STORAGE,
+                        comment,
+                        purchaseDate: new Date()
+                    }
+                });
+                await tx.chestItemLink.create({
+                    data: { id_chest: targetChestId, id_inventory: inventory.id }
+                });
+                inventoryIds.push(inventory.id);
+            }
+            return inventoryIds;
+        });
+    }
+
     let page = 0;
     const itemsPerPage = 4;
 
@@ -615,9 +656,11 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 continue;
             }
 
+            const quantity = await askStorageQuantity(item.name);
+            if (quantity === null) continue;
             const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
             
-            const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать предмет "${item?.name}" игроку ${user_get.name} в сундук "${chestName}"?`,
+            const confirmq = await context.question(`⁉ Вы уверены, что хотите выдать ${quantity} шт. предмета "${item?.name}" игроку ${user_get.name} в сундук "${chestName}"?`,
                 {
                     keyboard: Keyboard.builder()
                     .textButton({ label: 'Да', payload: { command: 'confirm' }, color: 'secondary' })
@@ -634,30 +677,20 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }
             
             if (confirmq?.payload?.command === 'confirm') {
-                const inventory = await prisma.inventory.create({
-                    data: {
-                        id_user: user_get.id,
-                        id_item: item.id,
-                        type: InventoryType.ITEM_STORAGE,
-                        comment: `Получено от ${user_adm.name}`,
-                        purchaseDate: new Date()
-                    }
-                });
-                
-                await prisma.chestItemLink.create({
-                    data: {
-                        id_chest: targetChestId,
-                        id_inventory: inventory.id
-                    }
-                });
-                
-                const notif = `"🎁" --> выдача товара "${item?.name}" игроку @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id})` : ''}\n🎒 Сундук: ${chestName}`;
+                await createStorageCopies(
+                    item.id,
+                    quantity,
+                    targetChestId,
+                    `Получено от ${user_adm.name}`
+                );
+
+                const notif = `"🎁" --> выдача товара "${item?.name}" × ${quantity} игроку @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id})` : ''}\n🎒 Сундук: ${chestName}`;
                 await Send_Message_Smart(context, notif, 'client_callback', user_get);
                 if (user_adm) { 
                     await Send_Message(user_adm.idvk, notif); 
                 }
                 
-                await context.send(`✅ Предмет "${item.name}" выдан игроку ${user_get.name} в сундук "${chestName}"`);
+                await context.send(`✅ Предмет "${item.name}" × ${quantity} выдан игроку ${user_get.name} в сундук "${chestName}"`);
             }
             
             if (confirmq?.payload?.command === 'hidden') {
@@ -728,32 +761,26 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             }
 
             if (confirm_answer.payload?.command === 'give_created') {
+                const quantity = await askStorageQuantity(newItem.name);
+                if (quantity === null) {
+                    await context.send(`✅ Новый предмет "${newItem.name}" создан, но не выдан.`);
+                    continue;
+                }
                 const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
-                
-                const inventory = await prisma.inventory.create({
-                    data: {
-                        id_user: user_get.id,
-                        id_item: newItem.id,
-                        type: InventoryType.ITEM_STORAGE,
-                        comment: `Выдан админом @id${context.senderId}`,
-                        purchaseDate: new Date()
-                    }
-                });
-                
-                await prisma.chestItemLink.create({
-                    data: {
-                        id_chest: targetChestId,
-                        id_inventory: inventory.id
-                    }
-                });
-                
-                const notif = `"🎁" --> выдача товара "${newItem?.name}" игроку @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id})` : ''}\n🎒 Сундук: ${chestName}`;
+                await createStorageCopies(
+                    newItem.id,
+                    quantity,
+                    targetChestId,
+                    `Выдан админом @id${context.senderId}`
+                );
+
+                const notif = `"🎁" --> выдача товара "${newItem?.name}" × ${quantity} игроку @id${user_get.idvk}(${user_get.name}) (UID: ${user_get.id})${user_adm ? `\n🗿 Инициатор: @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id})` : ''}\n🎒 Сундук: ${chestName}`;
                 await Send_Message_Smart(context, notif, 'client_callback', user_get);
                 if (user_adm) { 
                     await Send_Message(user_adm.idvk, notif); 
                 }
                 
-                await context.send(`✅ Новый предмет "${newItem.name}" создан и выдан игроку ${user_get.name} в сундук "${chestName}"`);
+                await context.send(`✅ Новый предмет "${newItem.name}" × ${quantity} создан и выдан игроку ${user_get.name} в сундук "${chestName}"`);
             } else if (confirm_answer.payload?.command === 'skip_give') {
                 await context.send(`✅ Новый предмет "${newItem.name}" создан, но не выдан.`);
             } else {

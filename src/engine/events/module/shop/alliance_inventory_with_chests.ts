@@ -4584,68 +4584,80 @@ async function handleItemDelete(context: any, data: any, user: User, user_adm?: 
 
 async function handleGroupItemDelete(context: any, data: any, user: User, user_adm?: User, chest?: any) {
     const res = { cursor: data.cursor, group_mode: data.group_mode };
-    
-    // Получаем информацию о группе
-    const items = await getChestInventoryItems(user.id, data.chest_id, true);
+
+    const currentChestId = Number(data.currentChestId ?? data.chest_id ?? chest?.id ?? 0);
+    if (!currentChestId) {
+        await context.send(`❌ Не удалось определить сундук с предметами.`);
+        return res;
+    }
+
+    const items = await getChestInventoryItems(user.id, currentChestId, true);
     const group = items.find(item => item.id === data.id && item.type.includes(data.type));
-    
     if (!group) {
         await context.send(`❌ Группа предметов не найдена.`);
         return res;
     }
 
-    // Обновляем текст подтверждения
-    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
-        context, 
-        `удалить ${group.count} предметов "${group.name}" ${user_adm ? `из инвентаря ${user.name}` : 'из своего инвентаря'}?`
+    const quantityInput = await Input_Number(
+        context,
+        `Сколько предметов «${group.name}» удалить? В группе сейчас ${group.count}. Введите число от 1 до ${group.count}:`,
+        false
     );
-    
+    if (quantityInput === false) return res;
+
+    const quantity = Number(quantityInput);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > group.count) {
+        await context.send(`❌ Количество должно быть целым числом от 1 до ${group.count}.`);
+        return res;
+    }
+
+    const confirm: { status: boolean, text: string } = await Confirm_User_Success(
+        context,
+        `удалить ${quantity} из ${group.count} предметов «${group.name}» ${user_adm ? `из инвентаря ${user.name}` : 'из своего инвентаря'}?`
+    );
     if (!confirm.status) return res;
 
-    // Выполняем удаление всех предметов группы
     let success_count = 0;
     let failed_count = 0;
+    const inventoryIdsToDelete = [...group.inventory_ids].sort((a, b) => a - b).slice(0, quantity);
 
-    for (const inventory_id of group.inventory_ids) {
+    for (const inventory_id of inventoryIdsToDelete) {
         try {
-            // Удаляем связь с сундуком
-            await prisma.chestItemLink.deleteMany({
-                where: { id_inventory: inventory_id }
-            });
-            
-            // Удаляем предмет
-            const deleted = await prisma.inventory.delete({
-                where: { id: inventory_id }
-            });
-
-            if (deleted) {
-                success_count++;
-            } else {
-                failed_count++;
-            }
+            await prisma.chestItemLink.deleteMany({ where: { id_inventory: inventory_id } });
+            const deleted = await prisma.inventory.delete({ where: { id: inventory_id } });
+            if (deleted) success_count++;
+            else failed_count++;
         } catch (error) {
-            await context.send(`⚠ Ошибка при удалении предмета ID ${inventory_id}`);
+            console.error(`Ошибка при удалении предмета ID ${inventory_id}:`, error);
             failed_count++;
         }
     }
 
-    // Логируем и уведомляем с информацией о владельце
     if (success_count > 0) {
         if (user_adm) {
             await Logger(`Администратор @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря ${user.name} (UID: ${user.id})`);
-            await context.send(`Вы удалили "${group.name} × ${success_count}" из инвентаря ${user.name}.`);
-            
-            await Send_Message(user.idvk, `🎒 Администратор ${user_adm.name} удалил "${group.name} × ${success_count}" из вашего инвентаря.`);
-            await Send_Message(await getProjectLogChatId(user.id_alliance), `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет "${group.name} × ${success_count}" из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`);
-        } else { 
+            await context.send(`Вы удалили «${group.name} × ${success_count}» из инвентаря ${user.name}.`);
+            await Send_Message(user.idvk, `🎒 Администратор ${user_adm.name} удалил «${group.name} × ${success_count}» из вашего инвентаря.`);
+            await Send_Message(
+                await getProjectLogChatId(user.id_alliance),
+                `🎒 @id${user_adm.idvk}(${user_adm.name}) (UID: ${user_adm.id}) удаляет «${group.name} × ${success_count}» из инвентаря для клиента @id${user.idvk}(${user.name}) (UID: ${user.id})`
+            );
+        } else {
             await Logger(`Игрок @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
-            await context.send(`Вы удалили "${group.name} × ${success_count}" из своего инвентаря.`);
-            await Send_Message(await getProjectLogChatId(user.id_alliance), `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет "${group.name} × ${success_count}" из своего инвентаря`);
+            await context.send(`Вы удалили «${group.name} × ${success_count}» из своего инвентаря.`);
+            await Send_Message(
+                await getProjectLogChatId(user.id_alliance),
+                `🎒 @id${user.idvk}(${user.name}) (UID: ${user.id}) удаляет «${group.name} × ${success_count}» из своего инвентаря`
+            );
         }
     }
 
-    await context.send(`🗑 Удаление завершено:\n✅ Успешно удалено: ${success_count} предметов\n❌ Не удалось удалить: ${failed_count} предметов`);
-
+    await context.send(
+        `🗑 Удаление завершено:\n` +
+        `✅ Успешно удалено: ${success_count} предметов\n` +
+        `❌ Не удалось удалить: ${failed_count} предметов\n` +
+        `📦 Осталось в группе: ${Math.max(0, group.count - success_count)}`
+    );
     return res;
 }
 
