@@ -1,7 +1,7 @@
 ﻿import prisma from "../prisma_client";
 import { calculatePostStats, getPcLinesForCheck, getPcLinesForDisplay, calculateReward } from "../topic_statistic";
 import { GetSelectedPersonForAlliance } from "../person/monitor_select";
-import { Alliance, Monitor, Prisma, User } from "@prisma/client";
+import { Alliance, Monitor, User } from "@prisma/client";
 import { KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Fixed_Number_To_Five, Format_Number_Correction, Input_Number, Input_Text, Keyboard_Index, Logger, Send_Message } from "../../../core/helper";
@@ -10,6 +10,7 @@ import { ico_list } from "../data_center/icons_lib";
 import { button_alliance_return } from "../data_center/standart";
 import { serializeLinesRewards, parseLinesRewards } from "../topic_statistic";
 import { getMonitorHashtags, addMonitorHashtag, removeMonitorHashtag, extractHashtags } from "./hashtag_manager";
+import { Paid_Access_Monitor_Settings, Paid_Access_Topic_Settings, Ensure_Topic_Paid_Access, Notify_Topic_Paid_Access_Denied, Notify_Topic_Paid_Access_Charged } from "./paid_topic_access";
 import { RP_Work_GetProgressNotificationText, RP_Work_ReconcileGoalStatisticsForUser } from "../rp_work";
 import {
     applyMonitorTopicSettings,
@@ -104,6 +105,17 @@ export async function Alliance_Topic_Monitor_Printer(context: any) {
                 event_logger += `${topicMonitor.name}\n`;
                 event_logger += `🔗 ${topicMonitor.topicUrl}\n`;
                 event_logger += `⚙️ Использует общие параметры монитора\n`;
+                const paidLink = await prisma.monitorPaidAccessTopic.findFirst({
+                    where: { monitorId: monitor.id, topicMonitorId: topicMonitor.id }
+                });
+                const paidMode = topicMonitor.paidAccessMode ?? "inherit";
+                if (paidMode === "disabled") {
+                    event_logger += `💳 Платный доступ: отключён индивидуально\n`;
+                } else if (paidMode === "custom") {
+                    event_logger += `💳 Платный доступ: индивидуальные условия\n`;
+                } else if (paidLink && activeMonitor.paidAccessEnabled) {
+                    event_logger += `💳 Платный доступ: общие условия монитора\n`;
+                }
                 event_logger += `\n`; 
             }
         }
@@ -681,6 +693,11 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
                 color: "secondary"
             }).row()
             .textButton({
+                label: "💳 Платный доступ",
+                payload: { command: "topic_settings_paid_access", cursor },
+                color: "primary"
+            }).row()
+            .textButton({
                 label: "↩️ Назад",
                 payload: { command: "topic_settings_back", cursor },
                 color: "secondary"
@@ -714,6 +731,9 @@ async function Topic_Monitor_Settings(context: any, data: any, monitor: any, use
                 break;
             case "topic_settings_extra_reward_min":
                 await editMonitorTopicExtraRewardMinLines(context, currentMonitor);
+                break;
+            case "topic_settings_paid_access":
+                await Paid_Access_Monitor_Settings(context, currentMonitor.id, alliance.id);
                 break;
             case "topic_settings_back":
                 exit = true;
@@ -1081,8 +1101,8 @@ async function Topic_Monitor_Edit(context: any, data: any, monitor: any, user: a
                 color: "secondary"
             }).row()
             .textButton({
-                label: "💰 Платный доступ",
-                payload: { command: "topic_edit_access" },
+                label: "💳 Платный доступ этой локации",
+                payload: { command: "topic_edit_paid_access" },
                 color: "primary"
             }).row()
             .textButton({
@@ -1095,7 +1115,7 @@ async function Topic_Monitor_Edit(context: any, data: any, monitor: any, user: a
             `${ico_list['edit'].ico} Редактирование обсуждения "${topicMonitor.name}"\n\n` +
             `🔗 ${topicMonitor.topicUrl}\n\n` +
             `Выберите конкретный параметр для изменения.\n` +
-            `Правила зачета, лимиты, валюта и награды редактируются в общих параметрах монитора.`,
+            `Правила зачета, лимиты и награды редактируются в общих параметрах монитора; оплата настраивается отдельно.`,
             { keyboard, answerTimeLimit }
         );
 
@@ -1110,8 +1130,8 @@ async function Topic_Monitor_Edit(context: any, data: any, monitor: any, user: a
             case "topic_edit_url":
                 await editTopicMonitorUrl(context, topicMonitor, monitor);
                 break;
-            case "topic_edit_access":
-                await Topic_Monitor_Access_Settings(context, topicMonitor, monitor, alliance);
+            case "topic_edit_paid_access":
+                await Paid_Access_Topic_Settings(context, topicMonitor.id, monitor.id, alliance.id);
                 break;
             case "topic_edit_back":
                 exit = true;
@@ -1123,214 +1143,6 @@ async function Topic_Monitor_Edit(context: any, data: any, monitor: any, user: a
     }
 
     return res;
-}
-
-async function Topic_Monitor_Access_Settings(
-    context: any,
-    initialTopicMonitor: any,
-    monitor: any,
-    alliance: Alliance
-): Promise<void> {
-    let exit = false;
-
-    while (!exit) {
-        const topicMonitor = await prisma.topicMonitor.findFirst({
-            where: { id: initialTopicMonitor.id }
-        });
-
-        if (!topicMonitor) {
-            await context.send(`${ico_list['warn'].ico} Обсуждение не найдено.`);
-            return;
-        }
-
-        const coinId = getTopicRewardCoinId(monitor);
-        const coin = coinId
-            ? await prisma.allianceCoin.findFirst({
-                where: { id: coinId, id_alliance: alliance.id }
-            })
-            : null;
-
-        const exemptions = await prisma.topicAccessExemption.findMany({
-            where: { topicMonitorId: topicMonitor.id },
-            include: { user: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' },
-            take: 20
-        });
-
-        const statusText = topicMonitor.locationAccessEnabled ? '✅ Включён' : '❌ Отключён';
-        const currencyText = coin ? `${coin.smile} ${coin.name}` : 'не настроена';
-        const exemptionText = exemptions.length > 0
-            ? exemptions.map((entry: any) => `UID-${entry.user.id} — ${entry.user.name}`).join('\n')
-            : 'нет';
-
-        const keyboard = new KeyboardBuilder()
-            .textButton({
-                label: topicMonitor.locationAccessEnabled ? '🔴 Отключить плату' : '🟢 Включить плату',
-                payload: { command: 'topic_access_toggle' },
-                color: topicMonitor.locationAccessEnabled ? 'negative' : 'positive'
-            }).row()
-            .textButton({
-                label: '💰 Стоимость',
-                payload: { command: 'topic_access_cost' },
-                color: 'primary'
-            })
-            .textButton({
-                label: '📅 Срок',
-                payload: { command: 'topic_access_days' },
-                color: 'secondary'
-            }).row()
-            .textButton({
-                label: '🚫 Табу по UID',
-                payload: { command: 'topic_access_exemption' },
-                color: 'secondary'
-            }).row()
-            .textButton({
-                label: '↩️ Назад',
-                payload: { command: 'topic_access_back' },
-                color: 'secondary'
-            }).oneTime();
-
-        const message =
-            `💰 Платный доступ к обсуждению «${topicMonitor.name}»\n\n` +
-            `Статус: ${statusText}\n` +
-            `Стоимость: ${topicMonitor.locationAccessCost} ${coin?.smile || ''}\n` +
-            `Валюта: ${currencyText} (основная валюта наград монитора)\n` +
-            `Длительность: ${topicMonitor.locationAccessDays} календарных дней\n` +
-            `Исключения: ${exemptions.length}\n${exemptionText}\n\n` +
-            `Оплата списывается при первом новом посте после окончания доступа. День публикации входит в срок.`;
-
-        const answer: any = await context.question(message, {
-            keyboard,
-            answerTimeLimit
-        });
-
-        if (answer.isTimeout) {
-            return;
-        }
-
-        switch (answer.payload?.command) {
-            case 'topic_access_toggle': {
-                if (!topicMonitor.locationAccessEnabled && !coin) {
-                    await context.send(
-                        `${ico_list['warn'].ico} Нельзя включить платный доступ: у монитора не настроена основная валюта ролевых постов. Сначала выберите валюту в настройках валюты монитора.`
-                    );
-                    break;
-                }
-
-                await prisma.topicMonitor.update({
-                    where: { id: topicMonitor.id },
-                    data: { locationAccessEnabled: !topicMonitor.locationAccessEnabled }
-                });
-
-                await context.send(
-                    topicMonitor.locationAccessEnabled
-                        ? '✅ Плата за эту локацию отключена.'
-                        : '✅ Плата за эту локацию включена.'
-                );
-                break;
-            }
-
-            case 'topic_access_cost': {
-                const value = await Input_Number(
-                    context,
-                    `Введите стоимость доступа в валюте ${coin ? `${coin.smile} ${coin.name}` : 'монитора'} (можно 0):`,
-                    true
-                );
-
-                if (value === false) break;
-                const cost = Number(value);
-
-                if (!Number.isFinite(cost) || cost < 0 || cost > 1000000000) {
-                    await context.send(`${ico_list['warn'].ico} Стоимость должна быть числом от 0 до 1 000 000 000.`);
-                    break;
-                }
-
-                await prisma.topicMonitor.update({
-                    where: { id: topicMonitor.id },
-                    data: { locationAccessCost: cost }
-                });
-                await context.send(`✅ Стоимость доступа установлена: ${cost} ${coin?.smile || ''}`);
-                break;
-            }
-
-            case 'topic_access_days': {
-                const value = await Input_Number(
-                    context,
-                    'Введите длительность доступа в календарных днях (от 1 до 3650):',
-                    false
-                );
-
-                if (value === false) break;
-                const days = Number(value);
-
-                if (!Number.isInteger(days) || days < 1 || days > 3650) {
-                    await context.send(`${ico_list['warn'].ico} Срок должен быть целым числом от 1 до 3650 дней.`);
-                    break;
-                }
-
-                await prisma.topicMonitor.update({
-                    where: { id: topicMonitor.id },
-                    data: { locationAccessDays: days }
-                });
-                await context.send(`✅ Срок доступа установлен: ${days} календарных дней.`);
-                break;
-            }
-
-            case 'topic_access_exemption': {
-                const uid = await Input_Number(
-                    context,
-                    `Введите внутренний UID персонажа из этой ролевой. Если UID уже в табу, исключение будет снято:`,
-                    false
-                );
-
-                if (uid === false) break;
-
-                const targetUser = await prisma.user.findFirst({
-                    where: {
-                        id: Number(uid),
-                        id_alliance: alliance.id
-                    },
-                    select: { id: true, name: true }
-                });
-
-                if (!targetUser) {
-                    await context.send(`${ico_list['warn'].ico} UID-${uid} не найден в этой ролевой.`);
-                    break;
-                }
-
-                const where = {
-                    topicMonitorId_userId: {
-                        topicMonitorId: topicMonitor.id,
-                        userId: targetUser.id
-                    }
-                };
-
-                const existingExemption = await prisma.topicAccessExemption.findUnique({ where });
-
-                if (existingExemption) {
-                    await prisma.topicAccessExemption.delete({ where });
-                    await context.send(`✅ Исключение снято для ${targetUser.name} (UID-${targetUser.id}). При следующем новом посте будет применяться обычная оплата.`);
-                } else {
-                    await prisma.topicAccessExemption.create({
-                        data: {
-                            topicMonitorId: topicMonitor.id,
-                            userId: targetUser.id
-                        }
-                    });
-                    await context.send(`✅ ${targetUser.name} (UID-${targetUser.id}) добавлен в табу. За эту локацию плата с него списываться не будет.`);
-                }
-                break;
-            }
-
-            case 'topic_access_back':
-                exit = true;
-                break;
-
-            default:
-                await context.send(`${ico_list['help'].ico} Жмите только по кнопкам с иконками!`);
-                break;
-        }
-    }
 }
 
 async function editTopicMonitorName(context: any, topicMonitor: any): Promise<void> {
@@ -1963,204 +1775,6 @@ async function notifyUserOfRewardTransfer(
     }
 }
 
-interface TopicLocationAccessResult {
-    allowed: boolean;
-    charged?: boolean;
-    exempt?: boolean;
-    reason?: 'currency' | 'insufficient_funds';
-    coin?: any;
-    oldBalance?: number;
-    newBalance?: number;
-    validUntil?: Date;
-}
-
-function getCalendarDayStart(date: Date): Date {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    return dayStart;
-}
-
-function addCalendarDays(date: Date, days: number): Date {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
-}
-
-/**
- * Checks location access and, after expiry, deducts the fee and grants the configured
- * number of calendar days. The day of the post is included in the access period.
- */
-async function ensureTopicLocationAccess(
-    topicMonitor: any,
-    monitor: any,
-    user: any,
-    accessDate: Date
-): Promise<TopicLocationAccessResult> {
-    if (!topicMonitor.locationAccessEnabled) {
-        return { allowed: true };
-    }
-
-    const configuredCost = Number(topicMonitor.locationAccessCost);
-    const cost = Number.isFinite(configuredCost)
-        ? Math.max(0, configuredCost)
-        : 30;
-
-    const configuredDays = Number(topicMonitor.locationAccessDays);
-    const days = Number.isInteger(configuredDays) && configuredDays > 0
-        ? Math.min(configuredDays, 3650)
-        : 3;
-
-    if (cost === 0) {
-        return { allowed: true };
-    }
-
-    const dayStart = getCalendarDayStart(accessDate);
-
-    const accessKey = {
-        topicMonitorId_userId: {
-            topicMonitorId: topicMonitor.id,
-            userId: user.id
-        }
-    };
-
-    const result: TopicLocationAccessResult = await prisma.$transaction(
-        async (tx: Prisma.TransactionClient): Promise<TopicLocationAccessResult> => {
-            const exemption = await tx.topicAccessExemption.findUnique({
-                where: accessKey
-            });
-
-            if (exemption) {
-                return {
-                    allowed: true,
-                    exempt: true
-                };
-            }
-
-            const existingAccess = await tx.topicLocationAccess.findUnique({
-                where: accessKey
-            });
-
-            if (
-                existingAccess &&
-                existingAccess.validUntil.getTime() > dayStart.getTime()
-            ) {
-                return {
-                    allowed: true,
-                    validUntil: existingAccess.validUntil
-                };
-            }
-
-            const coinId = getTopicRewardCoinId(monitor);
-
-            if (!coinId) {
-                return {
-                    allowed: false,
-                    reason: 'currency'
-                };
-            }
-
-            const coin = await tx.allianceCoin.findFirst({
-                where: {
-                    id: coinId,
-                    id_alliance: monitor.id_alliance
-                }
-            });
-
-            if (!coin) {
-                return {
-                    allowed: false,
-                    reason: 'currency'
-                };
-            }
-
-            const balance = await tx.balanceCoin.findFirst({
-                where: {
-                    id_coin: coinId,
-                    id_user: user.id
-                }
-            });
-
-            const oldBalance = balance?.amount ?? 0;
-
-            if (!balance || oldBalance + 0.0000001 < cost) {
-                return {
-                    allowed: false,
-                    reason: 'insufficient_funds',
-                    coin,
-                    oldBalance
-                };
-            }
-
-            const newBalance = oldBalance - cost;
-
-            await tx.balanceCoin.update({
-                where: {
-                    id: balance.id
-                },
-                data: {
-                    amount: newBalance
-                }
-            });
-
-            if (coin.point && user.id_facult) {
-                const facultBalance = await tx.balanceFacult.findFirst({
-                    where: {
-                        id_coin: coinId,
-                        id_facult: user.id_facult
-                    }
-                });
-
-                if (facultBalance) {
-                    await tx.balanceFacult.update({
-                        where: {
-                            id: facultBalance.id
-                        },
-                        data: {
-                            amount: facultBalance.amount - cost
-                        }
-                    });
-                } else {
-                    await tx.balanceFacult.create({
-                        data: {
-                            id_coin: coinId,
-                            id_facult: user.id_facult,
-                            amount: -cost
-                        }
-                    });
-                }
-            }
-
-            const validUntil = addCalendarDays(dayStart, days);
-            const paidAt = new Date();
-
-            await tx.topicLocationAccess.upsert({
-                where: accessKey,
-                update: {
-                    paidAt,
-                    validUntil
-                },
-                create: {
-                    topicMonitorId: topicMonitor.id,
-                    userId: user.id,
-                    paidAt,
-                    validUntil
-                }
-            });
-
-            return {
-                allowed: true,
-                charged: true,
-                coin,
-                oldBalance,
-                newBalance,
-                validUntil
-            };
-        }
-    );
-
-    return result;
-}
-
 // Обработчик новых постов в обсуждениях
 export async function handleTopicPost(context: BoardPostContext, monitor: any, action: TopicPostAction) {
     let processingKey = `${monitor.id}_${context.topicId}_${context.id}`;
@@ -2238,76 +1852,18 @@ export async function handleTopicPost(context: BoardPostContext, monitor: any, a
             : null;
         const userChanged = Boolean(oldUser && oldUser.id !== targetUser.id);
 
-        if (!existingStat && action !== 'edit') {
-            const accessDate = action === 'restore' ? new Date() : getBoardPostDate(context);
-            const accessResult = await ensureTopicLocationAccess(
-                topicMonitor,
-                monitor,
-                targetUser,
-                accessDate
-            );
-
-            if (!accessResult.allowed) {
-                if (accessResult.reason === 'insufficient_funds') {
-                    await Send_Message(
-                        targetUser.idvk,
-                        `🚫 Пост в локации «${topicMonitor.name}» не засчитан: недостаточно средств для доступа.\n` +
-                        `Нужно: ${topicMonitor.locationAccessCost} ${accessResult.coin?.smile || ''} ${accessResult.coin?.name || ''}.\n` +
-                        `Ваш баланс: ${accessResult.oldBalance ?? 0} ${accessResult.coin?.smile || ''}.`
-                    );
-                } else {
-                    await Send_Message(
-                        targetUser.idvk,
-                        `🚫 Платный доступ к локации «${topicMonitor.name}» не может быть оформлен: у монитора не настроена валюта ролевых постов. Обратитесь к администратору.`
-                    );
-                }
-
-                await Logger(
-                    `🚫 Пост не засчитан из-за неоплаченного доступа: ${targetUser.name} (UID ${targetUser.id}), ` +
-                    `обсуждение "${topicMonitor.name}" (ID ${topicMonitor.id}).`
-                );
+        // За новый пост (или передачу существующего поста другому UID) доступ проверяется один раз.
+        // Обычное редактирование уже оплаченного поста повторно не тарифицируется.
+        if (!existingStat || userChanged) {
+            const paidAccessResult = await Ensure_Topic_Paid_Access(targetUser, monitor, topicMonitorRecord, context);
+            if (!paidAccessResult.allowed) {
+                await Notify_Topic_Paid_Access_Denied(targetUser, paidAccessResult);
+                await Logger(`⛔ Пост ${context.id} в обсуждении ${topicMonitor.name} не засчитан: нет оплаченного доступа для UID ${targetUser.id}.`);
                 return;
             }
-
-            if (accessResult.charged && accessResult.coin && accessResult.validUntil) {
-                const lastAccessDay = new Date(accessResult.validUntil);
-                lastAccessDay.setDate(lastAccessDay.getDate() - 1);
-
-                const paymentMessage =
-                    `💰 Оплачен доступ к локации «${topicMonitor.name}».\n` +
-                    `Списано: ${topicMonitor.locationAccessCost} ${accessResult.coin.smile} ${accessResult.coin.name}.\n` +
-                    `Баланс: ${accessResult.oldBalance} → ${accessResult.newBalance} ${accessResult.coin.smile}.\n` +
-                    `Доступ действует по ${lastAccessDay.toLocaleDateString('ru-RU')} включительно.`;
-
-                await Send_Message(targetUser.idvk, paymentMessage);
-                await Logger(
-                    `💰 Оплата доступа к локации "${topicMonitor.name}": ${targetUser.name} (UID ${targetUser.id}), ` +
-                    `-${topicMonitor.locationAccessCost} ${accessResult.coin.name}, до ${lastAccessDay.toLocaleDateString('ru-RU')}.`
-                );
-
-                // Логируем оплату доступа в общий чат альянса (id_chat)
-                const paymentAlliance = await prisma.alliance.findFirst({
-                    where: { id: monitor.id_alliance }
-                });
-
-                if (paymentAlliance?.id_chat && paymentAlliance.id_chat !== 0) {
-                    const paymentLog =
-                        `${buildTopicChatLogHeader(paymentAlliance.name, monitor)}\n` +
-                        `📖 ${topicMonitor.name}\n` +
-                        `💰 @id${targetUser.idvk}(${targetUser.name}) (UID: ${targetUser.id}) оплатил доступ к локации\n` +
-                        `💳 ${Format_Number_Correction(accessResult.oldBalance ?? 0)} - ` +
-                        `${Format_Number_Correction(topicMonitor.locationAccessCost)} = ` +
-                        `${Format_Number_Correction(accessResult.newBalance ?? 0)}${accessResult.coin.smile} ` +
-                        `${accessResult.coin.name}\n` +
-                        `📅 Действует по ${lastAccessDay.toLocaleDateString('ru-RU')} включительно\n` +
-                        `🔗 https://vk.com/topic${monitor.idvk}_${context.topicId}?post=${context.id}`;
-
-                    try {
-                        await Send_Message(paymentAlliance.id_chat, paymentLog);
-                    } catch (error) {
-                        console.error(`❌ Ошибка отправки лога оплаты в id_chat: ${error}`);
-                    }
-                }
+            if (paidAccessResult.paid) {
+                await Notify_Topic_Paid_Access_Charged(targetUser, topicMonitor.name, paidAccessResult);
+                await Logger(`💳 Списана плата за доступ: UID ${targetUser.id}, обсуждение ${topicMonitor.name}, сумма ${paidAccessResult.price} ${paidAccessResult.coinSmile ?? ""}.`);
             }
         }
 

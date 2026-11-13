@@ -19,26 +19,26 @@ model Account {
 }
 
 model CardTemplate {
-  id          Int       @id @default(autoincrement())
-  alliance    Alliance  @relation(fields: [alliance_id], references: [id], onDelete: Cascade)
+  id          Int        @id @default(autoincrement())
+  alliance    Alliance   @relation(fields: [alliance_id], references: [id], onDelete: Cascade)
   alliance_id Int
   name        String
   image_url   String
   image_path  String?
-  is_default  Boolean   @default(false)
-  created_at  DateTime  @default(now())
+  is_default  Boolean    @default(false)
+  created_at  DateTime   @default(now())
   UserCard    UserCard[]
 }
 
 model UserCard {
-  id          Int          @id @default(autoincrement())
-  user        User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  user_id     Int          @unique
+  id          Int           @id @default(autoincrement())
+  user        User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id     Int           @unique
   attachment  String
   template    CardTemplate? @relation(fields: [template_id], references: [id])
   template_id Int?
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
 }
 
 model AllianceBackground {
@@ -69,94 +69,135 @@ model MonitorSelection {
 }
 
 model Monitor {
-  id                    Int             @id @default(autoincrement())
-  name                  String
-  idvk                  BigInt
-  token                 String
-  alliance               Alliance        @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  id_alliance            Int
-  id_coin                Int?
-  id_topic_coin          Int?
-  id_topic_extra_coin    Int?
-  topicMinPcLines        Int?            @default(1)
-  topicMinPcMessage      String?
-  topicRewardEnabled     Boolean         @default(false)
-  topicLinesRewards      String?
-  topicUniformReward     Float?
-  topicRewardMinLines    Int?            @default(1)
-  topicExtraRewardEnabled Boolean        @default(false)
-  topicExtraLinesRewards String?
-  topicExtraUniformReward Float?
-  topicExtraRewardMinLines Int?          @default(1)
-  cost_like              Int             @default(2)
-  cost_comment           Int             @default(5)
-  cost_post              Int             @default(30)
-  lim_like               Int             @default(3)
-  lim_comment            Int             @default(3)
-  starting               Boolean         @default(false)
-  wall_on                Boolean         @default(true)
-  like_on                Boolean         @default(true)
-  comment_on             Boolean         @default(true)
-  TopicMonitor           TopicMonitor[]
-  Limiter                Limiter[]
-  hashtags               MonitorHashtag[]
+  id                  Int      @id @default(autoincrement())
+  name                String
+  idvk                BigInt
+  token               String
+  alliance            Alliance @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance         Int
+  id_coin             Int?
+  id_topic_coin       Int?
+  id_topic_extra_coin Int?
+
+  paidAccessEnabled Boolean @default(false)
+  paidAccessPrice   Float   @default(30)
+  paidAccessDays    Int     @default(3)
+  paidAccessCoinId  Int?
+
+  topicMinPcLines          Int?    @default(1)
+  topicMinPcMessage        String?
+  topicRewardEnabled       Boolean @default(false)
+  topicLinesRewards        String?
+  topicUniformReward       Float?
+  topicRewardMinLines      Int?    @default(1)
+  topicExtraRewardEnabled  Boolean @default(false)
+  topicExtraLinesRewards   String?
+  topicExtraUniformReward  Float?
+  topicExtraRewardMinLines Int?    @default(1)
+
+  cost_like    Int     @default(2)
+  cost_comment Int     @default(5)
+  cost_post    Int     @default(30)
+  lim_like     Int     @default(3)
+  lim_comment  Int     @default(3)
+  starting     Boolean @default(false)
+  wall_on      Boolean @default(true)
+  like_on      Boolean @default(true)
+  comment_on   Boolean @default(true)
+
+  TopicMonitor     TopicMonitor[]
+  paidAccessTopics MonitorPaidAccessTopic[]
+  Limiter          Limiter[]
+  hashtags         MonitorHashtag[]
 }
 
 model TopicMonitor {
-  id             Int             @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  monitor        Monitor         @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  monitor        Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
   monitorId      Int
   topicUrl       String
   topicId        Int
   minPcLines     Int?
   minPcMessage   String?
-  rewardEnabled  Boolean         @default(false)
+  rewardEnabled  Boolean  @default(false)
   linesRewards   String?
   uniformReward  Float?
   rewardMinLines Int?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  locationAccessEnabled Boolean  @default(false)
-  locationAccessCost    Float    @default(30)
-  locationAccessDays    Int      @default(3)
-  PostStatistic  PostStatistic[]
-  LocationAccess TopicLocationAccess[]
-  AccessExemptions TopicAccessExemption[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Старые поля. Не удалять: они уже присутствуют в SQLite.
+  locationAccessEnabled Boolean @default(false)
+  locationAccessCost    Float   @default(30)
+  locationAccessDays    Int     @default(3)
+
+  // Новые настройки платного доступа.
+  paidAccessMode   String @default("inherit")
+  paidAccessPrice  Float?
+  paidAccessDays   Int?
+  paidAccessCoinId Int?
+
+  PostStatistic          PostStatistic[]
+  paidAccessMonitorLinks MonitorPaidAccessTopic[]
+  paidAccessRecords      TopicPaidAccess[]
+  paidAccessExemptions   TopicPaidAccessExemption[]
+
+  @@unique([monitorId, topicId])
+  @@index([monitorId])
+}
+
+model MonitorPaidAccessTopic {
+  id             Int          @id @default(autoincrement())
+  monitorId      Int
+  topicMonitorId Int          @unique
+  monitor        Monitor      @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  topicMonitor   TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
 
   @@index([monitorId])
-  @@unique([monitorId, topicId])
 }
 
-model TopicLocationAccess {
-  id              Int          @id @default(autoincrement())
-  topicMonitor    TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
-  topicMonitorId  Int
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          Int
-  paidAt          DateTime     @default(now())
-  validUntil      DateTime
+model TopicPaidAccess {
+  id             Int @id @default(autoincrement())
+  topicMonitorId Int
+  userId         Int
+
+  paidAt    DateTime @default(now())
+  paidUntil DateTime @map("validUntil")
+
+  chargedCoinId Int?
+  chargedAmount Float?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  topicMonitor TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
 
   @@unique([topicMonitorId, userId])
-  @@index([topicMonitorId, validUntil])
-  @@index([userId])
+  @@index([userId, paidUntil])
+  @@map("TopicLocationAccess")
 }
 
-model TopicAccessExemption {
-  id              Int          @id @default(autoincrement())
-  topicMonitor    TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
-  topicMonitorId  Int
-  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          Int
-  createdAt       DateTime     @default(now())
+model TopicPaidAccessExemption {
+  id             Int      @id @default(autoincrement())
+  topicMonitorId Int
+  uid            Int      @map("userId")
+  createdAt      DateTime @default(now())
 
-  @@unique([topicMonitorId, userId])
-  @@index([userId])
+  topicMonitor TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+
+
+  @@index([topicMonitorId, uid])
+  @@index([uid])
+  @@map("TopicAccessExemption")
 }
 
 model PostStatistic {
-  id                Int             @id @default(autoincrement())
-  topicMonitor      TopicMonitor    @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
+  id                Int           @id @default(autoincrement())
+  topicMonitor      TopicMonitor  @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
   topicMonitorId    Int
   userId            Int
   postId            Int
@@ -164,20 +205,20 @@ model PostStatistic {
   words             Int
   pc                Float
   mb                Float
-  date              DateTime        @default(now())
+  date              DateTime      @default(now())
   action            String
-  rewardGiven       Boolean         @default(false)
+  rewardGiven       Boolean       @default(false)
   rewardAmount      Float?
   rewardCoinId      Int?
-  extraRewardGiven  Boolean         @default(false)
+  extraRewardGiven  Boolean       @default(false)
   extraRewardAmount Float?
   extraRewardCoinId Int?
   hashtags          PostHashtag[]
 
+  @@unique([topicMonitorId, postId])
   @@index([topicMonitorId])
   @@index([userId])
   @@index([date])
-  @@unique([topicMonitorId, postId])
 }
 
 model PostHashtag {
@@ -216,48 +257,47 @@ model Limiter {
 }
 
 model User {
-  id                    Int                     @id @default(autoincrement())
-  name                  String
-  class                 String
-  idvk                  BigInt
-  spec                  String
-  id_alliance           Int?
-  medal                 Int                     @default(5)
-  scoopins              Int                     @default(0)
-  id_facult             Int?
-  private               Boolean                 @default(false)
-  notification          Boolean                 @default(true)
-  notification_topic    Boolean                 @default(true)
-  crdate                DateTime                @default(now())
-  id_role               Int                     @default(1)
-  role                  Role                    @relation(fields: [id_role], references: [id], onDelete: Cascade)
-  id_account            Int                     @default(1)
-  account               Account                 @relation(fields: [id_account], references: [id], onDelete: Cascade)
-  comment               String?
-  card_image            String?
-  customRoleId          Int?
-  customRole            CustomRole?             @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
-  Artefact              Artefact[]
-  Inventory             Inventory[]
-  Trigger               Trigger[]
-  Achievement           Achievement[]
-  Analyzer              Analyzer[]
-  BalanceCoin           BalanceCoin[]
-  Limiter               Limiter[]
-  MonitorSelection      MonitorSelection[]
-  UserCard              UserCard?
-  userSkills            UserSkill[]
-  userAbilities         UserAbility[]
-  salary_coin_id        Int?                    @map("salary_coin_id")
-  salary_amount         Float?                  @map("salary_amount")
-  rpWorkSettings        RpWorkSettings[]
-  rpWritingGoals        RpWritingGoal[]
-  TopicLocationAccess   TopicLocationAccess[]
-  TopicAccessExemptions TopicAccessExemption[]
+  id                     Int                @id @default(autoincrement())
+  name                   String
+  class                  String
+  idvk                   BigInt
+  spec                   String
+  id_alliance            Int?
+  medal                  Int                @default(5)
+  scoopins               Int                @default(0)
+  id_facult              Int?
+  private                Boolean            @default(false)
+  notification           Boolean            @default(true)
+  notification_topic     Boolean            @default(true)
+  crdate                 DateTime           @default(now())
+  id_role                Int                @default(1)
+  role                   Role               @relation(fields: [id_role], references: [id], onDelete: Cascade)
+  id_account             Int                @default(1)
+  account                Account            @relation(fields: [id_account], references: [id], onDelete: Cascade)
+  comment                String?
+  card_image             String?
+  customRoleId           Int?
+  customRole             CustomRole?        @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  Artefact               Artefact[]
+  Inventory              Inventory[]
+  Trigger                Trigger[]
+  Achievement            Achievement[]
+  Analyzer               Analyzer[]
+  BalanceCoin            BalanceCoin[]
+  Limiter                Limiter[]
+  MonitorSelection       MonitorSelection[]
+  UserCard               UserCard?
+  userSkills             UserSkill[]
+  userAbilities          UserAbility[]
+  salary_coin_id         Int?               @map("salary_coin_id")
+  salary_amount          Float?             @map("salary_amount")
+  rpWorkSettings         RpWorkSettings[]
+  rpWritingGoals         RpWritingGoal[]
+  topicPaidAccessRecords TopicPaidAccess[]
 }
 
 model BlackBox {
-  id   Int @id @default(autoincrement())
+  id   Int    @id @default(autoincrement())
   idvk BigInt @unique
 }
 
@@ -268,42 +308,46 @@ model Role {
 }
 
 model CustomRole {
-  id                    Int      @id @default(autoincrement())
-  name                  String
-  allianceId            Int
-  alliance              Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  canMassOperations     Boolean  @default(false)
-  canMassKick           Boolean  @default(false)
-  canManageRoles        Boolean  @default(false)
-  canManageRolesAssign  Boolean  @default(false)
-  canManageShops        Boolean  @default(false)
-  canManageAbilities    Boolean  @default(false)
-  canManageSkills       Boolean  @default(false)
-  canManageChests       Boolean  @default(false)
-  canManageLegacy       Boolean  @default(false)
-  canManageBackgrounds  Boolean  @default(false)
-  canManageFacults      Boolean  @default(false)
+  id         Int      @id @default(autoincrement())
+  name       String
+  allianceId Int
+  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+
+  canMassOperations      Boolean @default(false)
+  canMassKick            Boolean @default(false)
+  canManageRoles         Boolean @default(false)
+  canManageRolesAssign   Boolean @default(false)
+  canManageShops         Boolean @default(false)
+  canManageAbilities     Boolean @default(false)
+  canManageSkills        Boolean @default(false)
+  canManageChests        Boolean @default(false)
+  canManageLegacy        Boolean @default(false)
+  canManageBackgrounds   Boolean @default(false)
+  canManageFacults       Boolean @default(false)
   canManageClassSettings Boolean @default(false)
-  canManageYearEnd      Boolean  @default(false)
-  canManageSalary       Boolean  @default(false)
-  canManageFinance      Boolean  @default(false)
-  canManageConverter    Boolean  @default(false)
-  canManageScoopins     Boolean  @default(false)
-  canManageMonitors     Boolean  @default(false)
-  canManageTopics       Boolean  @default(false)
-  canViewAllUsers       Boolean  @default(false)
-  canViewInventoryAll   Boolean  @default(false)
-  canEditAllUsers       Boolean  @default(false)
-  canEditInventoryAll   Boolean  @default(false)
-  canGiveItemsAll       Boolean  @default(false)
-  canEditCoins          Boolean  @default(false)
-  canUpgradeOthers      Boolean  @default(false)
-  canAssignAbility      Boolean  @default(false)
-  canAssignSkill        Boolean  @default(false)
-  canAssignShopOwner    Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  users                 User[]
+  canManageYearEnd       Boolean @default(false)
+  canManageSalary        Boolean @default(false)
+  canManageFinance       Boolean @default(false)
+  canManageConverter     Boolean @default(false)
+  canManageScoopins      Boolean @default(false)
+  canManageMonitors      Boolean @default(false)
+  canManageTopics        Boolean @default(false)
+
+  canViewAllUsers     Boolean @default(false)
+  canViewInventoryAll Boolean @default(false)
+  canEditAllUsers     Boolean @default(false)
+  canEditInventoryAll Boolean @default(false)
+  canGiveItemsAll     Boolean @default(false)
+  canEditCoins        Boolean @default(false)
+  canUpgradeOthers    Boolean @default(false)
+  canAssignAbility    Boolean @default(false)
+  canAssignSkill      Boolean @default(false)
+  canAssignShopOwner  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
 
   @@unique([allianceId, name])
   @@index([allianceId])
@@ -393,57 +437,57 @@ model Analyzer {
 }
 
 model Alliance {
-  id                       Int                           @id @default(autoincrement())
-  name                     String
-  idvk                     BigInt
-  hidden                   Boolean                       @default(false)
-  id_chat                  Int                           @default(0)
-  id_chat_monitor          Int                           @default(0)
-  id_chat_shop             Int                           @default(0)
-  id_chat_ability          Int                           @default(0)
-  id_chat_topic            Int                           @default(0)
-  AllianceCoin             AllianceCoin[]
-  AllianceFacult           AllianceFacult[]
-  Monitor                  Monitor[]
-  Shop                     AllianceShop[]
-  terminology              AllianceTerminology?
-  MonitorSelection         MonitorSelection[]
-  classSettings            AllianceClassSetting?
-  Chests                   AllianceChest[]
-  CardTemplate             CardTemplate[]
-  AllianceBackground       AllianceBackground[]
-  skillLevels              SkillLevel[]
-  skillCategories          SkillCategory[]
-  skills                   Skill[]
-  abilityCategories        AbilityCategory[]
-  internalConversions      AllianceCoinInternalConversion[]
-  CustomRole               CustomRole[]
-  salarySettings           SalarySettings?
-  notificationTemplates    NotificationTemplate[]
-  rpWorkSettings           RpWorkSettings[]
-  rpWritingGoals           RpWritingGoal[]
-  rpWorkTemplates          RpWorkTemplate[]
+  id                    Int                              @id @default(autoincrement())
+  name                  String
+  idvk                  BigInt
+  hidden                Boolean                          @default(false)
+  id_chat               Int                              @default(0)
+  id_chat_monitor       Int                              @default(0)
+  id_chat_shop          Int                              @default(0)
+  id_chat_ability       Int                              @default(0)
+  id_chat_topic         Int                              @default(0)
+  AllianceCoin          AllianceCoin[]
+  AllianceFacult        AllianceFacult[]
+  Monitor               Monitor[]
+  Shop                  AllianceShop[]
+  terminology           AllianceTerminology?
+  MonitorSelection      MonitorSelection[]
+  classSettings         AllianceClassSetting?
+  Chests                AllianceChest[]
+  CardTemplate          CardTemplate[]
+  AllianceBackground    AllianceBackground[]
+  skillLevels           SkillLevel[]
+  skillCategories       SkillCategory[]
+  skills                Skill[]
+  abilityCategories     AbilityCategory[]
+  internalConversions   AllianceCoinInternalConversion[]
+  CustomRole            CustomRole[]
+  salarySettings        SalarySettings?
+  notificationTemplates NotificationTemplate[]
+  rpWorkSettings        RpWorkSettings[]
+  rpWritingGoals        RpWritingGoal[]
+  rpWorkTemplates       RpWorkTemplate[]
 }
 
 model AllianceCoin {
-  id                     Int                           @id @default(autoincrement())
-  name                   String
-  smile                  String
-  point                  Boolean                       @default(false)
-  converted              Boolean                       @default(true)
-  converted_point        Boolean                       @default(false)
-  sbp_on                 Boolean                       @default(false)
-  course_medal           Int                           @default(1)
-  course_coin            Int                           @default(1)
-  scoopins_converted     Boolean                       @default(false)
-  course_scoopins_medal  Int                           @default(1)
-  course_scoopins_coin   Int                           @default(1)
-  order                  Int                           @default(0)
-  alliance               Alliance                      @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  id_alliance            Int
-  BalanceCoin            BalanceCoin[]
-  BalanceFacult          BalanceFacult[]
-  abilities              Ability[]
+  id                        Int                              @id @default(autoincrement())
+  name                      String
+  smile                     String
+  point                     Boolean                          @default(false)
+  converted                 Boolean                          @default(true)
+  converted_point           Boolean                          @default(false)
+  sbp_on                    Boolean                          @default(false)
+  course_medal              Int                              @default(1)
+  course_coin               Int                              @default(1)
+  scoopins_converted        Boolean                          @default(false)
+  course_scoopins_medal     Int                              @default(1)
+  course_scoopins_coin      Int                              @default(1)
+  order                     Int                              @default(0)
+  alliance                  Alliance                         @relation(fields: [id_alliance], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id_alliance               Int
+  BalanceCoin               BalanceCoin[]
+  BalanceFacult             BalanceFacult[]
+  abilities                 Ability[]
   sourceInternalConversions AllianceCoinInternalConversion[] @relation("InternalConversionSource")
   targetInternalConversions AllianceCoinInternalConversion[] @relation("InternalConversionTarget")
 }
@@ -541,30 +585,30 @@ model AllianceTerminology {
 }
 
 model AllianceClassSetting {
-  id        Int      @id @default(autoincrement())
-  alliance  Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  allianceId Int     @unique
-  mode      String   @default("default")
-  option1   String?  @default("Ученик")
-  option2   String?  @default("Житель")
-  option3   String?  @default("Профессор")
-  option4   String?  @default("Декан")
-  option5   String?  @default("Бизнесвумен(мэн)")
-  option6   String?  @default("Другое")
-  updatedAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId Int      @unique
+  mode       String   @default("default")
+  option1    String?  @default("Ученик")
+  option2    String?  @default("Житель")
+  option3    String?  @default("Профессор")
+  option4    String?  @default("Декан")
+  option5    String?  @default("Бизнесвумен(мэн)")
+  option6    String?  @default("Другое")
+  updatedAt  DateTime @default(now())
 }
 
 model AllianceChest {
-  id            Int                 @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   name          String
   id_alliance   Int
-  alliance      Alliance            @relation(fields: [id_alliance], references: [id], onDelete: Cascade)
+  alliance      Alliance        @relation(fields: [id_alliance], references: [id], onDelete: Cascade)
   id_parent     Int?
-  order         Int                 @default(0)
+  order         Int             @default(0)
   ChestItemLink ChestItemLink[]
   CategoryChest CategoryChest[]
-  Children      AllianceChest[]     @relation("ParentChild")
-  Parent        AllianceChest?      @relation("ParentChild", fields: [id_parent], references: [id])
+  Children      AllianceChest[] @relation("ParentChild")
+  Parent        AllianceChest?  @relation("ParentChild", fields: [id_parent], references: [id])
 
   @@unique([id_alliance, name])
 }
@@ -575,7 +619,6 @@ model ChestItemLink {
   id_inventory Int           @unique
   chest        AllianceChest @relation(fields: [id_chest], references: [id], onDelete: Cascade)
   inventory    Inventory     @relation(fields: [id_inventory], references: [id], onDelete: Cascade)
-
 }
 
 model CategoryChest {
@@ -588,31 +631,31 @@ model CategoryChest {
 }
 
 model SkillLevel {
-  id        Int       @id @default(autoincrement())
-  alliance  Alliance  @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  id         Int         @id @default(autoincrement())
+  alliance   Alliance    @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   allianceId Int
-  name      String
-  order     Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  name       String
+  order      Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
   userSkills UserSkill[]
-  abilities Ability[]
+  abilities  Ability[]
 
   @@unique([allianceId, name])
   @@index([allianceId, order])
 }
 
 model SkillCategory {
-  id          Int       @id @default(autoincrement())
-  alliance    Alliance  @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  alliance    Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   allianceId  Int
   name        String
   description String?
   image       String?
-  hidden      Boolean   @default(false)
-  order       Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  hidden      Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   skills      Skill[]
 
   @@unique([allianceId, name])
@@ -640,16 +683,16 @@ model Skill {
 }
 
 model UserSkill {
-  id        Int        @id @default(autoincrement())
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        Int         @id @default(autoincrement())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    Int
-  skill     Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skill     Skill       @relation(fields: [skillId], references: [id], onDelete: Cascade)
   skillId   Int
   level     SkillLevel? @relation(fields: [levelId], references: [id])
   levelId   Int?
-  progress  Float      @default(0)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  progress  Float       @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@unique([userId, skillId])
   @@index([userId])
@@ -658,35 +701,35 @@ model UserSkill {
 }
 
 model AbilityCategory {
-  id        Int       @id @default(autoincrement())
-  name      String
+  id         Int       @id @default(autoincrement())
+  name       String
   allianceId Int
-  alliance  Alliance  @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  order     Int       @default(0)
-  hidden    Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  abilities Ability[]
+  alliance   Alliance  @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  order      Int       @default(0)
+  hidden     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  abilities  Ability[]
 
   @@unique([allianceId, name])
   @@index([allianceId, order])
 }
 
 model Ability {
-  id          Int             @id @default(autoincrement())
-  name        String
-  description String?
-  categoryId  Int
-  category    AbilityCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  currencyId  Int
-  currency    AllianceCoin    @relation(fields: [currencyId], references: [id])
-  prices      String?
-  maxLevelId  Int?
-  maxLevel    SkillLevel?     @relation(fields: [maxLevelId], references: [id])
-  order       Int             @default(0)
-  hidden      Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id            Int             @id @default(autoincrement())
+  name          String
+  description   String?
+  categoryId    Int
+  category      AbilityCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  currencyId    Int
+  currency      AllianceCoin    @relation(fields: [currencyId], references: [id])
+  prices        String?
+  maxLevelId    Int?
+  maxLevel      SkillLevel?     @relation(fields: [maxLevelId], references: [id])
+  order         Int             @default(0)
+  hidden        Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   userAbilities UserAbility[]
 
   @@unique([categoryId, name])
@@ -732,25 +775,25 @@ model NotificationTemplate {
 }
 
 model RpWorkSettings {
-  id               Int      @id @default(autoincrement())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId           Int
-  alliance         Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  allianceId       Int
-  ratePerPc        Float    @default(0)
-  highSeniority    Boolean  @default(false)
-  seniorityBonus   Float    @default(0)
-  bonusLabel       String   @default("Дополнительная выплата")
-  minimumPcPerYear Float    @default(10)
-  workScope        String   @default("all")
-  workHashtag      String?
-  workYearStart    DateTime?
-  workYearEnd      DateTime?
-  lifeHashtag      String   @default("")
-  lifeTierRates    String   @default("[]")
-  goalSettingsMigrated Boolean @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                   Int       @id @default(autoincrement())
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               Int
+  alliance             Alliance  @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId           Int
+  ratePerPc            Float     @default(0)
+  highSeniority        Boolean   @default(false)
+  seniorityBonus       Float     @default(0)
+  bonusLabel           String    @default("Дополнительная выплата")
+  minimumPcPerYear     Float     @default(10)
+  workScope            String    @default("all")
+  workHashtag          String?
+  workYearStart        DateTime?
+  workYearEnd          DateTime?
+  lifeHashtag          String    @default("")
+  lifeTierRates        String    @default("[]")
+  goalSettingsMigrated Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@unique([userId, allianceId])
   @@index([allianceId])
@@ -758,33 +801,32 @@ model RpWorkSettings {
 }
 
 model RpWritingGoal {
-  id         Int      @id @default(autoincrement())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     Int
-  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  allianceId Int
-  name       String
-  hashtag    String?
-  trackingMode     String   @default("all")
-  trackingHashtags String   @default("[]")
-  tierRates        String   @default("[]")
-  targetPc   Float
-  ratePerPc  Float    @default(0)
-  minimumPc  Int      @default(10)
-  extraPaymentEnabled Boolean @default(false)
-  extraPaymentLabel   String  @default("Дополнительная выплата")
-  extraPaymentAmount  Float   @default(0)
-  startDate  DateTime
-  endDate    DateTime
+  id                        Int      @id @default(autoincrement())
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                    Int
+  alliance                  Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId                Int
+  name                      String
+  hashtag                   String?
+  trackingMode              String   @default("all")
+  trackingHashtags          String   @default("[]")
+  tierRates                 String   @default("[]")
+  targetPc                  Float
+  ratePerPc                 Float    @default(0)
+  minimumPc                 Int      @default(10)
+  extraPaymentEnabled       Boolean  @default(false)
+  extraPaymentLabel         String   @default("Дополнительная выплата")
+  extraPaymentAmount        Float    @default(0)
+  startDate                 DateTime
+  endDate                   DateTime
   completionNotified        Boolean  @default(false)
   completionNotifiedSuccess Boolean?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   @@index([userId, allianceId])
   @@index([startDate, endDate])
 }
-
 
 model RpWorkTemplate {
   id              Int      @id @default(autoincrement())
