@@ -637,3 +637,4 @@ async function Edit_Facult(id: number, context: any, user_adm: User){
             break;
         }
 }
+

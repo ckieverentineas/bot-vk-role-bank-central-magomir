@@ -69,3 +69,4 @@ export async function Facult_Coin_Printer_Self(context: any, id: number) {
     }
     return res
 }
+

@@ -109,6 +109,19 @@ model Monitor {
   paidAccessTopics MonitorPaidAccessTopic[]
   Limiter          Limiter[]
   hashtags         MonitorHashtag[]
+  topicGroups      MonitorTopicGroup[]
+}
+
+model MonitorTopicGroup {
+  id        Int           @id @default(autoincrement())
+  monitorId Int
+  monitor   Monitor       @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime      @default(now())
+  topics    TopicMonitor[]
+
+  @@unique([monitorId, name])
+  @@index([monitorId])
 }
 
 model TopicMonitor {
@@ -132,11 +145,15 @@ model TopicMonitor {
   locationAccessCost    Float   @default(30)
   locationAccessDays    Int     @default(3)
 
-  // Новые настройки платного доступа.
+  // Настройки платного доступа.
   paidAccessMode   String @default("inherit")
   paidAccessPrice  Float?
   paidAccessDays   Int?
   paidAccessCoinId Int?
+
+  // Группа обсуждений внутри монитора.
+  paidAccessGroupId Int?
+  paidAccessGroup   MonitorTopicGroup? @relation(fields: [paidAccessGroupId], references: [id], onDelete: SetNull)
 
   PostStatistic          PostStatistic[]
   paidAccessMonitorLinks MonitorPaidAccessTopic[]
@@ -145,6 +162,7 @@ model TopicMonitor {
 
   @@unique([monitorId, topicId])
   @@index([monitorId])
+  @@index([paidAccessGroupId])
 }
 
 model MonitorPaidAccessTopic {
@@ -175,7 +193,6 @@ model TopicPaidAccess {
   topicMonitor TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-
   @@unique([topicMonitorId, userId])
   @@index([userId, paidUntil])
   @@map("TopicLocationAccess")
@@ -188,7 +205,6 @@ model TopicPaidAccessExemption {
   createdAt      DateTime @default(now())
 
   topicMonitor TopicMonitor @relation(fields: [topicMonitorId], references: [id], onDelete: Cascade)
-
 
   @@index([topicMonitorId, uid])
   @@index([uid])
@@ -370,8 +386,11 @@ model Inventory {
   type          String         @default("item_shop")
   comment       String?
   purchaseDate  DateTime?
+  expiresAt     DateTime?
   user          User           @relation(fields: [id_user], references: [id], onDelete: Cascade)
   ChestItemLink ChestItemLink?
+
+  @@index([expiresAt])
 }
 
 model Item {
@@ -553,19 +572,22 @@ model AllianceShopCategory {
 }
 
 model AllianceShopItem {
-  id           Int     @id @default(autoincrement())
-  name         String
-  description  String?
-  image        String?
-  price        Float
-  id_coin      Int
-  limit        Int
-  limit_tr     Boolean
-  inventory_tr Boolean @default(true)
-  hidden       Boolean @default(false)
-  id_shop      Int
-  isBundle     Boolean @default(false)
-  bundleItems  String?
+  id             Int     @id @default(autoincrement())
+  name           String
+  description    String?
+  image          String?
+  price          Float
+  id_coin        Int
+  limit          Int
+  limit_tr       Boolean
+  inventory_tr   Boolean @default(true)
+  hidden         Boolean @default(false)
+  id_shop        Int
+  isBundle       Boolean @default(false)
+  bundleItems    String?
+
+  // Срок годности в днях. Null — бессрочный предмет.
+  expirationDays Int?
 }
 
 model AllianceTerminology {

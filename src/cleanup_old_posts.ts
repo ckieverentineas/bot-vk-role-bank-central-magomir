@@ -112,3 +112,4 @@ function Next_Day_UTC(date: Date): Date {
     next.setUTCDate(next.getUTCDate() + 1);
     return next;
 }
+

@@ -510,3 +510,4 @@ export async function Alliance_Enter_Admin(context:any, page: number = 1) {
     await Logger(`In a private chat, the alliance card is viewed by user ${get_user.idvk}`)
     await Send_Message(context.peerId, text, keyboard)
 }
+

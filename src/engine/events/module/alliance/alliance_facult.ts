@@ -305,3 +305,4 @@ async function Alliance_Facult_Terminology(context: any, data: any, alliance: Al
     
     return res;
 }
+

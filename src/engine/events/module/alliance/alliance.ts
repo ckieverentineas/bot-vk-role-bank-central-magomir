@@ -247,3 +247,4 @@ export async function Alliance_Updater(context: any) {
     }
     await Send_Message(context.senderId, `${ico_list['success'].ico} Процесс сверки названий ролевых проектов завершен!`)
 }
+

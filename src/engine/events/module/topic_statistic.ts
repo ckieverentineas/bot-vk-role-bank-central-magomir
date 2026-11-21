@@ -218,3 +218,4 @@ export async function rewardForPost(
 
     return 0;
 }
+

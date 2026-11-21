@@ -29,6 +29,7 @@ import { deductAbilityCost, getAllianceLevels, getLevelName } from './engine/eve
 import { PrismaClient } from '@prisma/client';
 import { PlayerStatistics } from './engine/events/module/statistics/player_statistics';
 import { RP_Work_Settings_Enter, RP_Work_Settings_ProcessInput, RP_Work_Goals_CheckDeadlines } from './engine/events/module/rp_work';
+import { Cleanup_Expired_Inventory_Items } from './engine/events/module/shop/inventory_expiration';
 
 const prisma = new PrismaClient();
 
@@ -543,6 +544,17 @@ initializeGroupId().then(async () => {
 
         // Проверяем планы, срок которых истёк, даже если после даты окончания не было новых постов.
         await RP_Work_Goals_CheckDeadlines();
+
+        // Удаляем предметы, чей срок годности истёк; повторная проверка — раз в 5 минут.
+        await Cleanup_Expired_Inventory_Items().catch((error: any) => {
+            Logger(`Inventory expiration cleanup error: ${error?.message ?? error}`);
+        });
+        setInterval(() => {
+            Cleanup_Expired_Inventory_Items().catch((error: any) => {
+                Logger(`Inventory expiration cleanup error: ${error?.message ?? error}`);
+            });
+        }, 5 * 60 * 1000);
+
         setInterval(() => {
             RP_Work_Goals_CheckDeadlines().catch((error: any) => {
                 Logger(`RP goal deadline checker error: ${error?.message ?? error}`);

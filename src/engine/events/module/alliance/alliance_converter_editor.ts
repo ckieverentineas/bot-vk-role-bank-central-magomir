@@ -1741,3 +1741,4 @@ async function Alliance_Coin_Next(context: any, data: any, alliance: Alliance, t
 async function Alliance_Coin_Back(context: any, data: any, alliance: Alliance, type: string) {
     return { cursor: data.cursor - 5 };
 }
+

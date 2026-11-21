@@ -88,3 +88,4 @@ const selectedPerson = await createCarousel(
     (item) => `${ico_list['person'].ico} ${item.id}-${item.name.slice(0, 30)}`, // labelExtractor
     (item, index) => ({ command: 'builder_control', id_item_sent: index, id_item: item.id }) // payloadExtractor
 );*/
+

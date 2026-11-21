@@ -711,3 +711,4 @@ export async function hasCommunityDonorAdmin(allianceId: number): Promise<boolea
 
     return false;
 }
+

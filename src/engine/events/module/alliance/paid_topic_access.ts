@@ -1,8 +1,8 @@
-
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Format_Number_Correction, Send_Message } from "../../../core/helper";
+import { Add_Exact_Days, Get_App_Time_Zone, Format_App_Date_Time } from "../../../core/date_time";
 
 type AccessResult = {
     allowed: boolean;
@@ -77,6 +77,11 @@ export async function Paid_Access_Monitor_Settings(
                 label: "📍 Выбрать обсуждения",
                 payload: { command: "paid_monitor_topics" },
                 color: "primary"
+            })
+            .textButton({
+                label: "🗂 Группы обсуждений",
+                payload: { command: "paid_monitor_groups" },
+                color: "primary"
             }).row()
             .textButton({
                 label: "🚫 Исключения по UID",
@@ -99,7 +104,7 @@ export async function Paid_Access_Monitor_Settings(
             `Монитор: ${monitor.name}\n\n` +
             `Статус: ${monitor.paidAccessEnabled ? "включён" : "выключен"}\n` +
             `Стоимость: ${monitor.paidAccessPrice} ${coin?.smile ?? ""}\n` +
-            `Срок: ${monitor.paidAccessDays} календарных дней\n` +
+            `Срок: ${monitor.paidAccessDays} суток (по 24 часа)\n` +
             `Валюта: ${coin ? `${coin.smile} ${coin.name}` : "не выбрана"}\n\n` +
             `Обсуждения (${selected.length}):\n${selectedNames}\n\n` +
             `В индивидуальных настройках обсуждения можно переопределить параметры.`,
@@ -175,6 +180,10 @@ export async function Paid_Access_Monitor_Settings(
 
             case "paid_monitor_topics":
                 await manageMonitorTopics(context, monitorId);
+                break;
+
+            case "paid_monitor_groups":
+                await manageTopicGroups(context, monitorId);
                 break;
 
             case "paid_monitor_exemptions":
@@ -425,10 +434,26 @@ export async function Ensure_Topic_Paid_Access(
         return { allowed: true, paid: false };
     }
 
+    // В группе все обсуждения используют одну оплату. Если обсуждение не состоит
+    // в группе, область оплаты ограничивается им самим.
+    const groupTopics = topicMonitor.paidAccessGroupId
+        ? await prisma.topicMonitor.findMany({
+            where: {
+                monitorId: monitor.id,
+                paidAccessGroupId: topicMonitor.paidAccessGroupId
+            },
+            select: { id: true }
+        })
+        : [{ id: topicMonitor.id }];
+    const accessTopicIds = Array.from(new Set([
+        topicMonitor.id,
+        ...groupTopics.map((entry: any) => entry.id)
+    ]));
+
     const selectedForMonitor = await prisma.monitorPaidAccessTopic.findFirst({
         where: {
             monitorId: monitor.id,
-            topicMonitorId: topicMonitor.id
+            topicMonitorId: { in: accessTopicIds }
         }
     });
 
@@ -442,9 +467,10 @@ export async function Ensure_Topic_Paid_Access(
         return { allowed: true, paid: false };
     }
 
+    // UID-исключение, заданное для любой локации группы, действует на всю группу.
     const exemption = await prisma.topicPaidAccessExemption.findFirst({
         where: {
-            topicMonitorId: topicMonitor.id,
+            topicMonitorId: { in: accessTopicIds },
             uid: user.id
         }
     });
@@ -453,19 +479,36 @@ export async function Ensure_Topic_Paid_Access(
         return { allowed: true, paid: false };
     }
 
-    const existingAccess = await prisma.topicPaidAccess.findUnique({
-        where: {
-            topicMonitorId_userId: {
-                topicMonitorId: topicMonitor.id,
-                userId: user.id
-            }
-        }
-    });
-
     const now = new Date();
 
-    // Старые записи с NULL paidUntil не считаются действующей оплатой.
+    // Ищем действующую оплату в любом обсуждении группы, а не только в текущем.
+    const existingAccess = await prisma.topicPaidAccess.findFirst({
+        where: {
+            topicMonitorId: { in: accessTopicIds },
+            userId: user.id,
+            paidUntil: { gt: now }
+        },
+        orderBy: { paidUntil: "desc" }
+    });
+
     if (existingAccess?.paidUntil && existingAccess.paidUntil > now) {
+        // Синхронизируем срок на текущую локацию, если запись отсутствовала.
+        await prisma.topicPaidAccess.upsert({
+            where: {
+                topicMonitorId_userId: {
+                    topicMonitorId: topicMonitor.id,
+                    userId: user.id
+                }
+            },
+            create: {
+                topicMonitorId: topicMonitor.id,
+                userId: user.id,
+                paidUntil: existingAccess.paidUntil,
+                chargedCoinId: existingAccess.chargedCoinId,
+                chargedAmount: existingAccess.chargedAmount
+            },
+            update: { paidUntil: existingAccess.paidUntil }
+        });
         return {
             allowed: true,
             paid: false,
@@ -520,7 +563,8 @@ export async function Ensure_Topic_Paid_Access(
         };
     }
 
-    const paidUntil = startOfTodayPlusDays(days);
+    const purchasedAt = new Date();
+    const paidUntil = Add_Exact_Days(purchasedAt, days);
 
     const charge = await prisma.$transaction(async (tx) => {
 
@@ -574,26 +618,29 @@ export async function Ensure_Topic_Paid_Access(
             }
         }
 
-        await tx.topicPaidAccess.upsert({
-            where: {
-                topicMonitorId_userId: {
-                    topicMonitorId: topicMonitor.id,
-                    userId: user.id
+        // Одна оплата открывает текущую локацию и все обсуждения её группы.
+        for (const accessTopicId of accessTopicIds) {
+            await tx.topicPaidAccess.upsert({
+                where: {
+                    topicMonitorId_userId: {
+                        topicMonitorId: accessTopicId,
+                        userId: user.id
+                    }
+                },
+                create: {
+                    topicMonitorId: accessTopicId,
+                    userId: user.id,
+                    paidUntil,
+                    chargedCoinId: coinId,
+                    chargedAmount: price
+                },
+                update: {
+                    paidUntil,
+                    chargedCoinId: coinId,
+                    chargedAmount: price
                 }
-            },
-            create: {
-                topicMonitorId: topicMonitor.id,
-                userId: user.id,
-                paidUntil,
-                chargedCoinId: coinId,
-                chargedAmount: price
-            },
-            update: {
-                paidUntil,
-                chargedCoinId: coinId,
-                chargedAmount: price
-            }
-        });
+            });
+        }
 
         return {
             success: true as const,
@@ -675,9 +722,10 @@ async function manageMonitorTopics(
 
         for (const topic of topics) {
             const isSelected = selectedIds.has(topic.id);
+            const groupLabel = topic.paidAccessGroupId ? " 🗂" : "";
 
             keyboard.textButton({
-                label: `${isSelected ? "✅" : "▫️"} ${topic.name.slice(0, 24)}`,
+                label: `${isSelected ? "✅" : "▫️"}${groupLabel} ${topic.name.slice(0, 21)}`,
                 payload: {
                     command: "paid_topic_toggle_selection",
                     topicMonitorId: topic.id
@@ -746,6 +794,14 @@ async function manageMonitorTopics(
                 });
 
                 if (link) {
+                    const topic = await prisma.topicMonitor.findFirst({
+                        where: { id: topicMonitorId, monitorId },
+                        select: { paidAccessGroupId: true }
+                    });
+                    if (topic?.paidAccessGroupId) {
+                        await context.send("Сначала удалите обсуждение из группы. Иначе группа перестанет работать как единый доступ.");
+                        break;
+                    }
                     await prisma.monitorPaidAccessTopic.delete({
                         where: { id: link.id }
                     });
@@ -786,16 +842,307 @@ async function manageMonitorTopics(
                 break;
             }
 
-            case "paid_topics_clear":
-                await prisma.monitorPaidAccessTopic.deleteMany({
-                    where: { monitorId }
+            case "paid_topics_clear": {
+                const groupedTopics = await prisma.topicMonitor.findMany({
+                    where: { monitorId, paidAccessGroupId: { not: null } },
+                    select: { id: true }
                 });
+                const groupedIds = groupedTopics.map((topic: any) => topic.id);
+                if (groupedIds.length > 0) {
+                    await prisma.monitorPaidAccessTopic.deleteMany({
+                        where: {
+                            monitorId,
+                            topicMonitorId: { notIn: groupedIds }
+                        }
+                    });
+                } else {
+                    await prisma.monitorPaidAccessTopic.deleteMany({ where: { monitorId } });
+                }
                 cursor = 0;
                 break;
+            }
 
             default:
                 await context.send("Нажмите одну из кнопок списка.");
                 break;
+        }
+    }
+}
+
+/**
+ * Группировка обсуждений внутри конкретного монитора.
+ * Назначение обсуждения в группу автоматически включает его в список платных локаций.
+ */
+async function manageTopicGroups(context: any, monitorId: number): Promise<void> {
+    let exit = false;
+
+    while (!exit) {
+        const groups = await prisma.monitorTopicGroup.findMany({
+            where: { monitorId },
+            orderBy: { name: "asc" }
+        });
+        const counts = await prisma.topicMonitor.groupBy({
+            by: ["paidAccessGroupId"],
+            where: { monitorId, paidAccessGroupId: { not: null } },
+            _count: { _all: true }
+        });
+        const countByGroup = new Map<number, number>();
+        for (const entry of counts) {
+            if (entry.paidAccessGroupId !== null) {
+                countByGroup.set(entry.paidAccessGroupId, entry._count._all);
+            }
+        }
+
+        const keyboard = new KeyboardBuilder();
+        for (const group of groups) {
+            keyboard.textButton({
+                label: `🗂 ${group.name.slice(0, 28)} (${countByGroup.get(group.id) ?? 0})`,
+                payload: { command: "paid_group_open", groupId: group.id },
+                color: "secondary"
+            }).row();
+        }
+
+        keyboard.textButton({
+            label: "➕ Создать группу",
+            payload: { command: "paid_group_create" },
+            color: "positive"
+        }).row()
+        .textButton({
+            label: "↩️ Назад",
+            payload: { command: "paid_group_back" },
+            color: "secondary"
+        }).oneTime();
+
+        const answer: any = await context.question(
+            `🗂 Группы обсуждений монитора\n\n` +
+            `Оплата любого обсуждения внутри группы откроет все обсуждения этой группы.\n` +
+            `Обсуждение может входить только в одну группу.\n\n` +
+            (groups.length ? "Выберите группу для настройки:" : "Групп пока нет."),
+            { keyboard, answerTimeLimit }
+        );
+
+        if (answer.isTimeout || answer.payload?.command === "paid_group_back") {
+            exit = true;
+            continue;
+        }
+
+        if (answer.payload?.command === "paid_group_create") {
+            const nameAnswer: any = await context.question(
+                "Введите название новой группы обсуждений (до 40 символов):",
+                { answerTimeLimit }
+            );
+            if (nameAnswer.isTimeout) continue;
+            const name = String(nameAnswer.text ?? "").trim().slice(0, 40);
+            if (!name) {
+                await context.send("❌ Название группы не может быть пустым.");
+                continue;
+            }
+            try {
+                const group = await prisma.monitorTopicGroup.create({
+                    data: { monitorId, name }
+                });
+                await manageTopicGroup(context, monitorId, group.id);
+            } catch (error) {
+                await context.send("❌ Не удалось создать группу. Проверьте, нет ли группы с таким названием.");
+            }
+            continue;
+        }
+
+        if (answer.payload?.command === "paid_group_open") {
+            const groupId = Number(answer.payload.groupId);
+            if (Number.isInteger(groupId) && groupId > 0) {
+                await manageTopicGroup(context, monitorId, groupId);
+            }
+        }
+    }
+}
+
+async function manageTopicGroup(context: any, monitorId: number, groupId: number): Promise<void> {
+    let exit = false;
+
+    while (!exit) {
+        const group = await prisma.monitorTopicGroup.findFirst({
+            where: { id: groupId, monitorId }
+        });
+        if (!group) return;
+
+        const members = await prisma.topicMonitor.findMany({
+            where: { monitorId, paidAccessGroupId: groupId },
+            orderBy: { name: "asc" }
+        });
+        const keyboard = new KeyboardBuilder()
+            .textButton({
+                label: "📍 Состав группы",
+                payload: { command: "paid_group_members" },
+                color: "primary"
+            }).row()
+            .textButton({
+                label: "✏️ Переименовать",
+                payload: { command: "paid_group_rename" },
+                color: "secondary"
+            })
+            .textButton({
+                label: "🗑 Удалить группу",
+                payload: { command: "paid_group_delete" },
+                color: "negative"
+            }).row()
+            .textButton({
+                label: "↩️ Назад",
+                payload: { command: "paid_group_detail_back" },
+                color: "secondary"
+            }).oneTime();
+
+        const names = members.length
+            ? members.map(member => `• ${member.name}`).join("\n")
+            : "Пока нет обсуждений";
+        const answer: any = await context.question(
+            `🗂 Группа: ${group.name}\n` +
+            `Обсуждений: ${members.length}\n\n${names}\n\n` +
+            `Оплата одного обсуждения откроет доступ ко всем участникам группы.`,
+            { keyboard, answerTimeLimit }
+        );
+
+        if (answer.isTimeout || answer.payload?.command === "paid_group_detail_back") {
+            exit = true;
+            continue;
+        }
+
+        switch (answer.payload?.command) {
+            case "paid_group_members":
+                await manageTopicGroupMembers(context, monitorId, groupId);
+                break;
+            case "paid_group_rename": {
+                const nameAnswer: any = await context.question(
+                    `Введите новое название для группы «${group.name}»:`,
+                    { answerTimeLimit }
+                );
+                if (nameAnswer.isTimeout) break;
+                const name = String(nameAnswer.text ?? "").trim().slice(0, 40);
+                if (!name) {
+                    await context.send("❌ Название не может быть пустым.");
+                    break;
+                }
+                try {
+                    await prisma.monitorTopicGroup.update({
+                        where: { id: groupId },
+                        data: { name }
+                    });
+                } catch (error) {
+                    await context.send("❌ Такое название группы уже используется в этом мониторе.");
+                }
+                break;
+            }
+            case "paid_group_delete": {
+                const confirm = await context.question(
+                    `Удалить группу «${group.name}»? Обсуждения останутся отдельными платными локациями.`,
+                    { answerTimeLimit }
+                );
+                const agreed = /^(да|yes|удалить)$/i.test(String(confirm.text ?? "").trim());
+                if (agreed) {
+                    await prisma.topicMonitor.updateMany({
+                        where: { monitorId, paidAccessGroupId: groupId },
+                        data: { paidAccessGroupId: null }
+                    });
+                    await prisma.monitorTopicGroup.delete({ where: { id: groupId } });
+                    await context.send("✅ Группа удалена. Обсуждения остались в настройках платного доступа по отдельности.");
+                    exit = true;
+                } else if (!confirm.isTimeout) {
+                    await context.send("Удаление отменено.");
+                }
+                break;
+            }
+        }
+    }
+}
+
+async function manageTopicGroupMembers(context: any, monitorId: number, groupId: number): Promise<void> {
+    let cursor = 0;
+    let exit = false;
+    const pageSize = 5;
+
+    while (!exit) {
+        const group = await prisma.monitorTopicGroup.findFirst({ where: { id: groupId, monitorId } });
+        if (!group) return;
+
+        const topics = await prisma.topicMonitor.findMany({
+            where: { monitorId },
+            orderBy: { name: "asc" },
+            skip: cursor,
+            take: pageSize
+        });
+        const total = await prisma.topicMonitor.count({ where: { monitorId } });
+        const membersCount = await prisma.topicMonitor.count({
+            where: { monitorId, paidAccessGroupId: groupId }
+        });
+
+        const keyboard = new KeyboardBuilder();
+        for (const topic of topics) {
+            const isMember = topic.paidAccessGroupId === groupId;
+            const otherGroup = topic.paidAccessGroupId !== null && topic.paidAccessGroupId !== groupId;
+            keyboard.textButton({
+                label: `${isMember ? "✅" : otherGroup ? "↪️" : "▫️"} ${topic.name.slice(0, 23)}`,
+                payload: { command: "paid_group_toggle_member", topicMonitorId: topic.id },
+                color: isMember ? "positive" : "secondary"
+            }).row();
+        }
+
+        if (cursor > 0) {
+            keyboard.textButton({ label: "⬅️", payload: { command: "paid_group_members_prev" }, color: "secondary" });
+        }
+        if (cursor + pageSize < total) {
+            keyboard.textButton({ label: "➡️", payload: { command: "paid_group_members_next" }, color: "secondary" });
+        }
+        keyboard.row()
+            .textButton({ label: "↩️ Назад", payload: { command: "paid_group_members_back" }, color: "secondary" })
+            .oneTime();
+
+        const answer: any = await context.question(
+            `📍 Состав группы «${group.name}»\n` +
+            `Обсуждений в группе: ${membersCount}. Страница ${Math.floor(cursor / pageSize) + 1} из ${Math.max(1, Math.ceil(total / pageSize))}.\n\n` +
+            `✅ — уже в этой группе; ↪️ — перенос из другой группы; ▫️ — добавить.\n` +
+            `Нажмите обсуждение, чтобы добавить или убрать его.`,
+            { keyboard, answerTimeLimit }
+        );
+
+        if (answer.isTimeout || answer.payload?.command === "paid_group_members_back") {
+            exit = true;
+            continue;
+        }
+
+        switch (answer.payload?.command) {
+            case "paid_group_members_prev":
+                cursor = Math.max(0, cursor - pageSize);
+                break;
+            case "paid_group_members_next":
+                cursor = cursor + pageSize < total ? cursor + pageSize : cursor;
+                break;
+            case "paid_group_toggle_member": {
+                const topicMonitorId = Number(answer.payload.topicMonitorId);
+                if (!Number.isInteger(topicMonitorId) || topicMonitorId <= 0) break;
+                const topic = await prisma.topicMonitor.findFirst({
+                    where: { id: topicMonitorId, monitorId }
+                });
+                if (!topic) break;
+
+                if (topic.paidAccessGroupId === groupId) {
+                    await prisma.topicMonitor.update({
+                        where: { id: topicMonitorId },
+                        data: { paidAccessGroupId: null }
+                    });
+                } else {
+                    await prisma.topicMonitor.update({
+                        where: { id: topicMonitorId },
+                        data: { paidAccessGroupId: groupId }
+                    });
+                    // Включаем обсуждение в список платных локаций монитора.
+                    await prisma.monitorPaidAccessTopic.upsert({
+                        where: { topicMonitorId },
+                        create: { monitorId, topicMonitorId },
+                        update: { monitorId }
+                    });
+                }
+                break;
+            }
         }
     }
 }
@@ -1047,21 +1394,6 @@ async function askPositiveNumber(
 }
 
 /**
- * Начало следующего дня после оплаченного срока.
- * Доступ действует до этой даты, не включая её.
- */
-function startOfTodayPlusDays(days: number): Date {
-    const now = new Date();
-
-    return new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + days,
-        0, 0, 0, 0
-    );
-}
-
-/**
  * Уведомление пользователю при недостатке средств или ошибке настроек.
  */
 export async function Notify_Topic_Paid_Access_Denied(
@@ -1107,14 +1439,11 @@ export async function Notify_Topic_Paid_Access_Charged(
 
     if (!result.paid || !result.paidUntil) return;
 
-    const validThrough = new Date(result.paidUntil);
-    validThrough.setDate(validThrough.getDate() - 1);
-
     await Send_Message(
         Number(user.idvk),
         `💳 Оплачен доступ к локации «${topicName}».\n` +
         `Списано: ${result.price} ${result.coinSmile ?? ""} ${result.coinName ?? ""}.\n` +
-        `Доступ открыт до ${validThrough.toLocaleDateString("ru-RU")} включительно.`
+        `Доступ действует до ${Format_App_Date_Time(result.paidUntil)} (${Get_App_Time_Zone()}).`
     );
 }
 
@@ -1140,9 +1469,7 @@ async function logPaidAccessPurchase(
 
         if (!alliance) return;
 
-        const validThrough = new Date(paidUntil.getTime() - 1);
-        const validThroughText =
-            validThrough.toLocaleDateString("ru-RU");
+        const paidUntilText = Format_App_Date_Time(paidUntil);
 
         const userVkId = String(user.idvk);
 
@@ -1170,7 +1497,7 @@ async function logPaidAccessPurchase(
             `${Format_Number_Correction(price)} = ` +
             `${Format_Number_Correction(balanceAfter)}` +
             `${coin.smile ?? ""} ${coin.name ?? ""}\n` +
-            `📅 Действует по ${validThroughText} включительно\n` +
+            `📅 Действует до ${paidUntilText} (${Get_App_Time_Zone()})\n` +
             `🔗 [${topicUrl}|${topicUrl}]`;
 
         const localChatId = Number(
@@ -1205,3 +1532,4 @@ async function logPaidAccessPurchase(
         );
     }
 }
+

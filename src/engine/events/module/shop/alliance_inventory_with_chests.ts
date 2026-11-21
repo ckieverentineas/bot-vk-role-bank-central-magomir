@@ -6,6 +6,8 @@ import { Confirm_User_Success, Input_Number, Keyboard_Index, Logger, Send_Messag
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 import { Keyboard, KeyboardBuilder } from "vk-io";
 import { hasPermission, isAdmin, isRoot } from "../../../core/permissions";
+import { Cleanup_Expired_Inventory_Items } from "./inventory_expiration";
+import { Get_App_Time_Zone, Format_App_Date_Time } from "../../../core/date_time";
 
 // Тип для отображаемых данных инвентаря
 interface InventoryDisplayItem {
@@ -79,6 +81,7 @@ async function getProjectLogChatId(allianceId?: number | null): Promise<number> 
 // ===================== ОСНОВНАЯ ФУНКЦИЯ ИНВЕНТАРЯ С СУНДУКАМИ =====================
 
 export async function Inventory_With_Chests(context: any, user: User, user_adm?: User) {
+    await Cleanup_Expired_Inventory_Items();
     let currentChestId: number | null = null;
     let cursor = 0;
     let group_mode = false;
@@ -4035,11 +4038,12 @@ async function handleItemSelect(context: any, data: any, user: User, user_adm?: 
     }
     
     // ==== ФОРМАТИРУЕМ ДАТУ ====
-    let dateString = 'Неизвестно';
-    if (inv.purchaseDate) {
-        const date = new Date(inv.purchaseDate);
-        dateString = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()} в ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    }
+    const dateString = inv.purchaseDate
+        ? `${Format_App_Date_Time(new Date(inv.purchaseDate))} (${Get_App_Time_Zone()})`
+        : 'Неизвестно';
+    const expiryString = inv.expiresAt
+        ? `${Format_App_Date_Time(new Date(inv.expiresAt))} (${Get_App_Time_Zone()})`
+        : 'Без срока годности';
     // ==========================
     
     let item = null;
@@ -4056,7 +4060,8 @@ async function handleItemSelect(context: any, data: any, user: User, user_adm?: 
                `🧲 Где куплено: в Ролевом магазине\n` +
                `💬 Комментарий: ${inv.comment}\n` +
                `🎒 Сундук: ${chest?.name || 'Неизвестно'}\n` +
-               `📅 Дата приобретения: ${dateString}`;
+               `📅 Дата приобретения: ${dateString}\n` +
+               `⌛ Годен до: ${expiryString}`;
         image = item?.image || undefined;
     } else if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })
@@ -4098,7 +4103,18 @@ async function handleGroupItemSelect(context: any, data: any, user: User, user_a
     
     let text = '';
     if (group.type.includes('ITEM_SHOP_ALLIANCE')) {
-        text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.description || 'Нет описания'}\n💰 Стоимость: ${group.price || 'N/A'}\n🧲 Где куплено: в Ролевом магазине\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
+        const inventoryRows = await prisma.inventory.findMany({
+            where: { id: { in: group.inventory_ids ?? [] } },
+            select: { expiresAt: true }
+        });
+        const expiries = inventoryRows
+            .map((row: any) => row.expiresAt ? new Date(row.expiresAt) : null)
+            .filter((date: Date | null): date is Date => Boolean(date))
+            .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+        const expirySummary = expiries.length
+            ? `Ближайший срок годности: ${Format_App_Date_Time(expiries[0])} (${Get_App_Time_Zone()})`
+            : "Без срока годности";
+        text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.description || 'Нет описания'}\n💰 Стоимость: ${group.price || 'N/A'}\n🧲 Где куплено: в Ролевом магазине\n🎒 Сундук: ${chest?.name || 'Неизвестно'}\n⌛ ${expirySummary}`;
     } else if (group.type.includes('ITEM_STORAGE')) {
         text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.description || 'Нет описания'}\n🧲 Как получено: Артефакт\n🎒 Сундук: ${chest?.name || 'Неизвестно'}`;
     } else if (group.type.includes('ITEM_SHOP')) {

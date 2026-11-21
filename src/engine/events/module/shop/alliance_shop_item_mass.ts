@@ -537,3 +537,4 @@ function limitMessage(message: string): string {
 
     return `${message.slice(0, maxLength - 80)}\n\n...список слишком длинный, остальные записи скрыты. ID всё равно можно ввести вручную.`;
 }
+

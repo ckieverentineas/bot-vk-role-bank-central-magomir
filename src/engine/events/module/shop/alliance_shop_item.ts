@@ -5,6 +5,25 @@ import { Confirm_User_Success, Get_Url_Picture, Input_Number, Select_Alliance_Co
 import { AllianceCoin } from "@prisma/client";
 import { ico_list } from "../data_center/icons_lib";
 import { InventoryType } from "../data_center/standart";
+import { Format_Expiration_Days } from "./inventory_expiration";
+
+function Parse_Expiration_Days(rawValue: string): { valid: boolean; days: number | null } {
+    const raw = String(rawValue ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    if (["нет", "0", "безсрока", "бессрочно"].includes(raw)) {
+        return { valid: true, days: null };
+    }
+
+    const match = raw.match(/^(\d+)(д|дн|день|дня|дней|н|нед|неделя|недели|недель)?$/);
+    if (!match) return { valid: false, days: null };
+
+    const amount = Number(match[1]);
+    const unit = match[2] ?? "д";
+    const days = unit.startsWith("н") ? amount * 7 : amount;
+    if (!Number.isInteger(days) || days <= 0 || days > 36500) {
+        return { valid: false, days: null };
+    }
+    return { valid: true, days };
+}
 
 async function AllianceShopItem_Get(cursor: number, id_category: number) {
     const batchSize = 5;
@@ -227,6 +246,24 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
     const confirm1: { status: boolean, text: string } = await Confirm_User_Success(context, `добавлять товар в инвентарь пользователя при покупке?`);
     await context.send(confirm1.text);
     const inventory_tr = confirm1.status ? true : false
+
+    const expirationConfirm: { status: boolean, text: string } = await Confirm_User_Success(context, `установить срок годности для товара?`);
+    await context.send(expirationConfirm.text);
+    let expirationDays: number | null = null;
+    if (expirationConfirm.status) {
+        const expirationInput = await context.question(
+            `⌛ Введите срок годности: например 14д или 2н.\n` +
+            `Доступны дни (д) и недели (н). Введите 0, чтобы оставить без срока.`,
+            timer_text
+        );
+        if (expirationInput.isTimeout) return res;
+        const parsedExpiration = Parse_Expiration_Days(expirationInput.text);
+        if (!parsedExpiration.valid) {
+            await context.send(`❌ Некорректный срок. Используйте формат 14д или 2н.`);
+            return res;
+        }
+        expirationDays = parsedExpiration.days;
+    }
     
     // Создание товара
     if (name_loc) {
@@ -241,6 +278,7 @@ async function AllianceShopItem_Create(context: any, data: any, category: any) {
                 limit: limit,
                 limit_tr: limit_tr,
                 inventory_tr: inventory_tr,
+                expirationDays,
                 isBundle: isBundle,
                 bundleItems: isBundle ? JSON.stringify(bundleItems) : null
             }
@@ -317,7 +355,8 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
             `📁 Категория: ${alli_shop_cat?.name || 'Без категории'}\n` +
             `${item_check.limit_tr ? `📦 Количество товаров: ${item_check.limit}` : '♾️ Количество товаров: безлимит'}\n` +
             `🔊 Товар ${item_check.hidden ? 'недоступен' : 'доступен'} к покупке пользователям\n` +
-            `👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`
+            `👜 Покупка ${item_check.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n` +
+            `⌛ Срок годности: ${Format_Expiration_Days(item_check.expirationDays)}\n`
         
         text += `\n⚙ Выберите действие:`;
         
@@ -329,7 +368,8 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
             .textButton({ label: '💰 Цена', payload: { command: 'allianceshopitem_edit_price', id_item: item_check.id }, color: 'secondary' })
             .textButton({ label: '💱 Валюта', payload: { command: 'allianceshopitem_edit_coin', id_item: item_check.id }, color: 'secondary' }).row()
             .textButton({ label: '📊 Статистика', payload: { command: 'allianceshopitem_view_stats', id_item: item_check.id }, color: 'secondary' })
-            .textButton({ label: '👜 Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' }).row()
+            .textButton({ label: '👜 Инвентарь', payload: { command: 'allianceshopitem_edit_inventory_put', id_item: item_check.id }, color: 'secondary' })
+            .textButton({ label: '⌛ Срок годности', payload: { command: 'allianceshopitem_edit_expiration', id_item: item_check.id }, color: 'secondary' }).row()
         
         // [!] Если товар является набором - показываем кнопки управления набором
         if (item_check.isBundle) {
@@ -371,6 +411,7 @@ async function AllianceShopItem_Select(context: any, data: any, category: any) {
             'allianceshopitem_edit_price': AllianceShopItem_Edit_Price,
             'allianceshopitem_edit_coin': AllianceShopItem_Edit_Coin,
             'allianceshopitem_edit_inventory_put': AllianceShopItem_Edit_Inventory_Put,
+            'allianceshopitem_edit_expiration': AllianceShopItem_Edit_Expiration,
             'allianceshopitem_view_bundle': AllianceShopItem_View_Bundle,
             'allianceshopitem_edit_bundle': AllianceShopItem_Edit_Bundle
         };
@@ -617,6 +658,38 @@ async function AllianceShopItem_Edit_Inventory_Put(context: any, data: any) {
     if (item_inventory_tr) { await Send_Message_Smart(context, `"Конфигурация товаров магазина" -->  изменено добавление товара [${item_inventory_tr.id}-${item_inventory_tr.name}] в инвентарь покупателя: ${item.inventory_tr ? 'добавляется' : 'не добавляется'} --> ${item_inventory_tr.inventory_tr ? 'добавляется' : 'не добавляется'}`, 'admin_solo') }
     return res;
 }
+async function AllianceShopItem_Edit_Expiration(context: any, data: any) {
+    const res = { cursor: data.cursor };
+    const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
+    if (!item) return res;
+
+    const answer = await context.question(
+        `⌛ Текущий срок годности: ${Format_Expiration_Days(item.expirationDays)}\n` +
+        `Введите новый срок: 14д или 2н. Введите «нет» или 0, чтобы отключить срок годности.`,
+        timer_text
+    );
+    if (answer.isTimeout) return res;
+
+    const parsed = Parse_Expiration_Days(answer.text);
+    if (!parsed.valid) {
+        await context.send("❌ Некорректный формат. Пример: 14д или 2н.");
+        return res;
+    }
+
+    const updated = await prisma.allianceShopItem.update({
+        where: { id: item.id },
+        data: { expirationDays: parsed.days }
+    });
+
+    await Send_Message_Smart(
+        context,
+        `Изменён срок годности товара ${updated.id}-${updated.name}: ${Format_Expiration_Days(item.expirationDays)} → ${Format_Expiration_Days(updated.expirationDays)}`,
+        'admin_solo'
+    );
+    await context.send(`✅ Срок годности обновлён: ${Format_Expiration_Days(updated.expirationDays)}.`);
+    return res;
+}
+
 async function AllianceShopItem_Edit_Description(context: any, data: any) {
     const res = { cursor: data.cursor };
     const item = await prisma.allianceShopItem.findFirst({ where: { id: data.id_item } });
@@ -700,3 +773,4 @@ async function AllianceShopItem_Edit_Coin(context: any, data: any) {
 
     return res;
 }
+

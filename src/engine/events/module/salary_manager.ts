@@ -1095,3 +1095,4 @@ function getWeekDateRange(): string {
   
   return `${formatDate(start)} - ${formatDate(end)}`;
 }
+

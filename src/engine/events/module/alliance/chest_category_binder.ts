@@ -249,3 +249,4 @@ export async function getChestSelectionForCategory(context: any, categoryId: num
         return false;
     }
 }
+

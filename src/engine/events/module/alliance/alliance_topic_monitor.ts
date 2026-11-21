@@ -3295,3 +3295,4 @@ export async function Topic_Currency_Reset(context: any) {
         console.error('❌ Ошибка в Topic_Currency_Reset:', error);
     }
 }
+

@@ -88,3 +88,4 @@ export async function RecalculateFacultyBalance(facultyId: number): Promise<void
     else if (amount !== 0) await prisma.balanceFacult.create({ data: { id_coin: coin.id, id_facult: faculty.id, amount } });
   }
 }
+

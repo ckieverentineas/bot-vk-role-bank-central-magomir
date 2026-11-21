@@ -5,6 +5,7 @@ import { Confirm_User_Success, Input_Number, Input_Text, Keyboard_Index, Logger,
 import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 import { getTerminology } from "../alliance/terminology_helper";
+import { Calculate_Item_Expiry, Format_Expiration_Days } from "./inventory_expiration";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -222,7 +223,7 @@ async function BuyBundle(context: any, bundle: any) {
     text_item += `${coin_get?.smile ?? '💰'} Цена: ${bundle.price}\n\n`;
     text_item += `📋 В состав входит:\n`;
     for (const item of bundleItems) {
-        text_item += `  ✅ ${item.name}\n`;
+        text_item += `  ✅ ${item.name} — ${Format_Expiration_Days(item.expirationDays ?? bundle.expirationDays ?? null)}\n`;
     }
     
     const attached = bundle?.image?.includes('photo') ? bundle.image : null;
@@ -257,13 +258,16 @@ async function BuyBundle(context: any, bundle: any) {
         }
         
         // Создаем запись в инвентаре
+        const purchaseDate = new Date();
+        const expiryDays = item.expirationDays ?? bundle.expirationDays ?? null;
         const save_item = await prisma.inventory.create({ 
             data: { 
                 id_user: user.id, 
                 id_item: item.id, 
                 type: InventoryType.ITEM_SHOP_ALLIANCE, 
                 comment: `Получен из набора "${bundle.name}"`,
-                purchaseDate: new Date()
+                purchaseDate,
+                expiresAt: Calculate_Item_Expiry(purchaseDate, expiryDays)
             } 
         });
         
@@ -415,6 +419,9 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     text_item += `📜 Описание: ${item.description || 'Нет описания'}\n`;
     text_item += `${coin_get?.smile ?? '💰'} Цена: ${item.price}\n`;
     text_item += `👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`;
+    if (item.expirationDays) {
+        text_item += `⌛ Срок годности после покупки: ${Format_Expiration_Days(item.expirationDays)}\n`;
+    }
     
     // Показываем в какой сундук попадет предмет
     const categoryChest = await prisma.categoryChest.findFirst({
@@ -614,13 +621,15 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         
         // 4. Выдаем предметы и привязываем к сундуку
         for (let i = 0; i < item_count; i++) {
+            const purchaseDate = new Date();
             const save_item = await prisma.inventory.create({ 
                 data: { 
                     id_user: user.id, 
                     id_item: item.id, 
                     type: InventoryType.ITEM_SHOP_ALLIANCE, 
                     comment: item_comment,
-                    purchaseDate: new Date()
+                    purchaseDate,
+                    expiresAt: Calculate_Item_Expiry(purchaseDate, item.expirationDays)
                 } 
             });
             
@@ -864,3 +873,4 @@ async function Buyershop_Last(context: any, data: any, shop_counter: number) {
     const res = { cursor: lastCursor };
     return res;
 }
+

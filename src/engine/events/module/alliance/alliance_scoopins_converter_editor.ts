@@ -334,3 +334,4 @@ async function Scoopins_Coin_Next(context: any, data: any, alliance: Alliance, u
 async function Scoopins_Coin_Back(context: any, data: any, alliance: Alliance, user: User) {
     return { cursor: data.cursor - 5 };
 }
+

@@ -92,3 +92,4 @@ function splitLongLine(line: string, maxLength: number): string[] {
 
   return parts;
 }
+

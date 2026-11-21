@@ -4,6 +4,8 @@ import { Keyboard, KeyboardBuilder } from "vk-io";
 import { answerTimeLimit, chat_id } from "../../../..";
 import { Confirm_User_Success, Input_Number, Keyboard_Index, Logger, Send_Message, Send_Message_Smart } from "../../../core/helper";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
+import { Cleanup_Expired_Inventory_Items, Format_Expiration_Days } from "./inventory_expiration";
+import { Get_App_Time_Zone, Format_App_Date_Time } from "../../../core/date_time";
 
 // Функция для группировки предметов в инвентаре
 async function groupInventoryItems(user_id: number): Promise<any[]> {
@@ -79,6 +81,7 @@ function truncateButtonLabel(text: string, maxLength: number = 40): string {
 }
 
 export async function Inventory_Printer(context: any, user: User, user_adm?: User) {
+    await Cleanup_Expired_Inventory_Items();
     let inventory_tr = false;
     let cursor = 0;
     let group_mode = false;
@@ -523,7 +526,18 @@ async function Inventory_Group_Select(context: any, data: any, user: User, user_
 
     let text = '';
     if (group.type == InventoryType.ITEM_SHOP_ALLIANCE) {
-        text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.item_info?.description || 'Нет описания'}\n💰 Стоимость: ${group.item_info?.price || 'N/A'}\n📦 Версия: ${group.item_info?.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине`;
+        const rows = await prisma.inventory.findMany({
+            where: { id: { in: group.inventory_ids ?? [] } },
+            select: { expiresAt: true }
+        });
+        const expiries = rows
+            .map((row: any) => row.expiresAt ? new Date(row.expiresAt) : null)
+            .filter((date: Date | null): date is Date => Boolean(date))
+            .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+        const expiryText = expiries.length
+            ? `Ближайший срок годности: ${Format_App_Date_Time(expiries[0])} (${Get_App_Time_Zone()})`
+            : "Без срока годности";
+        text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.item_info?.description || 'Нет описания'}\n💰 Стоимость: ${group.item_info?.price || 'N/A'}\n📦 Версия: ${group.item_info?.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n⌛ ${expiryText}`;
     } else if (group.type == InventoryType.ITEM_STORAGE) {
         text = `🛍 Предмет: ${group.name}\n🧾 Количество: ${group.count}\n📜 Описание: ${group.item_info?.description || 'Нет описания'}\n🧲 Как получено: Артефакт`;
     } else if (group.type == InventoryType.ITEM_SHOP) {
@@ -766,7 +780,13 @@ async function Inventory_Select(context: any, data: any, user: User, user_adm?: 
             await context.send(`❌ Предмет не найден.`);
             return res;
         }
-        text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}`;
+        const acquiredText = inv.purchaseDate
+            ? `${Format_App_Date_Time(new Date(inv.purchaseDate))} (${Get_App_Time_Zone()})`
+            : "Неизвестно";
+        const expiryText = inv.expiresAt
+            ? `${Format_App_Date_Time(new Date(inv.expiresAt))} (${Get_App_Time_Zone()})`
+            : "Без срока годности";
+        text = `🛍 Предмет: ${item.name}\n🧾 ID: ${item.id}\n📜 Описание: ${item.description || 'Нет описания'}\n💰 Стоимость: ${item.price}\n📦 Версия: ${item.limit_tr ? `ограниченное издание` : '∞ Безлимит'}\n🧲 Где куплено: в Ролевом магазине\n💬 Комментарий: ${inv.comment}\n📅 Дата приобретения: ${acquiredText}\n⌛ Годен до: ${expiryText}\n⌛ Настроенный срок: ${Format_Expiration_Days(item.expirationDays)}`;
     }
     if (inv.type == InventoryType.ITEM_STORAGE) {
         item = await prisma.itemStorage.findFirst({ where: { id: inv.id_item } })

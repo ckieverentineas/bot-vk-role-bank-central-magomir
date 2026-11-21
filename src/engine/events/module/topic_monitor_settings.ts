@@ -224,3 +224,4 @@ function addRewardBalanceChange(changes: Map<number, number>, coinId: number | n
 
     changes.set(coinId, (changes.get(coinId) ?? 0) + amountChange);
 }
+

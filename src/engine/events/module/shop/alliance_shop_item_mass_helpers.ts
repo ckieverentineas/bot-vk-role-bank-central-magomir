@@ -160,3 +160,4 @@ function appendRemainingCount(text: string, remainingCount: number, maxLength: n
 
     return `${trimmedText}${tail}`;
 }
+

@@ -106,3 +106,4 @@ function getStatusText(item: MonitorStartupReportItem): string {
 
     return item.errorMessage ? `ошибка: ${item.errorMessage}` : "ошибка запуска";
 }
+

@@ -418,3 +418,4 @@ export const config: Record<string, (ctx: any) => Promise<void>> = {
         }
     }
 }
+
