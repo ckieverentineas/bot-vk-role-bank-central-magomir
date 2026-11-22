@@ -31,6 +31,7 @@ import { InventoryType } from "../data_center/standart"
 import { getTerminology } from "../alliance/terminology_helper"
 import { getUserSkillsForDisplay } from "../skills/user_skill_display"
 import { getLevelName } from "../abilities/abilities_helper"
+import { Calculate_Item_Expiry, Format_Expiration_Days, Parse_Expiration_Days } from "../shop/inventory_expiration"
 import { Abilities_Upgrade_Menu } from "../abilities/abilities_upgrade"
 
 interface LightAllianceCoin {
@@ -532,8 +533,26 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         }
     }
 
+    async function askStorageExpiration(currentDays?: number | null): Promise<{ days: number | null } | null> {
+        while (true) {
+            const answer = await context.question(
+                `⏳ Укажите срок годности предмета в днях или неделях.
+` +
+                `Примеры: 14д, 2н. Введите «нет», чтобы сделать предмет бессрочным.
+` +
+                `Текущая настройка: ${Format_Expiration_Days(currentDays)}.`,
+                { answerTimeLimit }
+            );
+            if (answer.isTimeout) return null;
+            const parsed = Parse_Expiration_Days(answer.text);
+            if (parsed.valid) return { days: parsed.days };
+            await context.send("❌ Неверный формат. Используйте, например, 14д, 2н или нет.");
+        }
+    }
+
     async function createStorageCopies(
         itemId: number,
+        expirationDays: number | null,
         quantity: number,
         targetChestId: number,
         comment: string
@@ -541,13 +560,15 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
         return await prisma.$transaction(async (tx) => {
             const inventoryIds: number[] = [];
             for (let index = 0; index < quantity; index++) {
+                const purchaseDate = new Date();
                 const inventory = await tx.inventory.create({
                     data: {
                         id_user: user_get!.id,
                         id_item: itemId,
                         type: InventoryType.ITEM_STORAGE,
                         comment,
-                        purchaseDate: new Date()
+                        purchaseDate,
+                        expiresAt: Calculate_Item_Expiry(purchaseDate, expirationDays)
                     }
                 });
                 await tx.chestItemLink.create({
@@ -560,22 +581,27 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
     }
 
     let page = 0;
-    const itemsPerPage = 4;
+    // Два действия на каждый предмет + навигация + создание.
+    // Три предмета дают не более 9 кнопок и не упираются в лимит клавиатуры VK.
+    const itemsPerPage = 3;
+    const storageWhere = {
+        id_alliance: user_get.id_alliance ?? 0,
+        hidden: false
+    };
 
     while (true) {
-        const allItems = await prisma.itemStorage.findMany({
-            where: {
-                id_alliance: user_get.id_alliance ?? 0,
-                hidden: false
-            },
-            orderBy: { id: "desc" }
-        });
+        // Берём только текущую страницу из БД, а не загружаем всё хранилище целиком.
+        const [totalItems, itemsOnPage] = await Promise.all([
+            prisma.itemStorage.count({ where: storageWhere }),
+            prisma.itemStorage.findMany({
+                where: storageWhere,
+                orderBy: { id: "desc" },
+                skip: page * itemsPerPage,
+                take: itemsPerPage
+            })
+        ]);
 
-        const totalItems = allItems.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage);
-        const startIndex = page * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const itemsOnPage = allItems.slice(startIndex, endIndex);
 
         if (itemsOnPage.length === 0 && totalItems > 0) {
             page = Math.max(0, totalPages - 1);
@@ -594,10 +620,15 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             const item = itemsOnPage[i];
             const buttonLabel = `${item.name} (${item.id})`;
             keyboard.textButton({
-                label: buttonLabel.length > 40 ? buttonLabel.slice(0, 37) + '...' : buttonLabel,
+                label: buttonLabel.length > 34 ? buttonLabel.slice(0, 31) + '...' : buttonLabel,
                 payload: { command: 'give_item', item_id: item.id, page: page },
                 color: 'secondary'
+            }).textButton({
+                label: '⏳ Срок',
+                payload: { command: 'set_expiration', item_id: item.id, page: page },
+                color: 'primary'
             }).row();
+            messageText += `• ${item.name}: ${Format_Expiration_Days(item.expirationDays)}\n`;
         }
 
         if (totalPages > 1) {
@@ -644,6 +675,22 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             continue;
         }
 
+        if (answer.payload?.command === 'set_expiration') {
+            const item = await prisma.itemStorage.findFirst({ where: { id: answer.payload.item_id } });
+            if (!item) {
+                await context.send("⚠ Предмет не найден.");
+                continue;
+            }
+            const expiry = await askStorageExpiration(item.expirationDays);
+            if (!expiry) continue;
+            await prisma.itemStorage.update({
+                where: { id: item.id },
+                data: { expirationDays: expiry.days }
+            });
+            await context.send(`✅ Срок годности предмета «${item.name}» изменён: ${Format_Expiration_Days(expiry.days)}. Настройка применяется к новым выдачам; уже выданные экземпляры сохраняют свой срок.`);
+            continue;
+        }
+
         if (answer.payload?.command === 'give_item') {
             const itemId = answer.payload.item_id;
 
@@ -679,6 +726,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             if (confirmq?.payload?.command === 'confirm') {
                 await createStorageCopies(
                     item.id,
+                    item.expirationDays,
                     quantity,
                     targetChestId,
                     `Получено от ${user_adm.name}`
@@ -731,6 +779,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
             if (imageUrl.isTimeout) continue;
             
             const image_url = imageUrl.text.toLowerCase() === 'нет' ? '' : Get_Url_Picture(imageUrl.text) ?? '';
+            const newItemExpiry = await askStorageExpiration(null);
+            if (!newItemExpiry) continue;
             
             const newItem = await prisma.itemStorage.create({
                 data: {
@@ -738,7 +788,8 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                     description: desc_answer.text.trim(),
                     id_alliance: user_get.id_alliance,
                     hidden: false,
-                    image: image_url
+                    image: image_url,
+                    expirationDays: newItemExpiry.days
                 }
             });
 
@@ -769,6 +820,7 @@ async function Storage_Engine(id: number, context: any, user_adm: User) {
                 const { chestId: targetChestId, chestName } = await selectChestForStorage(alliance.id);
                 await createStorageCopies(
                     newItem.id,
+                    newItem.expirationDays,
                     quantity,
                     targetChestId,
                     `Выдан админом @id${context.senderId}`
