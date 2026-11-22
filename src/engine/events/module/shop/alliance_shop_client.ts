@@ -6,6 +6,9 @@ import { BalanceFacult } from "@prisma/client";
 import { button_alliance_return, InventoryType } from "../data_center/standart";
 import { getTerminology } from "../alliance/terminology_helper";
 import { Calculate_Item_Expiry, Format_Expiration_Days } from "./inventory_expiration";
+import { isAdmin } from "../../../core/permissions";
+import { Give_Shop_Item_Free } from "./admin_shop_giveaway";
+import { Calculate_Sale_Price, Format_Sale_Price } from "./shop_pricing";
 
 async function Buyer_Category_Get(cursor: number, id_shop: number) {
     const batchSize = 5;
@@ -139,7 +142,7 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
                 color: 'secondary'
             }).row();
 
-            event_logger += `🛒 ${item.id} - ${item.name} — ${item.price}${coin?.smile}\n`;
+            event_logger += `🛒 ${item.id} - ${item.name} — ${Format_Sale_Price(item.price, category?.salePercent)}${coin?.smile}\n`;
         }
 
         // Навигация для товаров
@@ -159,7 +162,8 @@ export async function Buyer_Item_Printer(context: any, id_category: number) {
 
         event_logger += `\n${1 + cursor} из ${item_counter}`;
         const attached = category?.image ? category?.image : null;
-        const bt = await Send_Message_Question(context, `🛒 Выберите товар:\n${event_logger}`, keyboard, attached ?? undefined);
+        const saleHeader = category?.salePercent ? `\n🏷 РАСПРОДАЖА КАТЕГОРИИ: −${category.salePercent}% (цены округляются до целого)\n` : '';
+        const bt = await Send_Message_Question(context, `🛒 Выберите товар:${saleHeader}\n${event_logger}`, keyboard, attached ?? undefined);
         if (bt.exit) { return; }
         const config: any = {
             'buyershop_item_select': Buyer_Item_Select,
@@ -190,6 +194,9 @@ async function BuyBundle(context: any, bundle: any) {
         await context.send(`❌ Товары в наборе не найдены.`);
         return res;
     }
+    const bundleCategory = await prisma.allianceShopCategory.findFirst({ where: { id: bundle.id_shop } });
+    const bundleSalePercent = bundleCategory?.salePercent ?? null;
+    const bundlePrice = Calculate_Sale_Price(bundle.price, bundleSalePercent);
     
     // Проверяем баланс пользователя
     const account = await prisma.account.findFirst({ where: { idvk: context.senderId } })
@@ -220,7 +227,7 @@ async function BuyBundle(context: any, bundle: any) {
     let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n`;
     text_item += `📦 Набор: ${bundle.name}\n`;
     text_item += `📜 Описание: ${bundle.description || 'Нет описания'}\n`;
-    text_item += `${coin_get?.smile ?? '💰'} Цена: ${bundle.price}\n\n`;
+    text_item += `${coin_get?.smile ?? '💰'} Цена: ${Format_Sale_Price(bundle.price, bundleSalePercent)}\n\n`;
     text_item += `📋 В состав входит:\n`;
     for (const item of bundleItems) {
         text_item += `  ✅ ${item.name} — ${Format_Expiration_Days(item.expirationDays ?? bundle.expirationDays ?? null)}\n`;
@@ -237,7 +244,7 @@ async function BuyBundle(context: any, bundle: any) {
     }
     
     // Проверяем наличие денег
-    if (balance.amount < bundle.price) {
+    if (balance.amount < bundlePrice) {
         await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки набора.`);
         return res;
     }
@@ -245,7 +252,7 @@ async function BuyBundle(context: any, bundle: any) {
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ 
         where: { id: balance.id }, 
-        data: { amount: { decrement: bundle.price } } 
+        data: { amount: { decrement: bundlePrice } } 
     });
     
     // Выдача каждого товара из набора
@@ -319,7 +326,7 @@ async function BuyBundle(context: any, bundle: any) {
     
     // Итоговое сообщение
     let resultText = `✅ Набор "${bundle.name}" успешно куплен!\n` +
-        `${coin_get.smile} Баланс: ${balance.amount} - ${bundle.price} = ${buying_act.amount}\n` +
+        `${coin_get.smile} Баланс: ${balance.amount} - ${bundlePrice} = ${buying_act.amount}\n` +
         `📦 Получено предметов: ${giftedItems.length}\n\n` +
         `📋 Распределение по сундукам:\n`;
     
@@ -346,7 +353,7 @@ async function BuyBundle(context: any, bundle: any) {
         `📦 Куплен набор\n` +
         `👤 @id${user.idvk}(${user.name}) (UID: ${user.id})\n` +
         `📦 Набор: "${bundle.name}"\n` +
-        `💰 Цена: ${bundle.price}${coin_get.smile}\n` +
+        `💰 Цена: ${bundlePrice}${coin_get.smile}\n` +
         `📋 В составе:\n` +
         giftedItems.map(item => `  - ${item.name} → ${item.chest}`).join('\n');
     
@@ -375,6 +382,8 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         await context.send(`❌ Не удалось получить данные о категории товара`);
         return res;
     }
+    const salePercent = item_category_check.salePercent ?? null;
+    const unitPrice = Calculate_Sale_Price(item.price, salePercent);
     
     const item_shop_check = await prisma.allianceShop.findFirst({ where: { id: item_category_check?.id_alliance_shop } })
     if (!item_shop_check) { 
@@ -400,6 +409,30 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
         await context.send(`❌ Игрок не найден.`);
         return res;
     }
+
+    // Only system admins/root admins receive the free-give option. Custom shop permissions are not enough.
+    if (await isAdmin(user)) {
+        const adminActionKeyboard = new KeyboardBuilder()
+            .textButton({ label: '💳 Купить себе', payload: { command: 'admin_shop_buy_self' }, color: 'positive' })
+            .textButton({ label: '🎁 Выдать бесплатно', payload: { command: 'admin_shop_give_free' }, color: 'secondary' })
+            .inline().oneTime();
+        const adminAction = await context.question(
+            `🔐 Административный режим\nЧто сделать с товаром «${item.name}»?`,
+            { keyboard: adminActionKeyboard, answerTimeLimit }
+        );
+        if (adminAction.isTimeout) {
+            await context.send(`⏰ Время выбора истекло.`);
+            return res;
+        }
+        if (adminAction.payload?.command === 'admin_shop_give_free') {
+            await Give_Shop_Item_Free(context, item, item_category_check, item_shop_check, item_alliance_check, user);
+            return res;
+        }
+        if (adminAction.payload?.command !== 'admin_shop_buy_self') {
+            await context.send(`❌ Действие отменено.`);
+            return res;
+        }
+    }
     
     const coin_get = await prisma.allianceCoin.findFirst({ where: { id: item.id_coin } })
     if (!coin_get) {
@@ -417,7 +450,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     let text_item = `${coin_get.smile} Ваш баланс [${coin_get.name}]: ${balance.amount}\n\n`;
     text_item += `🛍 Товар: ${item.name}\n`;
     text_item += `📜 Описание: ${item.description || 'Нет описания'}\n`;
-    text_item += `${coin_get?.smile ?? '💰'} Цена: ${item.price}\n`;
+    text_item += `${coin_get?.smile ?? '💰'} Цена: ${Format_Sale_Price(item.price, salePercent)}\n`;
     text_item += `👜 Покупка ${item.inventory_tr ? 'попадет' : 'не попадет'} в ваш инвентарь\n`;
     if (item.expirationDays) {
         text_item += `⌛ Срок годности после покупки: ${Format_Expiration_Days(item.expirationDays)}\n`;
@@ -474,7 +507,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
     
     // Проверяем наличие денег
-    if (balance.amount < item.price * item_count) {
+    if (balance.amount < unitPrice * item_count) {
         await context.send(`💸 У вас недостаточно [${coin_get.name}${coin_get.smile}] для покупки [${item.name}].`);
         return res;
     }
@@ -521,11 +554,11 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     // Списание средств
     const buying_act = await prisma.balanceCoin.update({ 
         where: { id: balance.id }, 
-        data: { amount: { decrement: item.price * item_count } } 
+        data: { amount: { decrement: unitPrice * item_count } } 
     });
     
-    let answer_log = `Совершена покупка товара "${item.name}"x${item_count} за ${item.price * item_count}${coin_get.smile}.\n`;
-    answer_log += `${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price * item_count}=${buying_act.amount}\n`;
+    let answer_log = `Совершена покупка товара "${item.name}"x${item_count} за ${unitPrice * item_count}${coin_get.smile}.\n`;
+    answer_log += `${coin_get.smile} Баланс изменился: ${balance.amount}-${unitPrice * item_count}=${buying_act.amount}\n`;
     answer_log += `💬 Комментарий: ${item_comment}`;
     
     // Списание баллов факультета
@@ -544,11 +577,11 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (coin_get?.point == true && balance_facult_check) {
         const balance_facult_plus: BalanceFacult = await prisma.balanceFacult.update({ 
             where: { id: balance_facult_check.id }, 
-            data: { amount: { decrement: item.price * item_count } } 
+            data: { amount: { decrement: unitPrice * item_count } } 
         });
         
         if (balance_facult_plus) {
-            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${item.price * item_count} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`;
+            answer_log += `\n🌐 "-${coin_get?.smile}x${item_count}" > ${balance_facult_check.amount} - ${unitPrice * item_count} = ${balance_facult_plus.amount} для ${genitive} [${alli_fac?.smile} ${alli_fac?.name}]`;
         }
     }
     
@@ -664,8 +697,8 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
 
     // 1. Отправляем короткое сообщение пользователю
     let userMessage = `🛒 Покупка в магазине "${item_shop_check.name}":\n`;
-    userMessage += `Совершена покупка товара "${item.name}"x${item_count} за ${item.price * item_count}${coin_get.smile}.\n`;
-    userMessage += `${coin_get.smile} Баланс изменился: ${balance.amount}-${item.price * item_count}=${buying_act.amount}\n`;
+    userMessage += `Совершена покупка товара "${item.name}"x${item_count} за ${unitPrice * item_count}${coin_get.smile}.\n`;
+    userMessage += `${coin_get.smile} Баланс изменился: ${balance.amount}-${unitPrice * item_count}=${buying_act.amount}\n`;
     userMessage += `💬 Комментарий: ${item_comment}\n`;
     userMessage += `📦 Предметы добавлены в сундук "${chestNameForLog}"`;
     
@@ -713,7 +746,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     
     const user_paying = await prisma.balanceCoin.update({ 
         where: { id: user_payed_balance_check.id }, 
-        data: { amount: { increment: item.price * item_count } } 
+        data: { amount: { increment: unitPrice * item_count } } 
     });
     
     if (!user_paying) { 
@@ -729,11 +762,11 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     if (coin_get?.point == true && balance_facult_check_owner) {
         const balance_facult_plus_owner: BalanceFacult = await prisma.balanceFacult.update({ 
             where: { id: balance_facult_check_owner.id }, 
-            data: { amount: { increment: item.price * item_count } } 
+            data: { amount: { increment: unitPrice * item_count } } 
         });
         
         if (balance_facult_plus_owner) {
-            answer_owner_alliance_log += `\n🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${item.price * item_count} = ${balance_facult_plus_owner.amount} для ${genitive} [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`;
+            answer_owner_alliance_log += `\n🌐 "+${coin_get?.smile}x${item_count}" > ${balance_facult_check_owner.amount} + ${unitPrice * item_count} = ${balance_facult_plus_owner.amount} для ${genitive} [${alli_fac_owner?.smile} ${alli_fac_owner?.name}]`;
         }
     }
     
@@ -742,7 +775,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     });
     
     let notificationMessage = `"+ ${coin_get?.smile}" --> продажа товара "${item.name}" через магазин [${item_shop_check.name}]\n`;
-    notificationMessage += `💰 Баланс: ${user_payed_balance_check?.amount} + ${item.price * item_count} = ${user_paying?.amount}`;
+    notificationMessage += `💰 Баланс: ${user_payed_balance_check?.amount} + ${unitPrice * item_count} = ${user_paying?.amount}`;
     notificationMessage += answer_owner_alliance_log;
 
     if (allianceForSale?.id_chat_shop && allianceForSale.id_chat_shop > 0) {
@@ -752,7 +785,7 @@ async function Buyer_Item_Select(context: any, data: any, category: any) {
     }
     
     // Логируем успешную покупку
-    await Logger(`Покупка: ${user.name} купил ${item.name}x${item_count} за ${item.price * item_count}${coin_get.smile}, добавлено в сундук "${chestNameForLog}"`);
+    await Logger(`Покупка: ${user.name} купил ${item.name}x${item_count} за ${unitPrice * item_count}${coin_get.smile}, добавлено в сундук "${chestNameForLog}"`);
     
     return res;
 }

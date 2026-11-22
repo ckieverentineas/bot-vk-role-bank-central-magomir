@@ -115,12 +115,14 @@ async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
         const keyboard = new KeyboardBuilder()
             .textButton({ label: '✏ Название', payload: { command: 'allianceshopcategory_edit_name', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' })
             .textButton({ label: '🖼 Картинка', payload: { command: 'allianceshopcategory_edit_image', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' }).row()
-            .textButton({ label: '🎒 Сундук', payload: { command: 'allianceshopcategory_edit_chest', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' }).row();
+            .textButton({ label: '🎒 Сундук', payload: { command: 'allianceshopcategory_edit_chest', cursor: data.cursor, id_category: category_check.id }, color: 'secondary' }).row()
+            .textButton({ label: category_check.salePercent ? `🏷 Распродажа −${category_check.salePercent}%` : '🏷 Начать распродажу', payload: { command: 'allianceshopcategory_sale', cursor: data.cursor, id_category: category_check.id }, color: category_check.salePercent ? 'positive' : 'secondary' }).row();
 
         const text =
             `📁 Редактирование категории "${category_check.name}"\n\n` +
             `ID: ${category_check.id}\n` +
-            `📷 Картинка: ${category_check.image || 'нет'}\n\n` +
+            `📷 Картинка: ${category_check.image || 'нет'}\n` +
+            `🏷 Распродажа: ${category_check.salePercent ? `−${category_check.salePercent}% (до ручного отключения)` : 'не активна'}\n\n` +
             `Выберите, что изменить:`;
 
         const answer = await Send_Message_Question(context, text, keyboard, category_check.image || undefined);
@@ -129,13 +131,65 @@ async function AllianceShopCategory_Edit(context: any, data: any, shop: any) {
         const config: any = {
             'allianceshopcategory_edit_name': AllianceShopCategory_Edit_Name,
             'allianceshopcategory_edit_image': AllianceShopCategory_Edit_Image,
-            'allianceshopcategory_edit_chest': AllianceShopCategory_Edit_Chest
+            'allianceshopcategory_edit_chest': AllianceShopCategory_Edit_Chest,
+            'allianceshopcategory_sale': AllianceShopCategory_Sale
         };
 
         if (answer.payload?.command in config) {
             await config[answer.payload.command](context, answer.payload, shop);
         }
     }
+}
+
+
+async function AllianceShopCategory_Sale(context: any, data: any, shop: any) {
+    const category = await prisma.allianceShopCategory.findFirst({ where: { id: data.id_category } });
+    if (!category) {
+        await context.send(`❌ Категория не найдена.`);
+        return;
+    }
+
+    const keyboard = new KeyboardBuilder()
+        .textButton({ label: '🚫 Отключить распродажу', payload: { command: 'sale_disable' }, color: 'negative' })
+        .inline().oneTime();
+
+    const answer = await context.question(
+        `🏷 Распродажа категории «${category.name}»\n` +
+        `Текущая скидка: ${category.salePercent ? `−${category.salePercent}%` : 'не активна'}\n\n` +
+        `Введите целое число от 1 до 99 — процент скидки.\n` +
+        `Распродажа действует без ограничения по времени и количеству покупок, пока вы её не отключите.`,
+        { keyboard, answerTimeLimit }
+    );
+    if (answer.isTimeout || answer.payload?.command === 'back') return;
+
+    if (answer.payload?.command === 'sale_disable') {
+        await prisma.allianceShopCategory.update({
+            where: { id: category.id },
+            data: { salePercent: null, saleStartedAt: null }
+        });
+        await context.send(`✅ Распродажа категории «${category.name}» отключена.`);
+        await Send_Message_Smart(context, `«Конфигурация магазина» --> отключена распродажа категории [${shop?.name} / ${category.name}]`, 'admin_solo');
+        return;
+    }
+
+    const rawPercent = String(answer.text ?? '').trim().replace(/%$/, '').trim();
+    if (!/^\d{1,3}$/.test(rawPercent)) {
+        await context.send(`❌ Введите процент скидки целым числом от 1 до 99.`);
+        return;
+    }
+
+    const percent = Number(rawPercent);
+    if (!Number.isInteger(percent) || percent < 1 || percent > 99) {
+        await context.send(`❌ Скидка должна быть целым числом от 1 до 99%.`);
+        return;
+    }
+
+    await prisma.allianceShopCategory.update({
+        where: { id: category.id },
+        data: { salePercent: percent, saleStartedAt: new Date() }
+    });
+    await context.send(`✅ Распродажа категории «${category.name}» запущена: −${percent}%. Она будет действовать до ручного отключения.`);
+    await Send_Message_Smart(context, `«Конфигурация магазина» --> запущена распродажа категории [${shop?.name} / ${category.name}]: −${percent}% (до ручного отключения)`, 'admin_solo');
 }
 
 async function AllianceShopCategory_Edit_Name(context: any, data: any, shop: any) {

@@ -1,6 +1,6 @@
 import { KeyboardBuilder } from "vk-io";
 import prisma from "../prisma_client";
-import { answerTimeLimit, chat_id } from "../../../..";
+import { answerTimeLimit } from "../../../..";
 import { Format_Number_Correction, Send_Message } from "../../../core/helper";
 import { Add_Exact_Days, Get_App_Time_Zone, Format_App_Date_Time } from "../../../core/date_time";
 
@@ -1500,29 +1500,13 @@ async function logPaidAccessPurchase(
             `📅 Действует до ${paidUntilText} (${Get_App_Time_Zone()})\n` +
             `🔗 [${topicUrl}|${topicUrl}]`;
 
-        const localChatId = Number(
-            alliance.id_chat_monitor ?? 0
-        );
-
-        const targetChatId =
-            localChatId > 0
-                ? localChatId
-                : Number(chat_id);
-
-        const delivered = await Send_Message(
-            targetChatId,
-            logMessage
-        );
-
-        if (
-            !delivered &&
-            Number(chat_id) > 0 &&
-            targetChatId !== Number(chat_id)
-        ) {
-            await Send_Message(
-                Number(chat_id),
-                logMessage
-            );
+        // Лог платного доступа отправляется в обычный чат ролевой.
+        // Не используем id_chat_monitor и не дублируем запись в глобальный chat_id.
+        const roleplayChatId = Number(alliance.id_chat ?? 0);
+        if (roleplayChatId > 0) {
+            await Send_Message(roleplayChatId, logMessage);
+        } else {
+            console.warn(`Не настроен Alliance.id_chat для ролевой ${alliance.id}: лог платного доступа не отправлен.`);
         }
 
     } catch (error) {

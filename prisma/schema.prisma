@@ -569,6 +569,13 @@ model AllianceShopCategory {
   image            String?
   id_alliance_shop Int
   Alliance_Shop    AllianceShop @relation(fields: [id_alliance_shop], references: [id], onDelete: Cascade)
+
+  // Category-wide sale remains active until an administrator disables it.
+  salePercent   Int?
+  saleStartedAt DateTime?
+
+  @@index([id_alliance_shop])
+  @@index([salePercent])
 }
 
 model AllianceShopItem {
